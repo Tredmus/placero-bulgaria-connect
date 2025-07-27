@@ -31,25 +31,55 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Attempting signin with:', { email });
     setLoading(true);
     
-    const { error } = await signIn(email, password);
-    if (!error) {
-      navigate(from, { replace: true });
+    try {
+      const { error } = await signIn(email, password);
+      console.log('Signin result:', { error });
+      
+      if (!error) {
+        navigate(from, { replace: true });
+      }
+    } catch (err) {
+      console.error('Signin error:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (password !== confirmPassword) {
+      console.log('Passwords do not match');
       return;
     }
     
+    if (password.length < 6) {
+      console.log('Password too short');
+      return;
+    }
+    
+    console.log('Attempting signup with:', { email, username });
     setLoading(true);
-    await signUp(email, password, username);
-    setLoading(false);
+    
+    try {
+      const { error } = await signUp(email, password, username);
+      console.log('Signup result:', { error });
+      
+      if (!error) {
+        // Reset form on success
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+        setUsername('');
+      }
+    } catch (err) {
+      console.error('Signup error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -135,10 +165,11 @@ const Auth = () => {
                       <Input
                         id="signup-password"
                         type="password"
-                        placeholder="Create a password"
+                        placeholder="Create a password (min 6 characters)"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        minLength={6}
                       />
                     </div>
                     <div className="space-y-2">
@@ -150,9 +181,17 @@ const Auth = () => {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         required
+                        minLength={6}
                       />
+                      {password !== confirmPassword && confirmPassword && (
+                        <p className="text-sm text-destructive">Passwords do not match</p>
+                      )}
                     </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
+                    <Button 
+                      type="submit" 
+                      className="w-full" 
+                      disabled={loading || password !== confirmPassword || password.length < 6}
+                    >
                       {loading ? 'Creating Account...' : 'Create Account'}
                     </Button>
                   </form>
