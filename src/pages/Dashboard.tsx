@@ -41,6 +41,10 @@ export default function Dashboard() {
     mainPhoto: '',
     photos: ['', '', '', '', '']
   });
+  const [locationNameEdited, setLocationNameEdited] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [mainPhotoFile, setMainPhotoFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<(File | null)[]>([null, null, null, null, null]);
 
   useEffect(() => {
     if (user) {
@@ -86,17 +90,66 @@ export default function Dashboard() {
     }
   };
 
+  const uploadFile = async (file: File, bucket: string, path: string): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(data.path);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      return null;
+    }
+  };
+
   const handleAddSpace = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      let logoUrl = formData.companyLogo;
+      let mainPhotoUrl = formData.mainPhoto;
+      const photoUrls: string[] = [];
+
+      // Upload logo if file is selected
+      if (logoFile) {
+        const logoPath = `${user?.id}/${Date.now()}-logo.${logoFile.name.split('.').pop()}`;
+        logoUrl = await uploadFile(logoFile, 'company-logos', logoPath) || '';
+      }
+
+      // Upload main photo if file is selected
+      if (mainPhotoFile) {
+        const mainPhotoPath = `${user?.id}/${Date.now()}-main.${mainPhotoFile.name.split('.').pop()}`;
+        mainPhotoUrl = await uploadFile(mainPhotoFile, 'location-photos', mainPhotoPath) || '';
+      }
+
+      // Upload gallery photos
+      for (let i = 0; i < photoFiles.length; i++) {
+        if (photoFiles[i]) {
+          const photoPath = `${user?.id}/${Date.now()}-photo-${i}.${photoFiles[i]!.name.split('.').pop()}`;
+          const photoUrl = await uploadFile(photoFiles[i]!, 'location-photos', photoPath);
+          if (photoUrl) photoUrls.push(photoUrl);
+        } else if (formData.photos[i].trim() !== '') {
+          photoUrls.push(formData.photos[i]);
+        }
+      }
+
       // Create company
       const { data: company, error: companyError } = await supabase
         .from('companies')
         .insert({
           name: formData.companyName,
-          logo: formData.companyLogo,
+          logo: logoUrl,
           owner_id: user?.id,
           status: 'pending'
         })
@@ -114,7 +167,8 @@ export default function Dashboard() {
           address: formData.address,
           city: formData.city,
           description: formData.description,
-          photos: formData.photos.filter(photo => photo.trim() !== ''),
+          main_photo: mainPhotoUrl,
+          photos: photoUrls,
           status: 'pending'
         });
 
@@ -137,6 +191,10 @@ export default function Dashboard() {
         mainPhoto: '',
         photos: ['', '', '', '', '']
       });
+      setLocationNameEdited(false);
+      setLogoFile(null);
+      setMainPhotoFile(null);
+      setPhotoFiles([null, null, null, null, null]);
     } catch (error) {
       console.error('Error adding space:', error);
       toast({
@@ -221,42 +279,57 @@ export default function Dashboard() {
                       
                       <div className="space-y-2">
                         <Label htmlFor="companyName">Company Name *</Label>
-                        <Input
-                          id="companyName"
-                          value={formData.companyName}
-                          onChange={(e) => setFormData(prev => ({ 
-                            ...prev, 
-                            companyName: e.target.value,
-                            locationName: prev.locationName || e.target.value
-                          }))}
-                          required
-                        />
+                         <Input
+                           id="companyName"
+                           value={formData.companyName}
+                           onChange={(e) => setFormData(prev => ({ 
+                             ...prev, 
+                             companyName: e.target.value,
+                             locationName: locationNameEdited ? prev.locationName : e.target.value
+                           }))}
+                           required
+                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="companyLogo">Company Logo URL</Label>
-                        <Input
-                          id="companyLogo"
-                          type="url"
-                          value={formData.companyLogo}
-                          onChange={(e) => setFormData(prev => ({ ...prev, companyLogo: e.target.value }))}
-                          placeholder="https://example.com/logo.png"
-                        />
-                      </div>
+                       <div className="space-y-2">
+                         <Label htmlFor="companyLogo">Company Logo</Label>
+                         <Input
+                           id="companyLogo"
+                           type="file"
+                           accept="image/*"
+                           onChange={(e) => {
+                             const file = e.target.files?.[0];
+                             if (file) setLogoFile(file);
+                           }}
+                         />
+                         {logoFile && (
+                           <p className="text-sm text-muted-foreground">Selected: {logoFile.name}</p>
+                         )}
+                         <div className="text-sm text-muted-foreground">Or provide URL:</div>
+                         <Input
+                           type="url"
+                           value={formData.companyLogo}
+                           onChange={(e) => setFormData(prev => ({ ...prev, companyLogo: e.target.value }))}
+                           placeholder="https://example.com/logo.png"
+                         />
+                       </div>
                     </div>
 
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Location Information</h3>
                       
-                      <div className="space-y-2">
-                        <Label htmlFor="locationName">Location Name</Label>
-                        <Input
-                          id="locationName"
-                          value={formData.locationName}
-                          onChange={(e) => setFormData(prev => ({ ...prev, locationName: e.target.value }))}
-                          placeholder="Will use company name if empty"
-                        />
-                      </div>
+                       <div className="space-y-2">
+                         <Label htmlFor="locationName">Location Name</Label>
+                         <Input
+                           id="locationName"
+                           value={formData.locationName}
+                           onChange={(e) => {
+                             setLocationNameEdited(true);
+                             setFormData(prev => ({ ...prev, locationName: e.target.value }));
+                           }}
+                           placeholder="Will use company name if empty"
+                         />
+                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -279,32 +352,72 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea
-                          id="description"
-                          value={formData.description}
-                          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                          rows={3}
-                        />
-                      </div>
+                       <div className="space-y-2">
+                         <Label htmlFor="description">Description</Label>
+                         <Textarea
+                           id="description"
+                           value={formData.description}
+                           onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                           rows={3}
+                         />
+                       </div>
 
-                      <div className="space-y-2">
-                        <Label>Photo Gallery (up to 5 photos)</Label>
-                        {formData.photos.map((photo, index) => (
-                          <Input
-                            key={index}
-                            type="url"
-                            value={photo}
-                            onChange={(e) => {
-                              const newPhotos = [...formData.photos];
-                              newPhotos[index] = e.target.value;
-                              setFormData(prev => ({ ...prev, photos: newPhotos }));
-                            }}
-                            placeholder={`Photo ${index + 1} URL`}
-                          />
-                        ))}
-                      </div>
+                       <div className="space-y-2">
+                         <Label htmlFor="mainPhoto">Main Photo</Label>
+                         <Input
+                           id="mainPhoto"
+                           type="file"
+                           accept="image/*"
+                           onChange={(e) => {
+                             const file = e.target.files?.[0];
+                             if (file) setMainPhotoFile(file);
+                           }}
+                         />
+                         {mainPhotoFile && (
+                           <p className="text-sm text-muted-foreground">Selected: {mainPhotoFile.name}</p>
+                         )}
+                         <div className="text-sm text-muted-foreground">Or provide URL:</div>
+                         <Input
+                           type="url"
+                           value={formData.mainPhoto}
+                           onChange={(e) => setFormData(prev => ({ ...prev, mainPhoto: e.target.value }))}
+                           placeholder="https://example.com/main-photo.jpg"
+                         />
+                       </div>
+
+                       <div className="space-y-2">
+                         <Label>Photo Gallery (up to 5 photos)</Label>
+                         {formData.photos.map((photo, index) => (
+                           <div key={index} className="space-y-2">
+                             <Input
+                               type="file"
+                               accept="image/*"
+                               onChange={(e) => {
+                                 const file = e.target.files?.[0];
+                                 if (file) {
+                                   const newPhotoFiles = [...photoFiles];
+                                   newPhotoFiles[index] = file;
+                                   setPhotoFiles(newPhotoFiles);
+                                 }
+                               }}
+                             />
+                             {photoFiles[index] && (
+                               <p className="text-sm text-muted-foreground">Selected: {photoFiles[index]!.name}</p>
+                             )}
+                             <div className="text-sm text-muted-foreground">Or provide URL:</div>
+                             <Input
+                               type="url"
+                               value={photo}
+                               onChange={(e) => {
+                                 const newPhotos = [...formData.photos];
+                                 newPhotos[index] = e.target.value;
+                                 setFormData(prev => ({ ...prev, photos: newPhotos }));
+                               }}
+                               placeholder={`Photo ${index + 1} URL`}
+                             />
+                           </div>
+                         ))}
+                       </div>
                     </div>
 
                     <div className="flex justify-end gap-2">

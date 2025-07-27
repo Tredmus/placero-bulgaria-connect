@@ -156,6 +156,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          main_photo: string | null
           name: string
           photos: string[] | null
           price_day: number | null
@@ -173,6 +174,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          main_photo?: string | null
           name: string
           photos?: string[] | null
           price_day?: number | null
@@ -190,6 +192,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          main_photo?: string | null
           name?: string
           photos?: string[] | null
           price_day?: number | null
