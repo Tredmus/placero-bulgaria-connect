@@ -17,48 +17,12 @@ const amenityIcons = {
   meeting: Utensils,
 };
 
-// Fallback data for display
-const fallbackLocations = [
-  {
-    id: "1",
-    name: "Sofia Business Hub",
-    company: "CoWork Bulgaria",
-    city: "София",
-    address: "бул. Витоша 100",
-    image: sofiaImage,
-    rating: 4.9,
-    pricePerDay: 45,
-    amenities: ["wifi", "coffee", "parking", "meeting"],
-  },
-  {
-    id: "2",
-    name: "Plovdiv Creative Space",
-    company: "South Creative",
-    city: "Пловдив",
-    address: "ул. Княз Александър I 42",
-    image: plovdivImage,
-    rating: 4.7,
-    pricePerDay: 35,
-    amenities: ["wifi", "coffee", "meeting"],
-  },
-  {
-    id: "3",
-    name: "Varna Sea Office",
-    company: "Black Sea Offices",
-    city: "Варна",
-    address: "бул. Приморски 15",
-    image: varnaImage,
-    rating: 4.8,
-    pricePerDay: 40,
-    amenities: ["wifi", "coffee", "parking"],
-  },
-];
 
 const FeaturedLocations = () => {
   const { locations, loading, error } = useLocations();
   
-  // Use real data if available, otherwise fallback to mock data
-  const displayLocations = locations.length > 0 ? locations.slice(0, 3) : fallbackLocations;
+  // Use real data from database
+  const displayLocations = locations?.slice(0, 3) || [];
 
   return (
     <section className="py-16 bg-secondary/30">
@@ -88,67 +52,62 @@ const FeaturedLocations = () => {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
             {displayLocations.map((location) => (
-              <Card key={location.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="relative">
-                  <img
-                    src={locations.length > 0 && location.photos?.[0] ? location.photos[0] : location.image}
-                    alt={location.name}
-                    className="w-full h-64 object-cover"
-                    onError={(e) => {
-                      // Fallback to asset images if external URLs fail
-                      if (location.city.includes('София')) {
-                        e.currentTarget.src = sofiaImage;
-                      } else if (location.city.includes('Пловдив')) {
-                        e.currentTarget.src = plovdivImage;
-                      } else {
-                        e.currentTarget.src = varnaImage;
-                      }
-                    }}
-                  />
-                  <Badge className="absolute top-4 right-4 bg-background/90">
-                    <Star className="h-3 w-3 mr-1 fill-current" />
-                    {location.rating}
-                  </Badge>
-                </div>
-                
-                <CardHeader>
-                  <CardTitle className="text-xl">{location.name}</CardTitle>
-                  <CardDescription className="flex items-center">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    {locations.length > 0 ? location.address : location.address}
-                  </CardDescription>
-                </CardHeader>
-                
-                <CardContent>
-                  {locations.length > 0 && location.description && (
-                    <p className="text-muted-foreground mb-4 line-clamp-2">
-                      {location.description}
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-2xl font-bold text-primary">
-                      €{locations.length > 0 ? location.price_day : location.pricePerDay}
-                      <span className="text-sm font-normal text-muted-foreground">/day</span>
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      by {locations.length > 0 ? location.companies?.name : location.company}
-                    </span>
+              <Link key={location.id} to={`/locations/${location.id}`}>
+                <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group">
+                  <div className="relative">
+                    <img
+                      src={location.photos?.[0] || "/placeholder.svg"}
+                      alt={location.name}
+                      className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-200"
+                      onError={(e) => {
+                        e.currentTarget.src = "/placeholder.svg";
+                      }}
+                    />
+                    <Badge className="absolute top-4 right-4 bg-background/90">
+                      <Star className="h-3 w-3 mr-1 fill-yellow-400 text-yellow-400" />
+                      {location.rating}
+                    </Badge>
                   </div>
                   
-                  <div className="flex gap-2 flex-wrap">
-                    {location.amenities?.slice(0, 4).map((amenity) => {
-                      const IconComponent = amenityIcons[amenity as keyof typeof amenityIcons];
-                      return (
-                        <Badge key={amenity} variant="secondary" className="text-xs">
-                          {IconComponent && <IconComponent className="h-3 w-3 mr-1" />}
-                          {amenity}
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
+                  <CardHeader>
+                    <CardTitle className="text-xl">{location.name}</CardTitle>
+                    <CardDescription className="flex items-center">
+                      <MapPin className="h-4 w-4 mr-1" />
+                      {location.address}, {location.city}
+                    </CardDescription>
+                  </CardHeader>
+                  
+                  <CardContent>
+                    {location.description && (
+                      <p className="text-muted-foreground mb-4 line-clamp-2">
+                        {location.description}
+                      </p>
+                    )}
+                    
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-2xl font-bold text-primary">
+                        {location.price_day}лв
+                        <span className="text-sm font-normal text-muted-foreground">/ден</span>
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        by {location.companies?.name}
+                      </span>
+                    </div>
+                    
+                    <div className="flex gap-2 flex-wrap">
+                      {location.amenities?.slice(0, 4).map((amenity) => {
+                        const IconComponent = amenityIcons[amenity as keyof typeof amenityIcons];
+                        return (
+                          <Badge key={amenity} variant="secondary" className="text-xs">
+                            {IconComponent && <IconComponent className="h-3 w-3 mr-1" />}
+                            {amenity}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         )}

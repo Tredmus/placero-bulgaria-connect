@@ -1,6 +1,7 @@
 import { Star, MapPin, Wifi, Coffee, Car, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
 
 interface LocationCardProps {
   id: string;
@@ -22,6 +23,7 @@ const amenityIcons = {
 };
 
 const LocationCard = ({
+  id,
   name,
   company,
   city,
@@ -32,7 +34,8 @@ const LocationCard = ({
   amenities,
 }: LocationCardProps) => {
   return (
-    <Card className="placero-card hover:placero-card-elevated cursor-pointer group">
+    <Link to={`/locations/${id}`}>
+      <Card className="placero-card hover:placero-card-elevated cursor-pointer group">
       <div className="relative overflow-hidden rounded-t">
         <img
           src={image}
@@ -80,6 +83,7 @@ const LocationCard = ({
         </div>
       </CardContent>
     </Card>
+    </Link>
   );
 };
 
