@@ -1,0 +1,112 @@
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Building2, Edit, Plus } from 'lucide-react';
+
+interface CompanyCardProps {
+  company: any;
+  locations: any[];
+  onEditCompany: (company: any) => void;
+  onEditLocation: (location: any) => void;
+  onAddLocation: (companyId: string) => void;
+}
+
+export function CompanyCard({ company, locations, onEditCompany, onEditLocation, onAddLocation }: CompanyCardProps) {
+  return (
+    <Card className={company.status === 'pending' ? 'opacity-60' : ''}>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {company.logo && (
+              <img src={company.logo} alt={company.name} className="w-12 h-12 object-cover rounded" />
+            )}
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                {company.name}
+              </CardTitle>
+              <div className="flex items-center gap-2 mt-1">
+                {company.status === 'pending' && (
+                  <>
+                    <Badge variant="secondary">pending</Badge>
+                    <span className="text-sm text-muted-foreground">Waiting for approval</span>
+                  </>
+                )}
+                {company.status === 'approved' && (
+                  <Badge variant="default">approved</Badge>
+                )}
+                {company.status === 'rejected' && (
+                  <Badge variant="destructive">rejected</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => onEditCompany(company)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Company
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {company.description && (
+          <p className="text-muted-foreground mb-4">{company.description}</p>
+        )}
+        
+        {/* Locations for this company */}
+        <div className="space-y-3">
+          <h4 className="font-medium">Locations</h4>
+          {locations.map((location) => (
+            <div key={location.id} className={`p-4 border rounded-lg ${location.status === 'pending' ? 'opacity-60' : ''}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  {location.main_photo && (
+                    <img src={location.main_photo} alt={location.name} className="w-16 h-12 object-cover rounded" />
+                  )}
+                  <div>
+                    <h5 className="font-medium">{location.name}</h5>
+                    <p className="text-sm text-muted-foreground">{location.address}, {location.city}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {location.status === 'pending' && (
+                        <>
+                          <Badge variant="secondary" className="text-xs">pending</Badge>
+                          <span className="text-xs text-muted-foreground">Waiting for approval</span>
+                        </>
+                      )}
+                      {location.status === 'approved' && (
+                        <Badge variant="default" className="text-xs">approved</Badge>
+                      )}
+                      {location.status === 'rejected' && (
+                        <Badge variant="destructive" className="text-xs">rejected</Badge>
+                      )}
+                    </div>
+                    {(location.price_day || location.price_week || location.price_month) && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {location.price_day && `€${location.price_day}/day`}
+                        {location.price_day && location.price_week && ' • '}
+                        {location.price_week && `€${location.price_week}/week`}
+                        {(location.price_day || location.price_week) && location.price_month && ' • '}
+                        {location.price_month && `€${location.price_month}/month`}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => onEditLocation(location)}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Location
+                </Button>
+              </div>
+              {location.description && (
+                <p className="text-sm text-muted-foreground mt-2">{location.description}</p>
+              )}
+            </div>
+          ))}
+          
+          <Button variant="outline" className="w-full" onClick={() => onAddLocation(company.id)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Another Location
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
