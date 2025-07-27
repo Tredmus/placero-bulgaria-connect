@@ -61,7 +61,19 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				placero: {
+					green: 'hsl(var(--placero-green))',
+					gray: 'hsl(var(--placero-gray))',
+					'light-gray': 'hsl(var(--placero-light-gray))'
 				}
+			},
+			boxShadow: {
+				'placero-card': 'var(--shadow-card)',
+				'placero-elevated': 'var(--shadow-elevated)'
+			},
+			fontFamily: {
+				'inter': ['Inter', 'sans-serif']
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
