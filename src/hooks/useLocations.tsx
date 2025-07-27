@@ -25,7 +25,7 @@ export function useLocations(filters: LocationFilters = {}) {
 
   useEffect(() => {
     fetchLocations();
-  }, [filters]);
+  }, [filters.city, filters.amenities, filters.minPrice, filters.maxPrice, filters.search]);
 
   const fetchLocations = async () => {
     try {
