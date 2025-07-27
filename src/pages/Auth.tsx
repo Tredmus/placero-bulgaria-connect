@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
+import Header from '@/components/Header';
 import { Building2 } from 'lucide-react';
 
 const Auth = () => {
@@ -52,7 +53,9 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-screen bg-background">
+      <Header />
+      <div className="flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center justify-center space-x-2 mb-8">
@@ -159,6 +162,7 @@ const Auth = () => {
         </Card>
       </div>
     </div>
+  );
   );
 };
 
