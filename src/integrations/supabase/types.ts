@@ -14,16 +14,282 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      articles: {
+        Row: {
+          company_id: string
+          content: string
+          created_at: string
+          id: string
+          image: string | null
+          status: Database["public"]["Enums"]["status_type"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          content: string
+          created_at?: string
+          id?: string
+          image?: string | null
+          status?: Database["public"]["Enums"]["status_type"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          image?: string | null
+          status?: Database["public"]["Enums"]["status_type"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "articles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      banners: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          image: string
+          status: Database["public"]["Enums"]["status_type"]
+          text: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          image: string
+          status?: Database["public"]["Enums"]["status_type"]
+          text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          image?: string
+          status?: Database["public"]["Enums"]["status_type"]
+          text?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "banners_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      companies: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          logo: string | null
+          moderators: string[] | null
+          name: string
+          owner_id: string
+          plan_id: string | null
+          status: Database["public"]["Enums"]["status_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          logo?: string | null
+          moderators?: string[] | null
+          name: string
+          owner_id: string
+          plan_id?: string | null
+          status?: Database["public"]["Enums"]["status_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          logo?: string | null
+          moderators?: string[] | null
+          name?: string
+          owner_id?: string
+          plan_id?: string | null
+          status?: Database["public"]["Enums"]["status_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companies_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companies_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locations: {
+        Row: {
+          address: string
+          amenities: string[] | null
+          city: string
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          photos: string[] | null
+          price_day: number | null
+          price_month: number | null
+          price_week: number | null
+          rating: number | null
+          status: Database["public"]["Enums"]["status_type"]
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          amenities?: string[] | null
+          city: string
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          photos?: string[] | null
+          price_day?: number | null
+          price_month?: number | null
+          price_week?: number | null
+          rating?: number | null
+          status?: Database["public"]["Enums"]["status_type"]
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          amenities?: string[] | null
+          city?: string
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          photos?: string[] | null
+          price_day?: number | null
+          price_month?: number | null
+          price_week?: number | null
+          rating?: number | null
+          status?: Database["public"]["Enums"]["status_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          perks: string[]
+          price_month: number
+          price_year: number
+          tier: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          perks?: string[]
+          price_month: number
+          price_year: number
+          tier: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          perks?: string[]
+          price_month?: number
+          price_year?: number
+          tier?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: Database["public"]["Enums"]["status_type"]
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: Database["public"]["Enums"]["status_type"]
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: Database["public"]["Enums"]["status_type"]
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      is_company_moderator: {
+        Args: { company_uuid: string }
+        Returns: boolean
+      }
+      is_company_owner: {
+        Args: { company_uuid: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "host" | "business_moderator"
+      status_type: "active" | "approved" | "pending" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +416,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "host", "business_moderator"],
+      status_type: ["active", "approved", "pending", "rejected"],
+    },
   },
 } as const
