@@ -56,14 +56,14 @@ const Auth = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <div className="flex items-center justify-center px-4 py-16">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex items-center justify-center space-x-2 mb-8">
-          <Building2 className="h-8 w-8 text-primary" />
-          <span className="text-2xl font-bold text-foreground">Placero</span>
-        </div>
+        <div className="w-full max-w-md">
+          {/* Logo */}
+          <div className="flex items-center justify-center space-x-2 mb-8">
+            <Building2 className="h-8 w-8 text-primary" />
+            <span className="text-2xl font-bold text-foreground">Placero</span>
+          </div>
 
-        <Card>
+          <Card>
           <CardHeader>
             <CardTitle>Welcome</CardTitle>
             <CardDescription>
@@ -160,7 +160,7 @@ const Auth = () => {
             </Tabs>
           </CardContent>
         </Card>
-      </div>
+        </div>
       </div>
     </div>
   );
