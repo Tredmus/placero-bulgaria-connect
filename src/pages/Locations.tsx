@@ -73,12 +73,12 @@ const Locations = () => {
               />
             </div>
             
-            <Select value={selectedCity} onValueChange={setSelectedCity}>
+            <Select value={selectedCity} onValueChange={(value) => setSelectedCity(value === 'all' ? '' : value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select city" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Cities</SelectItem>
+                <SelectItem value="all">All Cities</SelectItem>
                 {cities.map(city => (
                   <SelectItem key={city} value={city}>{city}</SelectItem>
                 ))}

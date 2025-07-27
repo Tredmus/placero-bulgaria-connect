@@ -1,5 +1,6 @@
 import { ArrowRight, Building2, Users, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-workspace.jpg";
 
 const HeroSection = () => {
@@ -20,13 +21,17 @@ const HeroSection = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="placero-button-primary">
-                Разгледайте локации
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-              <Button size="lg" variant="outline">
-                Станете партньор
-              </Button>
+              <Link to="/locations">
+                <Button size="lg" className="placero-button-primary">
+                  Разгледайте локации
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+              <Link to="/auth?tab=signup">
+                <Button size="lg" variant="outline">
+                  Станете партньор
+                </Button>
+              </Link>
             </div>
 
             {/* Stats */}

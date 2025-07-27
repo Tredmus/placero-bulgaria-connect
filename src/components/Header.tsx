@@ -52,13 +52,13 @@ const Header = () => {
               </div>
             ) : (
               <>
-                <Link to="/auth">
+                <Link to="/auth?tab=signin">
                   <Button variant="outline" className="hidden sm:flex">
                     <User className="h-4 w-4 mr-2" />
                     Login
                   </Button>
                 </Link>
-                <Link to="/auth">
+                <Link to="/auth?tab=signup">
                   <Button className="placero-button-primary">
                     Become a Partner
                   </Button>
