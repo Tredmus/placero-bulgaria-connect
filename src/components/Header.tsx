@@ -42,6 +42,9 @@ const Header = () => {
             
             {user ? (
               <div className="flex items-center space-x-3">
+                <Link to="/dashboard">
+                  <Button variant="ghost">Dashboard</Button>
+                </Link>
                 <span className="text-sm text-muted-foreground hidden sm:block">
                   Welcome back!
                 </span>

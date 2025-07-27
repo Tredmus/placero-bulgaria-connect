@@ -39,7 +39,7 @@ const Auth = () => {
       console.log('Signin result:', { error });
       
       if (!error) {
-        navigate(from, { replace: true });
+        navigate('/dashboard', { replace: true });
       }
     } catch (err) {
       console.error('Signin error:', err);
