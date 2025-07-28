@@ -22,16 +22,16 @@ export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialo
       return;
     }
     
-    const table = showPreview.type === 'company' ? 'companies' : 'locations';
-    onApproval(table as 'companies' | 'locations', showPreview.item.id, action);
+    const table = showPreview.type === 'company' ? 'companies' : (showPreview.type === 'location' ? 'locations' : 'articles');
+    onApproval(table as 'companies' | 'locations' | 'articles', showPreview.item.id, action);
     onClose();
   };
 
   const handleRejectionSubmit = () => {
     if (!rejectionReason.trim()) return;
     
-    const table = showPreview.type === 'company' ? 'companies' : 'locations';
-    onApproval(table as 'companies' | 'locations', showPreview.item.id, 'rejected', rejectionReason);
+    const table = showPreview.type === 'company' ? 'companies' : (showPreview.type === 'location' ? 'locations' : 'articles');
+    onApproval(table as 'companies' | 'locations' | 'articles', showPreview.item.id, 'rejected', rejectionReason);
     setRejectionReason('');
     setShowRejectionForm(false);
     onClose();
@@ -176,46 +176,76 @@ export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialo
                   ))}
                 </div>
               </div>
-            )}
+        )}
+        
+        {showPreview.type === 'article' && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-4">
+              {showPreview.item.image && (
+                <img 
+                  src={showPreview.item.image} 
+                  alt={showPreview.item.title}
+                  className="w-32 h-24 object-cover rounded-lg"
+                />
+              )}
+              <div className="flex-1">
+                <h3 className="text-xl font-bold">{showPreview.item.title}</h3>
+                <p className="text-sm text-muted-foreground">
+                  Created: {new Date(showPreview.item.created_at).toLocaleDateString()}
+                </p>
+                {showPreview.item.companies?.name && (
+                  <p className="text-sm text-muted-foreground">
+                    Company: {showPreview.item.companies.name}
+                  </p>
+                )}
+              </div>
+            </div>
             
-            {!showRejectionForm ? (
-              <div className="flex gap-2 pt-4">
-                <Button onClick={() => handleApproval('approved')}>
-                  Approve
-                </Button>
-                <Button variant="destructive" onClick={() => handleApproval('rejected')}>
-                  Deny
-                </Button>
+            <div>
+              <h4 className="font-medium mb-2">Content</h4>
+              <div className="max-h-48 overflow-y-auto p-3 bg-muted rounded-lg">
+                <p className="text-muted-foreground whitespace-pre-wrap">{showPreview.item.content}</p>
               </div>
-            ) : (
-              <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="rejectionReason">Reason for Rejection *</Label>
-                  <Textarea
-                    id="rejectionReason"
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    placeholder="Please explain why this submission is being rejected..."
-                    rows={3}
-                    required
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="destructive" 
-                    onClick={handleRejectionSubmit}
-                    disabled={!rejectionReason.trim()}
-                  >
-                    Confirm Rejection
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowRejectionForm(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
+        
+        {(showPreview.type === 'location' || showPreview.type === 'article') && !showRejectionForm ? (
+          <div className="flex gap-2 pt-4">
+            <Button onClick={() => handleApproval('approved')}>
+              Approve
+            </Button>
+            <Button variant="destructive" onClick={() => handleApproval('rejected')}>
+              Deny
+            </Button>
+          </div>
+        ) : (showPreview.type === 'location' || showPreview.type === 'article') && showRejectionForm ? (
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="rejectionReason">Reason for Rejection *</Label>
+              <Textarea
+                id="rejectionReason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Please explain why this submission is being rejected..."
+                rows={3}
+                required
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="destructive" 
+                onClick={handleRejectionSubmit}
+                disabled={!rejectionReason.trim()}
+              >
+                Confirm Rejection
+              </Button>
+              <Button variant="outline" onClick={() => setShowRejectionForm(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : null}
         </div>
       </DialogContent>
     </Dialog>
