@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +16,7 @@ const amenityIcons = {
 };
 
 const Locations = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
@@ -116,7 +118,7 @@ const Locations = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {locations.map((location) => (
-              <Card key={location.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+              <Card key={location.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/locations/${location.id}`)}>
                 <div className="relative">
                   {(location.main_photo || (location.photos && location.photos.length > 0)) ? (
                     <img

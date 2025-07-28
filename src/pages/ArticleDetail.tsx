@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Calendar, User, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { useArticles } from "@/hooks/useArticles";
 
 const ArticleDetail = () => {
@@ -43,7 +41,6 @@ const ArticleDetail = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <div className="container mx-auto px-4 py-8">
           <div className="animate-pulse max-w-4xl mx-auto">
             <div className="h-8 bg-muted rounded w-1/4 mb-6"></div>
@@ -57,7 +54,6 @@ const ArticleDetail = () => {
             </div>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -65,7 +61,6 @@ const ArticleDetail = () => {
   if (error || !article) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <div className="container mx-auto px-4 py-8 text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">Article Not Found</h1>
           <p className="text-muted-foreground mb-6">{error || "The article you're looking for doesn't exist."}</p>
@@ -76,14 +71,12 @@ const ArticleDetail = () => {
             </Button>
           </Link>
         </div>
-        <Footer />
       </div>
     );
   }
 
-  return (
+    return (
     <div className="min-h-screen bg-background">
-      <Header />
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="mb-6">
@@ -131,7 +124,6 @@ const ArticleDetail = () => {
           </article>
         </div>
       </main>
-      <Footer />
     </div>
   );
 };

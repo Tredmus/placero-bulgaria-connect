@@ -4,8 +4,6 @@ import { Star, MapPin, Wifi, Coffee, Car, Users, ArrowLeft, Printer, UtensilsCro
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { useLocations } from "@/hooks/useLocations";
 
 const amenityIcons = {
@@ -48,7 +46,6 @@ const LocationDetail = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <div className="container mx-auto px-4 py-8">
           <div className="animate-pulse">
             <div className="h-96 bg-muted rounded-lg mb-6"></div>
@@ -60,7 +57,6 @@ const LocationDetail = () => {
             </div>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -68,7 +64,6 @@ const LocationDetail = () => {
   if (error || !location) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <div className="container mx-auto px-4 py-8 text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">Location Not Found</h1>
           <p className="text-muted-foreground mb-6">{error || "The location you're looking for doesn't exist."}</p>
@@ -79,14 +74,12 @@ const LocationDetail = () => {
             </Button>
           </Link>
         </div>
-        <Footer />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <Link to="/locations">
@@ -201,7 +194,6 @@ const LocationDetail = () => {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   );
 };

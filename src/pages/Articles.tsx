@@ -4,8 +4,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useArticles } from '@/hooks/useArticles';
 import { Search, FileText } from 'lucide-react';
 import ArticleCard from '@/components/ArticleCard';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 
 const Articles = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,21 +15,18 @@ const Articles = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-destructive mb-4">Error Loading Articles</h1>
             <p className="text-muted-foreground">{error}</p>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-4">Articles & Insights</h1>
@@ -101,7 +96,6 @@ const Articles = () => {
           </>
         )}
       </div>
-      <Footer />
     </div>
   );
 };
