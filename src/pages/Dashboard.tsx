@@ -16,6 +16,7 @@ import { PreviewDialog } from '@/components/dashboard/PreviewDialog';
 import { CompanyLocationForm } from '@/components/dashboard/CompanyLocationForm';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import BannerForm from '@/components/dashboard/BannerForm';
+import PlansTab from '@/components/dashboard/PlansTab';
 
 interface PendingItem {
   id: string;
@@ -35,7 +36,13 @@ export default function Dashboard() {
   const [showArticleForm, setShowArticleForm] = useState(false);
   const [editingArticle, setEditingArticle] = useState<any>(null);
   const [selectedCompanyForArticle, setSelectedCompanyForArticle] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState('locations');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('tab') || 'locations';
+    }
+    return 'locations';
+  });
   
   // Pending items for admin
   const [pendingCompanies, setPendingCompanies] = useState<any[]>([]);
@@ -48,6 +55,7 @@ export default function Dashboard() {
   const [userLocations, setUserLocations] = useState<any[]>([]);
   const [userArticles, setUserArticles] = useState<any[]>([]);
   const [userBanners, setUserBanners] = useState<any[]>([]);
+  const [showPlansCTA, setShowPlansCTA] = useState(false);
   const [showPreview, setShowPreview] = useState<{type: string, item: any} | null>(null);
   
   // Confirmation dialog state
@@ -140,6 +148,11 @@ export default function Dashboard() {
         userCompanyIds.includes(b.company_id)
       );
       setUserBanners(userOwnedBanners);
+
+      // Check if user has companies/locations but no plan selected
+      const hasContent = userCompanyIds.length > 0 && userOwnedLocations.length > 0;
+      const hasNoPlan = (companiesRes.data || []).every(company => !company.plan_id);
+      setShowPlansCTA(hasContent && hasNoPlan);
     } catch (error) {
       console.error('Error fetching user spaces:', error);
     }
@@ -285,6 +298,7 @@ export default function Dashboard() {
     setEditingArticle(null);
     setSelectedCompanyForArticle(null);
     fetchUserSpaces();
+    setShowPlansCTA(false);
   };
 
   if (!userRole) {
@@ -338,8 +352,31 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           ) : (
+            <>
+              {showPlansCTA && (
+                <Card className="mb-6 border-gradient-to-r from-blue-500 to-purple-600 bg-gradient-to-r from-blue-50 to-purple-50">
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <h3 className="text-xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                        🎉 Great job! Your workspace is ready
+                      </h3>
+                      <p className="text-muted-foreground mb-4">
+                        Now choose a plan to unlock premium features and get more visibility for your coworking space.
+                      </p>
+                      <Button 
+                        size="lg" 
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                        onClick={() => setActiveTab('plans')}
+                      >
+                        Choose Your Plan ✨
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="locations" className="flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
                   Locations
@@ -347,6 +384,10 @@ export default function Dashboard() {
                 <TabsTrigger value="articles" className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
                   Articles
+                </TabsTrigger>
+                <TabsTrigger value="plans" className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Plans
                 </TabsTrigger>
               </TabsList>
 
@@ -470,12 +511,20 @@ export default function Dashboard() {
                        </div>
                     </CardContent>
                   </Card>
-                ))}
-              </TabsContent>
-            </Tabs>
-          )}
+                 ))}
+               </TabsContent>
 
-          {/* Edit Company Dialog */}
+               <TabsContent value="plans">
+                 <PlansTab 
+                   userCompanies={userCompanies}
+                   onSubscriptionUpdate={fetchUserSpaces}
+                 />
+               </TabsContent>
+             </Tabs>
+           </>
+           )}
+
+           {/* Edit Company Dialog */}
           {showEditCompanyForm && (
             <Dialog open={!!showEditCompanyForm} onOpenChange={() => setShowEditCompanyForm(null)}>
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
