@@ -15,6 +15,7 @@ import ArticleForm from '@/components/dashboard/ArticleForm';
 import { PreviewDialog } from '@/components/dashboard/PreviewDialog';
 import { CompanyLocationForm } from '@/components/dashboard/CompanyLocationForm';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import BannerForm from '@/components/dashboard/BannerForm';
 
 interface PendingItem {
   id: string;
@@ -370,15 +371,17 @@ export default function Dashboard() {
                             <CardDescription>{company.description}</CardDescription>
                           </div>
                         </div>
-                        <Button 
-                          onClick={() => {
-                            setSelectedCompanyForArticle(company);
-                            setShowArticleForm(true);
-                          }}
-                          size="sm"
-                        >
-                          Add Article
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={() => {
+                              setSelectedCompanyForArticle(company);
+                              setShowArticleForm(true);
+                            }}
+                            size="sm"
+                          >
+                            Add Article
+                          </Button>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -429,6 +432,11 @@ export default function Dashboard() {
                       ) : (
                         <p className="text-muted-foreground">No articles yet.</p>
                       )}
+                      
+                      <div className="mt-6 pt-6 border-t">
+                        <h6 className="font-medium mb-3">Banners</h6>
+                        <BannerForm companyId={company.id} onSuccess={fetchUserSpaces} />
+                      </div>
                     </CardContent>
                   </Card>
                 ))}

@@ -1,6 +1,8 @@
 import HeroSection from "@/components/HeroSection";
 import BulgariaMap from "@/components/BulgariaMap";
 import FeaturedLocations from "@/components/FeaturedLocations";
+import FeaturedArticles from "@/components/FeaturedArticles";
+import BannerDisplay from "@/components/BannerDisplay";
 
 const Index = () => {
   return (
@@ -12,6 +14,8 @@ const Index = () => {
         </div>
       </section>
       <FeaturedLocations />
+      <FeaturedArticles />
+      <BannerDisplay />
     </>
   );
 };
