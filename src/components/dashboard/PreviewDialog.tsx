@@ -43,7 +43,8 @@ export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialo
       setRejectionReason('');
       onClose();
     }}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh]">
+        <div className="max-h-[calc(90vh-8rem)] overflow-y-auto pr-2">
         <DialogHeader>
           <DialogTitle>
             {showPreview.type === 'company' ? 'Company Preview' : 'Location Preview'}
@@ -215,6 +216,7 @@ export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialo
             )}
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -12,6 +12,7 @@ import { CompanyForm } from '@/components/dashboard/CompanyForm';
 import { LocationForm } from '@/components/dashboard/LocationForm';
 import { PreviewDialog } from '@/components/dashboard/PreviewDialog';
 import { CompanyLocationForm } from '@/components/dashboard/CompanyLocationForm';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 
 interface PendingItem {
   id: string;
@@ -38,6 +39,19 @@ export default function Dashboard() {
   const [userCompanies, setUserCompanies] = useState<any[]>([]);
   const [userLocations, setUserLocations] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState<{type: string, item: any} | null>(null);
+  
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    onConfirm: () => {}
+  });
 
   useEffect(() => {
     if (user) {
@@ -138,61 +152,69 @@ export default function Dashboard() {
   };
 
   const handleDeleteCompany = async (companyId: string) => {
-    if (!confirm('Are you sure you want to delete this company? This action cannot be undone.')) {
-      return;
-    }
+    setConfirmDialog({
+      open: true,
+      title: 'Delete Company',
+      description: 'Are you sure you want to delete this company? This action cannot be undone and will also delete all associated locations.',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from('companies')
+            .delete()
+            .eq('id', companyId);
 
-    try {
-      const { error } = await supabase
-        .from('companies')
-        .delete()
-        .eq('id', companyId);
+          if (error) throw error;
 
-      if (error) throw error;
+          toast({
+            title: "Success!",
+            description: "Company deleted successfully."
+          });
 
-      toast({
-        title: "Success!",
-        description: "Company deleted successfully."
-      });
-
-      fetchUserSpaces();
-    } catch (error) {
-      console.error('Error deleting company:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete company.",
-        variant: "destructive"
-      });
-    }
+          fetchUserSpaces();
+        } catch (error) {
+          console.error('Error deleting company:', error);
+          toast({
+            title: "Error",
+            description: "Failed to delete company.",
+            variant: "destructive"
+          });
+        }
+        setConfirmDialog(prev => ({ ...prev, open: false }));
+      }
+    });
   };
 
   const handleDeleteLocation = async (locationId: string) => {
-    if (!confirm('Are you sure you want to delete this location? This action cannot be undone.')) {
-      return;
-    }
+    setConfirmDialog({
+      open: true,
+      title: 'Delete Location',
+      description: 'Are you sure you want to delete this location? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from('locations')
+            .delete()
+            .eq('id', locationId);
 
-    try {
-      const { error } = await supabase
-        .from('locations')
-        .delete()
-        .eq('id', locationId);
+          if (error) throw error;
 
-      if (error) throw error;
+          toast({
+            title: "Success!",
+            description: "Location deleted successfully."
+          });
 
-      toast({
-        title: "Success!",
-        description: "Location deleted successfully."
-      });
-
-      fetchUserSpaces();
-    } catch (error) {
-      console.error('Error deleting location:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete location.",
-        variant: "destructive"
-      });
-    }
+          fetchUserSpaces();
+        } catch (error) {
+          console.error('Error deleting location:', error);
+          toast({
+            title: "Error",
+            description: "Failed to delete location.",
+            variant: "destructive"
+          });
+        }
+        setConfirmDialog(prev => ({ ...prev, open: false }));
+      }
+    });
   };
 
   const handleFormSuccess = () => {
@@ -352,29 +374,16 @@ export default function Dashboard() {
                       <p className="text-sm text-muted-foreground">
                         {new Date(company.created_at).toLocaleDateString()}
                       </p>
-                       <div className="flex gap-2">
-                         <Button 
-                           size="sm" 
-                           variant="outline"
-                           onClick={() => setShowPreview({type: 'company', item: company})}
-                         >
-                           <Eye className="h-4 w-4 mr-1" />
-                           Preview
-                         </Button>
-                         <Button 
-                           size="sm" 
-                           onClick={() => handleApproval('companies', company.id, 'approved')}
-                         >
-                           Approve
-                         </Button>
-                         <Button 
-                           size="sm" 
-                           variant="destructive"
-                           onClick={() => handleApproval('companies', company.id, 'rejected')}
-                         >
-                           Deny
-                         </Button>
-                       </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setShowPreview({type: 'company', item: company})}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Preview & Decide
+                          </Button>
+                        </div>
                     </div>
                   ))
                 )}
@@ -399,29 +408,16 @@ export default function Dashboard() {
                       <p className="text-sm text-muted-foreground">
                         {new Date(location.created_at).toLocaleDateString()}
                       </p>
-                       <div className="flex gap-2">
-                         <Button 
-                           size="sm" 
-                           variant="outline"
-                           onClick={() => setShowPreview({type: 'location', item: location})}
-                         >
-                           <Eye className="h-4 w-4 mr-1" />
-                           Preview
-                         </Button>
-                         <Button 
-                           size="sm" 
-                           onClick={() => handleApproval('locations', location.id, 'approved')}
-                         >
-                           Approve
-                         </Button>
-                         <Button 
-                           size="sm" 
-                           variant="destructive"
-                           onClick={() => handleApproval('locations', location.id, 'rejected')}
-                         >
-                           Deny
-                         </Button>
-                       </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setShowPreview({type: 'location', item: location})}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Preview & Decide
+                          </Button>
+                        </div>
                     </div>
                   ))
                 )}
@@ -474,6 +470,16 @@ export default function Dashboard() {
         showPreview={showPreview}
         onClose={() => setShowPreview(null)}
         onApproval={handleApproval}
+      />
+      
+      <ConfirmationDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        onConfirm={confirmDialog.onConfirm}
+        confirmText="Delete"
+        variant="destructive"
       />
     </div>
   );
