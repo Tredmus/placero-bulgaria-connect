@@ -118,9 +118,9 @@ const Locations = () => {
             {locations.map((location) => (
               <Card key={location.id} className="hover:shadow-lg transition-shadow cursor-pointer">
                 <div className="relative">
-                  {location.photos && location.photos.length > 0 ? (
+                  {(location.main_photo || (location.photos && location.photos.length > 0)) ? (
                     <img
-                      src={location.photos[0]}
+                      src={location.main_photo || location.photos[0]}
                       alt={location.name}
                       className="w-full h-48 object-cover rounded-t-lg"
                     />

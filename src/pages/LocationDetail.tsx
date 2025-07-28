@@ -102,7 +102,7 @@ const LocationDetail = () => {
           <div className="space-y-4">
             <div className="aspect-video rounded-lg overflow-hidden">
               <img
-                src={location.photos?.[0] || "/placeholder.svg"}
+                src={location.main_photo || location.photos?.[0] || "/placeholder.svg"}
                 alt={location.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {

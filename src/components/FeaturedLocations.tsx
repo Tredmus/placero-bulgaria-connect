@@ -56,7 +56,7 @@ const FeaturedLocations = () => {
                 <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group">
                   <div className="relative">
                     <img
-                      src={location.photos?.[0] || "/placeholder.svg"}
+                      src={location.main_photo || location.photos?.[0] || "/placeholder.svg"}
                       alt={location.name}
                       className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-200"
                       onError={(e) => {

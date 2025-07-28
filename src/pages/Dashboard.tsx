@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Building2, MapPin, FileText, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -10,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { CompanyCard } from '@/components/dashboard/CompanyCard';
 import { CompanyForm } from '@/components/dashboard/CompanyForm';
 import { LocationForm } from '@/components/dashboard/LocationForm';
+import ArticleForm from '@/components/dashboard/ArticleForm';
 import { PreviewDialog } from '@/components/dashboard/PreviewDialog';
 import { CompanyLocationForm } from '@/components/dashboard/CompanyLocationForm';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
@@ -29,6 +31,10 @@ export default function Dashboard() {
   const [showEditCompanyForm, setShowEditCompanyForm] = useState<any>(null);
   const [showEditLocationForm, setShowEditLocationForm] = useState<any>(null);
   const [showAddLocationForm, setShowAddLocationForm] = useState<string | null>(null);
+  const [showArticleForm, setShowArticleForm] = useState(false);
+  const [editingArticle, setEditingArticle] = useState<any>(null);
+  const [selectedCompanyForArticle, setSelectedCompanyForArticle] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState('locations');
   
   // Pending items for admin
   const [pendingCompanies, setPendingCompanies] = useState<any[]>([]);
@@ -38,6 +44,7 @@ export default function Dashboard() {
   // User's companies and locations for host
   const [userCompanies, setUserCompanies] = useState<any[]>([]);
   const [userLocations, setUserLocations] = useState<any[]>([]);
+  const [userArticles, setUserArticles] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState<{type: string, item: any} | null>(null);
   
   // Confirmation dialog state
@@ -88,7 +95,7 @@ export default function Dashboard() {
       const [companiesRes, locationsRes, articlesRes] = await Promise.all([
         supabase.from('companies').select('*, profiles(username)').eq('status', 'pending'),
         supabase.from('locations').select('*, companies(name, logo)').eq('status', 'pending'),
-        supabase.from('articles').select('id, title, status, created_at').eq('status', 'pending')
+        supabase.from('articles').select('*, companies(name, logo)').eq('status', 'pending')
       ]);
 
       setPendingCompanies(companiesRes.data || []);
@@ -101,9 +108,10 @@ export default function Dashboard() {
 
   const fetchUserSpaces = async () => {
     try {
-      const [companiesRes, locationsRes] = await Promise.all([
+      const [companiesRes, locationsRes, articlesRes] = await Promise.all([
         supabase.from('companies').select('*').eq('owner_id', user?.id),
-        supabase.from('locations').select('*, companies(name, logo)')
+        supabase.from('locations').select('*, companies(name, logo)'),
+        supabase.from('articles').select('*, companies(name, logo)')
       ]);
 
       setUserCompanies(companiesRes.data || []);
@@ -114,6 +122,12 @@ export default function Dashboard() {
         userCompanyIds.includes(l.company_id)
       );
       setUserLocations(userOwnedLocations);
+
+      // Filter articles that belong to user's companies
+      const userOwnedArticles = (articlesRes.data || []).filter(a => 
+        userCompanyIds.includes(a.company_id)
+      );
+      setUserArticles(userOwnedArticles);
     } catch (error) {
       console.error('Error fetching user spaces:', error);
     }
@@ -155,7 +169,7 @@ export default function Dashboard() {
     setConfirmDialog({
       open: true,
       title: 'Delete Company',
-      description: 'Are you sure you want to delete this company? This action cannot be undone and will also delete all associated locations.',
+      description: 'Are you sure you want to delete this company? This action cannot be undone and will also delete all associated locations and articles.',
       onConfirm: async () => {
         try {
           const { error } = await supabase
@@ -217,11 +231,47 @@ export default function Dashboard() {
     });
   };
 
+  const handleDeleteArticle = async (articleId: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Delete Article',
+      description: 'Are you sure you want to delete this article? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from('articles')
+            .delete()
+            .eq('id', articleId);
+
+          if (error) throw error;
+
+          toast({
+            title: "Success!",
+            description: "Article deleted successfully."
+          });
+
+          fetchUserSpaces();
+        } catch (error) {
+          console.error('Error deleting article:', error);
+          toast({
+            title: "Error",
+            description: "Failed to delete article.",
+            variant: "destructive"
+          });
+        }
+        setConfirmDialog(prev => ({ ...prev, open: false }));
+      }
+    });
+  };
+
   const handleFormSuccess = () => {
     setShowAddSpaceForm(false);
     setShowEditCompanyForm(null);
     setShowEditLocationForm(null);
     setShowAddLocationForm(null);
+    setShowArticleForm(false);
+    setEditingArticle(null);
+    setSelectedCompanyForArticle(null);
     fetchUserSpaces();
   };
 
@@ -240,20 +290,7 @@ export default function Dashboard() {
 
       {userRole === 'host' && (
         <div className="space-y-6">
-          {userCompanies.map((company) => (
-            <CompanyCard
-              key={company.id}
-              company={company}
-              locations={userLocations.filter(loc => loc.company_id === company.id)}
-              onEditCompany={(company) => setShowEditCompanyForm(company)}
-              onEditLocation={(location) => setShowEditLocationForm(location)}
-              onAddLocation={(companyId) => setShowAddLocationForm(companyId)}
-              onDeleteCompany={handleDeleteCompany}
-              onDeleteLocation={handleDeleteLocation}
-            />
-          ))}
-
-          {userCompanies.length === 0 && (
+          {userCompanies.length === 0 ? (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -288,6 +325,115 @@ export default function Dashboard() {
                 </Dialog>
               </CardContent>
             </Card>
+          ) : (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="locations" className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Locations
+                </TabsTrigger>
+                <TabsTrigger value="articles" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Articles
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="locations" className="space-y-6">
+                {userCompanies.map((company) => (
+                  <CompanyCard
+                    key={company.id}
+                    company={company}
+                    locations={userLocations.filter(loc => loc.company_id === company.id)}
+                    onEditCompany={(company) => setShowEditCompanyForm(company)}
+                    onEditLocation={(location) => setShowEditLocationForm(location)}
+                    onAddLocation={(companyId) => setShowAddLocationForm(companyId)}
+                    onDeleteCompany={handleDeleteCompany}
+                    onDeleteLocation={handleDeleteLocation}
+                  />
+                ))}
+              </TabsContent>
+
+              <TabsContent value="articles" className="space-y-6">
+                {userCompanies.map((company) => (
+                  <Card key={company.id}>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {company.logo && (
+                            <img src={company.logo} alt={company.name} className="w-12 h-12 object-cover rounded" />
+                          )}
+                          <div>
+                            <CardTitle className="flex items-center gap-2">
+                              <Building2 className="h-5 w-5" />
+                              {company.name}
+                            </CardTitle>
+                            <CardDescription>{company.description}</CardDescription>
+                          </div>
+                        </div>
+                        <Button 
+                          onClick={() => {
+                            setSelectedCompanyForArticle(company);
+                            setShowArticleForm(true);
+                          }}
+                          size="sm"
+                        >
+                          Add Article
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {userArticles.filter(article => article.company_id === company.id).length > 0 ? (
+                        <div className="grid gap-4">
+                          {userArticles.filter(article => article.company_id === company.id).map((article) => (
+                            <div key={article.id} className={`p-4 border rounded-lg ${article.status === 'pending' ? 'opacity-60' : ''}`}>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                  {article.image && (
+                                    <img src={article.image} alt={article.title} className="w-16 h-12 object-cover rounded" />
+                                  )}
+                                  <div>
+                                    <h5 className="font-medium">{article.title}</h5>
+                                    <p className="text-sm text-muted-foreground line-clamp-2">{article.content}</p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingArticle(article);
+                                      setSelectedCompanyForArticle(company);
+                                      setShowArticleForm(true);
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleDeleteArticle(article.id)}
+                                  >
+                                    Delete
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Status: {article.status === 'pending' ? 'Pending Review' : article.status === 'approved' ? 'Approved' : 'Rejected'}
+                                {article.rejection_reason && (
+                                  <span className="text-destructive ml-2">- {article.rejection_reason}</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground">No articles yet.</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </TabsContent>
+            </Tabs>
           )}
 
           {/* Edit Company Dialog */}
@@ -350,6 +496,19 @@ export default function Dashboard() {
               </DialogContent>
             </Dialog>
           )}
+
+          {/* Article Form Dialog */}
+          <ArticleForm
+            isOpen={showArticleForm}
+            onClose={() => {
+              setShowArticleForm(false);
+              setEditingArticle(null);
+              setSelectedCompanyForArticle(null);
+            }}
+            onSuccess={handleFormSuccess}
+            companyId={selectedCompanyForArticle?.id}
+            article={editingArticle}
+          />
         </div>
       )}
 
@@ -445,16 +604,11 @@ export default function Dashboard() {
                       <div className="flex gap-2">
                         <Button 
                           size="sm" 
-                          onClick={() => handleApproval('articles', article.id, 'approved')}
+                          variant="outline"
+                          onClick={() => setShowPreview({type: 'article', item: article})}
                         >
-                          Approve
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="destructive"
-                          onClick={() => handleApproval('articles', article.id, 'rejected')}
-                        >
-                          Deny
+                          <Eye className="h-4 w-4 mr-1" />
+                          Preview & Decide
                         </Button>
                       </div>
                     </div>
@@ -478,8 +632,6 @@ export default function Dashboard() {
         title={confirmDialog.title}
         description={confirmDialog.description}
         onConfirm={confirmDialog.onConfirm}
-        confirmText="Delete"
-        variant="destructive"
       />
     </div>
   );
