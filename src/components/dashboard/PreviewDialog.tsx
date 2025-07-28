@@ -1,23 +1,48 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { useState } from 'react';
 
 interface PreviewDialogProps {
   showPreview: {type: string, item: any} | null;
   onClose: () => void;
-  onApproval: (table: 'companies' | 'locations' | 'articles', id: string, action: 'approved' | 'rejected') => void;
+  onApproval: (table: 'companies' | 'locations' | 'articles', id: string, action: 'approved' | 'rejected', rejectionReason?: string) => void;
 }
 
 export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialogProps) {
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [showRejectionForm, setShowRejectionForm] = useState(false);
+  
   if (!showPreview) return null;
 
   const handleApproval = (action: 'approved' | 'rejected') => {
+    if (action === 'rejected') {
+      setShowRejectionForm(true);
+      return;
+    }
+    
     const table = showPreview.type === 'company' ? 'companies' : 'locations';
     onApproval(table as 'companies' | 'locations', showPreview.item.id, action);
     onClose();
   };
 
+  const handleRejectionSubmit = () => {
+    if (!rejectionReason.trim()) return;
+    
+    const table = showPreview.type === 'company' ? 'companies' : 'locations';
+    onApproval(table as 'companies' | 'locations', showPreview.item.id, 'rejected', rejectionReason);
+    setRejectionReason('');
+    setShowRejectionForm(false);
+    onClose();
+  };
+
   return (
-    <Dialog open={!!showPreview} onOpenChange={onClose}>
+    <Dialog open={!!showPreview} onOpenChange={() => {
+      setShowRejectionForm(false);
+      setRejectionReason('');
+      onClose();
+    }}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -54,14 +79,42 @@ export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialo
               </div>
             )}
             
-            <div className="flex gap-2 pt-4">
-              <Button onClick={() => handleApproval('approved')}>
-                Approve
-              </Button>
-              <Button variant="destructive" onClick={() => handleApproval('rejected')}>
-                Deny
-              </Button>
-            </div>
+            {!showRejectionForm ? (
+              <div className="flex gap-2 pt-4">
+                <Button onClick={() => handleApproval('approved')}>
+                  Approve
+                </Button>
+                <Button variant="destructive" onClick={() => handleApproval('rejected')}>
+                  Deny
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="rejectionReason">Reason for Rejection *</Label>
+                  <Textarea
+                    id="rejectionReason"
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Please explain why this submission is being rejected..."
+                    rows={3}
+                    required
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleRejectionSubmit}
+                    disabled={!rejectionReason.trim()}
+                  >
+                    Confirm Rejection
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowRejectionForm(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
         
@@ -124,14 +177,42 @@ export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialo
               </div>
             )}
             
-            <div className="flex gap-2 pt-4">
-              <Button onClick={() => handleApproval('approved')}>
-                Approve
-              </Button>
-              <Button variant="destructive" onClick={() => handleApproval('rejected')}>
-                Deny
-              </Button>
-            </div>
+            {!showRejectionForm ? (
+              <div className="flex gap-2 pt-4">
+                <Button onClick={() => handleApproval('approved')}>
+                  Approve
+                </Button>
+                <Button variant="destructive" onClick={() => handleApproval('rejected')}>
+                  Deny
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="rejectionReason">Reason for Rejection *</Label>
+                  <Textarea
+                    id="rejectionReason"
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Please explain why this submission is being rejected..."
+                    rows={3}
+                    required
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleRejectionSubmit}
+                    disabled={!rejectionReason.trim()}
+                  >
+                    Confirm Rejection
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowRejectionForm(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </DialogContent>

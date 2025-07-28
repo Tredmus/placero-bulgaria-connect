@@ -67,7 +67,9 @@ export function CompanyForm({ company, onSuccess, onCancel }: CompanyFormProps) 
           .update({
             name: formData.name,
             description: formData.description,
-            logo: logoUrl
+            logo: logoUrl,
+            status: company.status === 'rejected' ? 'pending' : company.status,
+            rejection_reason: company.status === 'rejected' ? null : company.rejection_reason
           })
           .eq('id', company.id);
 

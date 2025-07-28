@@ -105,11 +105,18 @@ export default function Dashboard() {
     }
   };
 
-  const handleApproval = async (table: 'companies' | 'locations' | 'articles', id: string, action: 'approved' | 'rejected') => {
+  const handleApproval = async (table: 'companies' | 'locations' | 'articles', id: string, action: 'approved' | 'rejected', rejectionReason?: string) => {
     try {
+      const updateData: any = { status: action };
+      if (action === 'rejected' && rejectionReason) {
+        updateData.rejection_reason = rejectionReason;
+      } else if (action === 'approved') {
+        updateData.rejection_reason = null;
+      }
+
       const { error } = await supabase
         .from(table)
-        .update({ status: action })
+        .update(updateData)
         .eq('id', id);
 
       if (error) throw error;
@@ -125,6 +132,64 @@ export default function Dashboard() {
       toast({
         title: "Error",
         description: `Failed to ${action} item.`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteCompany = async (companyId: string) => {
+    if (!confirm('Are you sure you want to delete this company? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('companies')
+        .delete()
+        .eq('id', companyId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success!",
+        description: "Company deleted successfully."
+      });
+
+      fetchUserSpaces();
+    } catch (error) {
+      console.error('Error deleting company:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete company.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteLocation = async (locationId: string) => {
+    if (!confirm('Are you sure you want to delete this location? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .delete()
+        .eq('id', locationId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success!",
+        description: "Location deleted successfully."
+      });
+
+      fetchUserSpaces();
+    } catch (error) {
+      console.error('Error deleting location:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete location.",
         variant: "destructive"
       });
     }
@@ -161,6 +226,8 @@ export default function Dashboard() {
               onEditCompany={(company) => setShowEditCompanyForm(company)}
               onEditLocation={(location) => setShowEditLocationForm(location)}
               onAddLocation={(companyId) => setShowAddLocationForm(companyId)}
+              onDeleteCompany={handleDeleteCompany}
+              onDeleteLocation={handleDeleteLocation}
             />
           ))}
 

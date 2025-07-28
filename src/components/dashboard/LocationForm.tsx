@@ -95,10 +95,16 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
       };
 
       if (location) {
-        // Update existing location
+        // Update existing location - reset status to pending if it was rejected
+        const updateData = {
+          ...locationData,
+          status: location.status === 'rejected' ? 'pending' : location.status,
+          rejection_reason: location.status === 'rejected' ? null : location.rejection_reason
+        };
+        
         const { error } = await supabase
           .from('locations')
-          .update(locationData)
+          .update(updateData)
           .eq('id', location.id);
 
         if (error) throw error;

@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Edit, Plus } from 'lucide-react';
+import { Building2, Edit, Plus, Trash2 } from 'lucide-react';
 
 interface CompanyCardProps {
   company: any;
@@ -9,9 +9,11 @@ interface CompanyCardProps {
   onEditCompany: (company: any) => void;
   onEditLocation: (location: any) => void;
   onAddLocation: (companyId: string) => void;
+  onDeleteCompany: (companyId: string) => void;
+  onDeleteLocation: (locationId: string) => void;
 }
 
-export function CompanyCard({ company, locations, onEditCompany, onEditLocation, onAddLocation }: CompanyCardProps) {
+export function CompanyCard({ company, locations, onEditCompany, onEditLocation, onAddLocation, onDeleteCompany, onDeleteLocation }: CompanyCardProps) {
   return (
     <Card className={company.status === 'pending' ? 'opacity-60' : ''}>
       <CardHeader>
@@ -32,19 +34,27 @@ export function CompanyCard({ company, locations, onEditCompany, onEditLocation,
                     <span className="text-sm text-muted-foreground">Waiting for approval</span>
                   </>
                 )}
-                {company.status === 'approved' && (
-                  <Badge variant="default">approved</Badge>
-                )}
                 {company.status === 'rejected' && (
-                  <Badge variant="destructive">rejected</Badge>
+                  <>
+                    <Badge variant="destructive">rejected</Badge>
+                    {company.rejection_reason && (
+                      <span className="text-sm text-red-600">Reason: {company.rejection_reason}</span>
+                    )}
+                  </>
                 )}
               </div>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => onEditCompany(company)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Company
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => onEditCompany(company)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Company
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => onDeleteCompany(company.id)}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -72,11 +82,13 @@ export function CompanyCard({ company, locations, onEditCompany, onEditLocation,
                           <span className="text-xs text-muted-foreground">Waiting for approval</span>
                         </>
                       )}
-                      {location.status === 'approved' && (
-                        <Badge variant="default" className="text-xs">approved</Badge>
-                      )}
                       {location.status === 'rejected' && (
-                        <Badge variant="destructive" className="text-xs">rejected</Badge>
+                        <>
+                          <Badge variant="destructive" className="text-xs">rejected</Badge>
+                          {location.rejection_reason && (
+                            <span className="text-xs text-red-600">Reason: {location.rejection_reason}</span>
+                          )}
+                        </>
                       )}
                     </div>
                     {(location.price_day || location.price_week || location.price_month) && (
@@ -90,10 +102,16 @@ export function CompanyCard({ company, locations, onEditCompany, onEditLocation,
                     )}
                   </div>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => onEditLocation(location)}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Location
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => onEditLocation(location)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Location
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => onDeleteLocation(location.id)}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </div>
               </div>
               {location.description && (
                 <p className="text-sm text-muted-foreground mt-2">{location.description}</p>

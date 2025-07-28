@@ -21,6 +21,7 @@ export type Database = {
           created_at: string
           id: string
           image: string | null
+          rejection_reason: string | null
           status: Database["public"]["Enums"]["status_type"]
           title: string
           updated_at: string
@@ -31,6 +32,7 @@ export type Database = {
           created_at?: string
           id?: string
           image?: string | null
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["status_type"]
           title: string
           updated_at?: string
@@ -41,6 +43,7 @@ export type Database = {
           created_at?: string
           id?: string
           image?: string | null
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["status_type"]
           title?: string
           updated_at?: string
@@ -103,6 +106,7 @@ export type Database = {
           name: string
           owner_id: string
           plan_id: string | null
+          rejection_reason: string | null
           status: Database["public"]["Enums"]["status_type"]
           updated_at: string
         }
@@ -115,6 +119,7 @@ export type Database = {
           name: string
           owner_id: string
           plan_id?: string | null
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["status_type"]
           updated_at?: string
         }
@@ -127,6 +132,7 @@ export type Database = {
           name?: string
           owner_id?: string
           plan_id?: string | null
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["status_type"]
           updated_at?: string
         }
@@ -163,6 +169,7 @@ export type Database = {
           price_month: number | null
           price_week: number | null
           rating: number | null
+          rejection_reason: string | null
           status: Database["public"]["Enums"]["status_type"]
           updated_at: string
         }
@@ -181,6 +188,7 @@ export type Database = {
           price_month?: number | null
           price_week?: number | null
           rating?: number | null
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["status_type"]
           updated_at?: string
         }
@@ -199,6 +207,7 @@ export type Database = {
           price_month?: number | null
           price_week?: number | null
           rating?: number | null
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["status_type"]
           updated_at?: string
         }
