@@ -7,7 +7,7 @@ import { useState } from 'react';
 interface PreviewDialogProps {
   showPreview: {type: string, item: any} | null;
   onClose: () => void;
-  onApproval: (table: 'companies' | 'locations' | 'articles', id: string, action: 'approved' | 'rejected', rejectionReason?: string) => void;
+  onApproval: (table: 'companies' | 'locations' | 'articles' | 'banners', id: string, action: 'approved' | 'rejected', rejectionReason?: string) => void;
 }
 
 export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialogProps) {
@@ -22,16 +22,20 @@ export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialo
       return;
     }
     
-    const table = showPreview.type === 'company' ? 'companies' : (showPreview.type === 'location' ? 'locations' : 'articles');
-    onApproval(table as 'companies' | 'locations' | 'articles', showPreview.item.id, action);
+    const table = showPreview.type === 'company' ? 'companies' : 
+                  showPreview.type === 'location' ? 'locations' : 
+                  showPreview.type === 'article' ? 'articles' : 'banners';
+    onApproval(table as 'companies' | 'locations' | 'articles' | 'banners', showPreview.item.id, action);
     onClose();
   };
 
   const handleRejectionSubmit = () => {
     if (!rejectionReason.trim()) return;
     
-    const table = showPreview.type === 'company' ? 'companies' : (showPreview.type === 'location' ? 'locations' : 'articles');
-    onApproval(table as 'companies' | 'locations' | 'articles', showPreview.item.id, 'rejected', rejectionReason);
+    const table = showPreview.type === 'company' ? 'companies' : 
+                  showPreview.type === 'location' ? 'locations' : 
+                  showPreview.type === 'article' ? 'articles' : 'banners';
+    onApproval(table as 'companies' | 'locations' | 'articles' | 'banners', showPreview.item.id, 'rejected', rejectionReason);
     setRejectionReason('');
     setShowRejectionForm(false);
     onClose();
@@ -48,7 +52,8 @@ export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialo
           <DialogHeader>
             <DialogTitle>
               {showPreview.type === 'company' ? 'Company Preview' : 
-               showPreview.type === 'location' ? 'Location Preview' : 'Article Preview'}
+               showPreview.type === 'location' ? 'Location Preview' : 
+               showPreview.type === 'article' ? 'Article Preview' : 'Banner Preview'}
             </DialogTitle>
           </DialogHeader>
           
@@ -247,6 +252,86 @@ export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialo
                   <p className="text-muted-foreground whitespace-pre-wrap">{showPreview.item.content}</p>
                 </div>
               </div>
+              
+              {!showRejectionForm ? (
+                <div className="flex gap-2 pt-4">
+                  <Button onClick={() => handleApproval('approved')}>
+                    Approve
+                  </Button>
+                  <Button variant="destructive" onClick={() => handleApproval('rejected')}>
+                    Deny
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="rejectionReason">Reason for Rejection *</Label>
+                    <Textarea
+                      id="rejectionReason"
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      placeholder="Please explain why this submission is being rejected..."
+                      rows={3}
+                      required
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="destructive" 
+                      onClick={handleRejectionSubmit}
+                      disabled={!rejectionReason.trim()}
+                    >
+                      Confirm Rejection
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowRejectionForm(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {showPreview.type === 'banner' && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold">Banner Preview</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Created: {new Date(showPreview.item.created_at).toLocaleDateString()}
+                  </p>
+                  {showPreview.item.companies?.name && (
+                    <p className="text-sm text-muted-foreground">
+                      Company: {showPreview.item.companies.name}
+                    </p>
+                  )}
+                </div>
+                {showPreview.item.companies?.logo && (
+                  <img 
+                    src={showPreview.item.companies.logo} 
+                    alt={showPreview.item.companies.name}
+                    className="w-16 h-16 object-cover rounded-lg"
+                  />
+                )}
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-2">Banner Text</h4>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-muted-foreground">{showPreview.item.text}</p>
+                </div>
+              </div>
+
+              {showPreview.item.image && (
+                <div>
+                  <h4 className="font-medium mb-2">Banner Image</h4>
+                  <img 
+                    src={showPreview.item.image} 
+                    alt="Banner"
+                    className="w-full max-w-md h-32 object-cover rounded-lg"
+                  />
+                </div>
+              )}
               
               {!showRejectionForm ? (
                 <div className="flex gap-2 pt-4">

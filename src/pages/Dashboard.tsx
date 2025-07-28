@@ -41,11 +41,13 @@ export default function Dashboard() {
   const [pendingCompanies, setPendingCompanies] = useState<any[]>([]);
   const [pendingLocations, setPendingLocations] = useState<any[]>([]);
   const [pendingArticles, setPendingArticles] = useState<PendingItem[]>([]);
+  const [pendingBanners, setPendingBanners] = useState<any[]>([]);
 
   // User's companies and locations for host
   const [userCompanies, setUserCompanies] = useState<any[]>([]);
   const [userLocations, setUserLocations] = useState<any[]>([]);
   const [userArticles, setUserArticles] = useState<any[]>([]);
+  const [userBanners, setUserBanners] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState<{type: string, item: any} | null>(null);
   
   // Confirmation dialog state
@@ -93,15 +95,17 @@ export default function Dashboard() {
 
   const fetchPendingItems = async () => {
     try {
-      const [companiesRes, locationsRes, articlesRes] = await Promise.all([
+      const [companiesRes, locationsRes, articlesRes, bannersRes] = await Promise.all([
         supabase.from('companies').select('*, profiles(username)').eq('status', 'pending'),
         supabase.from('locations').select('*, companies(name, logo)').eq('status', 'pending'),
-        supabase.from('articles').select('*, companies(name, logo)').eq('status', 'pending')
+        supabase.from('articles').select('*, companies(name, logo)').eq('status', 'pending'),
+        supabase.from('banners').select('*, companies(name, logo)').eq('status', 'pending')
       ]);
 
       setPendingCompanies(companiesRes.data || []);
       setPendingLocations(locationsRes.data || []);
       setPendingArticles((articlesRes.data || []).map(article => ({ ...article, name: article.title })));
+      setPendingBanners((bannersRes.data || []).map(banner => ({ ...banner, name: `Banner: ${banner.text?.substring(0, 30)}...` })));
     } catch (error) {
       console.error('Error fetching pending items:', error);
     }
@@ -109,10 +113,11 @@ export default function Dashboard() {
 
   const fetchUserSpaces = async () => {
     try {
-      const [companiesRes, locationsRes, articlesRes] = await Promise.all([
+      const [companiesRes, locationsRes, articlesRes, bannersRes] = await Promise.all([
         supabase.from('companies').select('*').eq('owner_id', user?.id),
         supabase.from('locations').select('*, companies(name, logo)'),
-        supabase.from('articles').select('*, companies(name, logo)')
+        supabase.from('articles').select('*, companies(name, logo)'),
+        supabase.from('banners').select('*, companies(name, logo)')
       ]);
 
       setUserCompanies(companiesRes.data || []);
@@ -129,12 +134,18 @@ export default function Dashboard() {
         userCompanyIds.includes(a.company_id)
       );
       setUserArticles(userOwnedArticles);
+
+      // Filter banners that belong to user's companies
+      const userOwnedBanners = (bannersRes.data || []).filter(b => 
+        userCompanyIds.includes(b.company_id)
+      );
+      setUserBanners(userOwnedBanners);
     } catch (error) {
       console.error('Error fetching user spaces:', error);
     }
   };
 
-  const handleApproval = async (table: 'companies' | 'locations' | 'articles', id: string, action: 'approved' | 'rejected', rejectionReason?: string) => {
+  const handleApproval = async (table: 'companies' | 'locations' | 'articles' | 'banners', id: string, action: 'approved' | 'rejected', rejectionReason?: string) => {
     try {
       const updateData: any = { status: action };
       if (action === 'rejected' && rejectionReason) {
@@ -433,10 +444,30 @@ export default function Dashboard() {
                         <p className="text-muted-foreground">No articles yet.</p>
                       )}
                       
-                      <div className="mt-6 pt-6 border-t">
-                        <h6 className="font-medium mb-3">Banners</h6>
-                        <BannerForm companyId={company.id} onSuccess={fetchUserSpaces} />
-                      </div>
+                       <div className="mt-6 pt-6 border-t">
+                         <h6 className="font-medium mb-3">Banners</h6>
+                         <div className="space-y-4 mb-4">
+                           {userBanners.filter(banner => banner.company_id === company.id).map((banner) => (
+                             <div key={banner.id} className={`p-3 border rounded-lg ${banner.status === 'pending' ? 'opacity-60' : ''}`}>
+                               <div className="flex items-center justify-between">
+                                 <div className="flex-1">
+                                   <p className="text-sm font-medium">{banner.text}</p>
+                                   {banner.image && (
+                                     <p className="text-xs text-muted-foreground">With image</p>
+                                   )}
+                                 </div>
+                                 <div className="text-xs text-muted-foreground">
+                                   Status: {banner.status === 'pending' ? 'Pending Review' : banner.status === 'approved' ? 'Approved' : 'Rejected'}
+                                   {banner.rejection_reason && (
+                                     <span className="text-destructive block">- {banner.rejection_reason}</span>
+                                   )}
+                                 </div>
+                               </div>
+                             </div>
+                           ))}
+                         </div>
+                         <BannerForm companyId={company.id} onSuccess={fetchUserSpaces} />
+                       </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -522,7 +553,7 @@ export default function Dashboard() {
 
       {userRole === 'admin' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Pending Companies */}
             <Card>
               <CardHeader>
@@ -622,10 +653,44 @@ export default function Dashboard() {
                     </div>
                   ))
                 )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+               </CardContent>
+             </Card>
+
+             {/* Pending Banners */}
+             <Card>
+               <CardHeader>
+                 <CardTitle className="flex items-center gap-2">
+                   <FileText className="h-5 w-5" />
+                   Pending Banners ({pendingBanners.length})
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="space-y-3">
+                 {pendingBanners.length === 0 ? (
+                   <p className="text-muted-foreground text-sm">No pending banners</p>
+                 ) : (
+                   pendingBanners.map((banner) => (
+                     <div key={banner.id} className="p-3 border rounded-lg space-y-2">
+                       <h4 className="font-medium text-sm">{banner.name}</h4>
+                       <p className="text-sm text-muted-foreground">
+                         {new Date(banner.created_at).toLocaleDateString()}
+                       </p>
+                       <div className="flex gap-2">
+                         <Button 
+                           size="sm" 
+                           variant="outline"
+                           onClick={() => setShowPreview({type: 'banner', item: banner})}
+                         >
+                           <Eye className="h-4 w-4 mr-1" />
+                           Preview & Decide
+                         </Button>
+                       </div>
+                     </div>
+                   ))
+                 )}
+               </CardContent>
+             </Card>
+           </div>
+         </div>
       )}
 
       <PreviewDialog
