@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { X, Plus } from 'lucide-react';
 
 interface LocationFormProps {
   location?: any;
@@ -19,7 +20,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [mainPhotoFile, setMainPhotoFile] = useState<File | null>(null);
-  const [photoFiles, setPhotoFiles] = useState<(File | null)[]>([null, null, null, null, null]);
+  const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
   
   const [formData, setFormData] = useState({
     name: location?.name || '',
@@ -27,7 +28,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
     city: location?.city || '',
     description: location?.description || '',
     mainPhoto: location?.main_photo || '',
-    photos: location?.photos || ['', '', '', '', ''],
+    existingPhotos: location?.photos || [],
     priceDay: location?.price_day || '',
     priceWeek: location?.price_week || '',
     priceMonth: location?.price_month || ''
@@ -57,6 +58,17 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate main photo is required
+    if (!mainPhotoFile && !formData.mainPhoto.trim()) {
+      toast({
+        title: "Error",
+        description: "Main photo is required.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -69,15 +81,14 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
         mainPhotoUrl = await uploadFile(mainPhotoFile, 'location-photos', mainPhotoPath) || '';
       }
 
-      // Upload gallery photos
-      for (let i = 0; i < photoFiles.length; i++) {
-        if (photoFiles[i]) {
-          const photoPath = `${user?.id}/${Date.now()}-photo-${i}.${photoFiles[i]!.name.split('.').pop()}`;
-          const photoUrl = await uploadFile(photoFiles[i]!, 'location-photos', photoPath);
-          if (photoUrl) photoUrls.push(photoUrl);
-        } else if (formData.photos[i].trim() !== '') {
-          photoUrls.push(formData.photos[i]);
-        }
+      // Keep existing photos
+      photoUrls.push(...formData.existingPhotos);
+
+      // Upload new gallery photos
+      for (let i = 0; i < selectedPhotos.length; i++) {
+        const photoPath = `${user?.id}/${Date.now()}-photo-${i}.${selectedPhotos[i].name.split('.').pop()}`;
+        const photoUrl = await uploadFile(selectedPhotos[i], 'location-photos', photoPath);
+        if (photoUrl) photoUrls.push(photoUrl);
       }
 
       const locationData = {
@@ -223,60 +234,114 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="mainPhoto">Main Photo</Label>
+          <Label htmlFor="mainPhoto">Main Photo *</Label>
           <Input
             id="mainPhoto"
             type="file"
             accept="image/*"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) setMainPhotoFile(file);
+              if (file) {
+                setMainPhotoFile(file);
+                setFormData(prev => ({ ...prev, mainPhoto: '' })); // Clear URL when file is selected
+              }
             }}
           />
           {mainPhotoFile && (
             <p className="text-sm text-muted-foreground">Selected: {mainPhotoFile.name}</p>
           )}
-          <div className="text-sm text-muted-foreground">Or provide URL:</div>
-          <Input
-            type="url"
-            value={formData.mainPhoto}
-            onChange={(e) => setFormData(prev => ({ ...prev, mainPhoto: e.target.value }))}
-            placeholder="https://example.com/main-photo.jpg"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Photo Gallery (up to 5 photos)</Label>
-          {formData.photos.map((photo, index) => (
-            <div key={index} className="space-y-2">
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const newPhotoFiles = [...photoFiles];
-                    newPhotoFiles[index] = file;
-                    setPhotoFiles(newPhotoFiles);
-                  }
-                }}
-              />
-              {photoFiles[index] && (
-                <p className="text-sm text-muted-foreground">Selected: {photoFiles[index]!.name}</p>
-              )}
+          {!mainPhotoFile && (
+            <>
               <div className="text-sm text-muted-foreground">Or provide URL:</div>
               <Input
                 type="url"
-                value={photo}
-                onChange={(e) => {
-                  const newPhotos = [...formData.photos];
-                  newPhotos[index] = e.target.value;
-                  setFormData(prev => ({ ...prev, photos: newPhotos }));
-                }}
-                placeholder={`Photo ${index + 1} URL`}
+                value={formData.mainPhoto}
+                onChange={(e) => setFormData(prev => ({ ...prev, mainPhoto: e.target.value }))}
+                placeholder="https://example.com/main-photo.jpg"
               />
+            </>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label>Additional Photos (up to 5 total)</Label>
+          
+          {/* Existing photos from database */}
+          {formData.existingPhotos.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">Existing Photos:</div>
+              <div className="flex flex-wrap gap-2">
+                {formData.existingPhotos.map((photo, index) => (
+                  <div key={index} className="flex items-center gap-2 bg-muted rounded-md px-3 py-2">
+                    <span className="text-sm truncate max-w-[200px]">Photo {index + 1}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0"
+                      onClick={() => {
+                        const newPhotos = formData.existingPhotos.filter((_, i) => i !== index);
+                        setFormData(prev => ({ ...prev, existingPhotos: newPhotos }));
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+          )}
+
+          {/* New photos to upload */}
+          {selectedPhotos.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">New Photos to Upload:</div>
+              <div className="flex flex-wrap gap-2">
+                {selectedPhotos.map((photo, index) => (
+                  <div key={index} className="flex items-center gap-2 bg-muted rounded-md px-3 py-2">
+                    <span className="text-sm truncate max-w-[200px]">{photo.name}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0"
+                      onClick={() => {
+                        setSelectedPhotos(photos => photos.filter((_, i) => i !== index));
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add photo button */}
+          {(formData.existingPhotos.length + selectedPhotos.length) < 5 && (
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full flex items-center gap-2"
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*';
+                  input.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file && (formData.existingPhotos.length + selectedPhotos.length) < 5) {
+                      setSelectedPhotos(prev => [...prev, file]);
+                    }
+                  };
+                  input.click();
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Add Photo ({formData.existingPhotos.length + selectedPhotos.length}/5)
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
