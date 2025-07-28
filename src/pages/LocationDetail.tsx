@@ -133,7 +133,19 @@ const LocationDetail = () => {
                   </Badge>
                 )}
               </div>
-              <p className="text-lg text-muted-foreground">{location.company?.name}</p>
+              <div className="flex items-center gap-3">
+                {location.companies?.logo && (
+                  <img
+                    src={location.companies.logo}
+                    alt={location.companies.name}
+                    className="h-8 w-8 rounded-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                )}
+                <p className="text-lg text-muted-foreground">{location.companies?.name}</p>
+              </div>
             </div>
 
             <div className="flex items-center text-muted-foreground">

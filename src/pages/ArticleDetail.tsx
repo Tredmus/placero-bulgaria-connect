@@ -106,6 +106,16 @@ const ArticleDetail = () => {
               
               <div className="flex items-center gap-6 text-muted-foreground">
                 <div className="flex items-center">
+                  {article.companies?.logo && (
+                    <img
+                      src={article.companies.logo}
+                      alt={article.companies.name}
+                      className="h-5 w-5 rounded-full object-cover mr-2"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  )}
                   <User className="h-4 w-4 mr-2" />
                   <span>{article.companies?.name}</span>
                 </div>
