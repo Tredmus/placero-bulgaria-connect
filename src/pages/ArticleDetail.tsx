@@ -28,7 +28,7 @@ const ArticleDetail = () => {
     };
 
     fetchArticle();
-  }, [id, getArticleById]);
+  }, [id]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('bg-BG', {

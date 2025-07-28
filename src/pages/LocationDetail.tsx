@@ -41,7 +41,7 @@ const LocationDetail = () => {
     };
 
     fetchLocation();
-  }, [id, getLocationById]);
+  }, [id]);
 
   if (loading) {
     return (

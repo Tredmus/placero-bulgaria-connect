@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 
@@ -54,7 +54,7 @@ export function useArticles(filters: ArticleFilters = {}) {
     }
   };
 
-  const getArticleById = async (id: string) => {
+  const getArticleById = useCallback(async (id: string) => {
     try {
       const { data, error } = await supabase
         .from('articles')
@@ -75,7 +75,7 @@ export function useArticles(filters: ArticleFilters = {}) {
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to fetch article');
     }
-  };
+  }, []);
 
   return {
     articles,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 
@@ -75,7 +75,7 @@ export function useLocations(filters: LocationFilters = {}) {
     }
   };
 
-  const getLocationById = async (id: string) => {
+  const getLocationById = useCallback(async (id: string) => {
     try {
       const { data, error } = await supabase
         .from('locations')
@@ -96,7 +96,7 @@ export function useLocations(filters: LocationFilters = {}) {
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to fetch location');
     }
-  };
+  }, []);
 
   return {
     locations,
