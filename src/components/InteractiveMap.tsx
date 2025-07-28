@@ -4,7 +4,8 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useLocations } from '@/hooks/useLocations';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { MapPin, Building2 } from 'lucide-react';
+import { MapPin, Building2, RotateCcw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 // Bulgaria provinces (oblasti) with their approximate coordinates
 const bulgariaProvinces = [
@@ -50,13 +51,32 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
   const [mapboxToken, setMapboxToken] = useState<string>('');
   const { locations } = useLocations();
 
-  // For now, ask user to enter Mapbox token (you should add this to Supabase Edge Function Secrets)
+  // Fetch Mapbox token from edge function or use the provided token
   useEffect(() => {
-    const token = prompt('Please enter your Mapbox public token (get it from https://mapbox.com):');
-    if (token) {
-      setMapboxToken(token);
-      mapboxgl.accessToken = token;
-    }
+    const fetchMapboxToken = async () => {
+      try {
+        // Try to get token from edge function
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        
+        if (data?.token) {
+          setMapboxToken(data.token);
+          mapboxgl.accessToken = data.token;
+        } else {
+          // Fallback: use hardcoded token for now
+          const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+          setMapboxToken(token);
+          mapboxgl.accessToken = token;
+        }
+      } catch (error) {
+        console.log('Edge function not available, using fallback token');
+        // Use the provided token as fallback
+        const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+        setMapboxToken(token);
+        mapboxgl.accessToken = token;
+      }
+    };
+    
+    fetchMapboxToken();
   }, []);
 
   useEffect(() => {
@@ -82,21 +102,42 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         
         const locationCount = provinceLocations.length;
         
-        // Create a pulsating marker for each province
+        // Create an enhanced animated marker for each province
         const el = document.createElement('div');
         el.className = 'province-marker';
         el.style.cssText = `
-          width: ${Math.max(40, locationCount * 8)}px;
-          height: ${Math.max(40, locationCount * 8)}px;
-          background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-foreground)));
-          border: 3px solid hsl(var(--primary-foreground));
+          width: ${Math.max(45, locationCount * 10)}px;
+          height: ${Math.max(45, locationCount * 10)}px;
+          background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 50%, hsl(var(--primary-foreground)) 100%);
+          border: 3px solid hsl(var(--background));
           border-radius: 50%;
           cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
           position: relative;
           transform-origin: center;
-          box-shadow: 0 4px 20px hsl(var(--primary) / 0.3);
+          box-shadow: 
+            0 0 0 0 hsl(var(--primary) / 0.7),
+            0 8px 25px hsl(var(--primary) / 0.4),
+            inset 0 1px 3px hsl(var(--primary-foreground) / 0.3);
+          animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         `;
+        
+        // Add CSS animation for pulsing ring effect
+        if (!document.querySelector('#province-marker-styles')) {
+          const style = document.createElement('style');
+          style.id = 'province-marker-styles';
+          style.textContent = `
+            @keyframes pulse-ring {
+              0% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.7), 0 8px 25px hsl(var(--primary) / 0.4), inset 0 1px 3px hsl(var(--primary-foreground) / 0.3); }
+              50% { box-shadow: 0 0 0 10px hsl(var(--primary) / 0.1), 0 8px 25px hsl(var(--primary) / 0.4), inset 0 1px 3px hsl(var(--primary-foreground) / 0.3); }
+              100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0), 0 8px 25px hsl(var(--primary) / 0.4), inset 0 1px 3px hsl(var(--primary-foreground) / 0.3); }
+            }
+            .province-marker:hover {
+              animation-play-state: paused;
+            }
+          `;
+          document.head.appendChild(style);
+        }
 
         // Add inner content
         const content = document.createElement('div');
