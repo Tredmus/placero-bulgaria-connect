@@ -1,9 +1,12 @@
 import { ArrowRight, Building2, Users, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import heroImage from "@/assets/hero-workspace.jpg";
 
 const HeroSection = () => {
+  const { user } = useAuth();
+  
   return (
     <section className="relative bg-background">
       <div className="container mx-auto px-4 py-16 lg:py-24">
@@ -27,11 +30,13 @@ const HeroSection = () => {
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-              <Link to="/auth?tab=signup">
-                <Button size="lg" variant="outline">
-                  Станете партньор
-                </Button>
-              </Link>
+              {!user && (
+                <Link to="/auth?tab=signup">
+                  <Button size="lg" variant="outline">
+                    Станете партньор
+                  </Button>
+                </Link>
+              )}
             </div>
 
             {/* Stats */}

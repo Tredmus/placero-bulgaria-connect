@@ -39,6 +39,9 @@ const Header = () => {
             <Link to="/locations">
               <Button variant="ghost">Workspaces</Button>
             </Link>
+            <Link to="/articles">
+              <Button variant="ghost">Статии</Button>
+            </Link>
             
             {user ? (
               <div className="flex items-center space-x-3">
