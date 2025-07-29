@@ -77,19 +77,27 @@ const BulgariaInteractiveMap = ({ onProvinceSelect }: BulgariaInteractiveMapProp
   // Fetch Mapbox token
   useEffect(() => {
     const fetchMapboxToken = async () => {
+      console.log('🗺️ Starting to fetch Mapbox token...');
       try {
         const { data, error } = await supabase.functions.invoke('get-mapbox-token');
         
-        if (error) throw error;
+        console.log('🗺️ Token fetch response:', { data, error });
+        
+        if (error) {
+          console.error('🗺️ Token fetch error:', error);
+          throw error;
+        }
         
         if (data?.token) {
+          console.log('🗺️ Token received successfully');
           setMapboxToken(data.token);
         } else {
+          console.warn('🗺️ No token in response, using fallback');
           // Fallback token
           setMapboxToken('pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4M29iazA2Z2gycXA4N2pmbDZmangifQ.-g_vE53SD2WrJ6tFX7QHmA');
         }
       } catch (error) {
-        console.error('Error fetching Mapbox token:', error);
+        console.error('🗺️ Error fetching Mapbox token:', error);
         // Fallback token
         setMapboxToken('pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4M29iazA2Z2gycXA4N2pmbDZmangifQ.-g_vE53SD2WrJ6tFX7QHmA');
       }
@@ -98,35 +106,74 @@ const BulgariaInteractiveMap = ({ onProvinceSelect }: BulgariaInteractiveMapProp
     fetchMapboxToken();
   }, []);
 
+  // Add timeout for loading state
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        console.warn('🗺️ Map loading timeout after 15 seconds');
+        setIsLoading(false);
+      }
+    }, 15000);
+
+    return () => clearTimeout(timeout);
+  }, [isLoading]);
+
   // Initialize map
   useEffect(() => {
-    if (!mapContainer.current || !mapboxToken) return;
+    if (!mapContainer.current || !mapboxToken) {
+      console.log('🗺️ Cannot initialize map - missing container or token', { 
+        hasContainer: !!mapContainer.current, 
+        hasToken: !!mapboxToken 
+      });
+      return;
+    }
 
-    mapboxgl.accessToken = mapboxToken;
+    console.log('🗺️ Initializing map with token...');
     
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      bounds: BULGARIA_BOUNDS,
-      fitBoundsOptions: {
-        padding: 20
-      },
-      maxBounds: [
-        [BULGARIA_BOUNDS[0] - 2, BULGARIA_BOUNDS[1] - 2], // Southwest
-        [BULGARIA_BOUNDS[2] + 2, BULGARIA_BOUNDS[3] + 2]  // Northeast
-      ]
-    });
+    try {
+      mapboxgl.accessToken = mapboxToken;
+      
+      console.log('🗺️ Creating map instance...');
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        bounds: BULGARIA_BOUNDS,
+        fitBoundsOptions: {
+          padding: 20
+        },
+        maxBounds: [
+          [BULGARIA_BOUNDS[0] - 2, BULGARIA_BOUNDS[1] - 2], // Southwest
+          [BULGARIA_BOUNDS[2] + 2, BULGARIA_BOUNDS[3] + 2]  // Northeast
+        ]
+      });
 
-    // Add navigation controls
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      console.log('🗺️ Map instance created, adding controls...');
+      
+      // Add navigation controls
+      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    map.current.on('load', () => {
+      // Add error handling
+      map.current.on('error', (e) => {
+        console.error('🗺️ Map error:', e);
+        setIsLoading(false);
+      });
+
+      map.current.on('load', () => {
+        console.log('🗺️ Map loaded successfully!');
+        setIsLoading(false);
+        addProvinceMarkers();
+      });
+
+      console.log('🗺️ Map setup complete, waiting for load event...');
+
+    } catch (error) {
+      console.error('🗺️ Error initializing map:', error);
       setIsLoading(false);
-      addProvinceMarkers();
-    });
+    }
 
     return () => {
       if (map.current) {
+        console.log('🗺️ Cleaning up map...');
         map.current.remove();
       }
     };
