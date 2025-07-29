@@ -177,11 +177,16 @@ const BulgariaInteractiveMap = ({ onProvinceSelect }: BulgariaInteractiveMapProp
         map.current.remove();
       }
     };
-  }, [mapboxToken]);
+  }, [mapboxToken, locations]); // Add locations to dependencies
 
   // Add province markers
   const addProvinceMarkers = () => {
-    if (!map.current) return;
+    if (!map.current) {
+      console.log('🗺️ Cannot add markers - no map instance');
+      return;
+    }
+
+    console.log('🗺️ Adding province markers...', { provinceCount: bulgarianProvinces.length, locationCounts });
 
     // Clear existing markers
     markers.current.forEach(marker => marker.remove());
@@ -323,7 +328,7 @@ const BulgariaInteractiveMap = ({ onProvinceSelect }: BulgariaInteractiveMapProp
       </div>
 
       <div className="relative bg-background rounded-lg overflow-hidden shadow-lg">
-        <div ref={mapContainer} className="w-full h-96" />
+        <div ref={mapContainer} className="w-full h-96 bg-muted/20" />
         
         {selectedProvince && (
           <div className="absolute top-4 left-4 bg-background/95 backdrop-blur-sm rounded-lg p-4 shadow-lg">
