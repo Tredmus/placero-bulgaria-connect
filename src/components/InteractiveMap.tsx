@@ -4,7 +4,8 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useLocations } from '@/hooks/useLocations';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { MapPin, Building2, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { MapPin, Building2, RotateCcw, Star, Wifi, Coffee, Car, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 // Bulgaria provinces (oblasti) with their approximate coordinates
@@ -45,11 +46,20 @@ interface InteractiveMapProps {
 const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
   const [provinceLocations, setProvinceLocations] = useState<any[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string>('');
   const { locations } = useLocations();
+
+  const amenityIcons = {
+    wifi: Wifi,
+    coffee: Coffee,
+    parking: Car,
+    meeting: Users,
+  };
 
   // Fetch Mapbox token from edge function or use the provided token
   useEffect(() => {
@@ -79,22 +89,74 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
     fetchMapboxToken();
   }, []);
 
+  // Clear all markers
+  const clearMarkers = () => {
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+  };
+
+  // Add province locations as individual markers
+  const addLocationMarkers = (provinceLocations: any[]) => {
+    clearMarkers();
+    
+    provinceLocations.forEach((location) => {
+      if (!location.latitude || !location.longitude) return;
+
+      const el = document.createElement('div');
+      el.className = 'location-marker';
+      el.style.cssText = `
+        width: 30px;
+        height: 30px;
+        background: hsl(var(--primary));
+        border: 2px solid hsl(var(--background));
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        transform-origin: center;
+        box-shadow: 0 4px 12px hsl(var(--primary) / 0.4);
+      `;
+
+      el.addEventListener('mouseenter', () => {
+        el.style.transform = 'scale(1.3)';
+        el.style.boxShadow = '0 6px 20px hsl(var(--primary) / 0.6)';
+      });
+
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'scale(1)';
+        el.style.boxShadow = '0 4px 12px hsl(var(--primary) / 0.4)';
+      });
+
+      el.addEventListener('click', () => {
+        setSelectedLocation(location);
+      });
+
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([location.longitude, location.latitude])
+        .addTo(map.current!);
+      
+      markersRef.current.push(marker);
+    });
+  };
+
   useEffect(() => {
     if (!mapContainer.current || !mapboxToken) return;
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11', // Dark theme
-      center: [25.4858, 42.7339], // Center of Bulgaria
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [25.4858, 42.7339],
       zoom: 6.5,
-      projection: 'mercator'
+      projection: 'mercator',
+      maxZoom: 18,
+      minZoom: 5
     });
 
     map.current.on('load', () => {
       if (!map.current) return;
 
       // Add Bulgaria provinces as circles with hover effects
-      bulgariaProvinces.forEach((province, index) => {
+      bulgariaProvinces.forEach((province) => {
         const provinceLocations = locations.filter(loc => 
           loc.city.toLowerCase().includes(province.nameEn.toLowerCase()) ||
           loc.city.toLowerCase().includes(province.name.toLowerCase())
@@ -102,7 +164,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         
         const locationCount = provinceLocations.length;
         
-        // Create an enhanced animated marker for each province
+        // Create marker element
         const el = document.createElement('div');
         el.className = 'province-marker';
         el.style.cssText = `
@@ -151,40 +213,55 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
           font-weight: bold;
           text-align: center;
           line-height: 1;
+          pointer-events: none;
         `;
         content.innerHTML = `${locationCount}<br><span style="font-size: 8px;">${province.name}</span>`;
         el.appendChild(content);
+
+        // Create popup for hover info
+        const popup = new mapboxgl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          offset: [0, -15]
+        });
 
         // Add hover effects
         el.addEventListener('mouseenter', () => {
           setHoveredProvince(province.name);
           el.style.transform = 'scale(1.2)';
           el.style.boxShadow = '0 8px 30px hsl(var(--primary) / 0.5)';
+          
+          // Show popup
+          popup.setLngLat(province.coordinates as [number, number])
+            .setHTML(`
+              <div style="padding: 8px; background: hsl(var(--background)); border: 1px solid hsl(var(--border)); border-radius: 6px; color: hsl(var(--foreground)); font-size: 12px;">
+                <strong>${province.name}</strong><br>
+                ${locationCount} офиса
+              </div>
+            `)
+            .addTo(map.current!);
         });
 
         el.addEventListener('mouseleave', () => {
           setHoveredProvince(null);
           el.style.transform = 'scale(1)';
           el.style.boxShadow = '0 4px 20px hsl(var(--primary) / 0.3)';
+          popup.remove();
         });
 
         el.addEventListener('click', () => {
-          setSelectedProvince(province.name);
-          setProvinceLocations(provinceLocations);
-          onProvinceSelect?.(province.name);
-          
-          // Animate to province
-          map.current?.flyTo({
-            center: province.coordinates as [number, number],
-            zoom: 9,
-            duration: 2000
-          });
+          handleProvinceSelect(province.name, provinceLocations, province.coordinates);
         });
 
-        // Add marker to map
-        new mapboxgl.Marker(el)
+        // Add marker to map (anchored to fix positioning issues)
+        const marker = new mapboxgl.Marker({
+          element: el,
+          anchor: 'center'
+        })
           .setLngLat(province.coordinates as [number, number])
           .addTo(map.current!);
+        
+        markersRef.current.push(marker);
       });
     });
 
@@ -192,14 +269,97 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     return () => {
+      clearMarkers();
       map.current?.remove();
     };
   }, [mapboxToken, locations, onProvinceSelect]);
+
+  // Handle province selection
+  const handleProvinceSelect = (provinceName: string, provinceLocations: any[], coordinates: number[]) => {
+    setSelectedProvince(provinceName);
+    setProvinceLocations(provinceLocations);
+    setSelectedLocation(null);
+    onProvinceSelect?.(provinceName);
+    
+    // Clear province markers and add location markers
+    clearMarkers();
+    addLocationMarkers(provinceLocations);
+    
+    // Animate to province
+    map.current?.flyTo({
+      center: coordinates as [number, number],
+      zoom: 10,
+      duration: 2000
+    });
+  };
 
   // Reset view function
   const resetView = () => {
     setSelectedProvince(null);
     setProvinceLocations([]);
+    setSelectedLocation(null);
+    clearMarkers();
+    
+    // Re-add province markers
+    if (map.current) {
+      bulgariaProvinces.forEach((province) => {
+        const provinceLocations = locations.filter(loc => 
+          loc.city.toLowerCase().includes(province.nameEn.toLowerCase()) ||
+          loc.city.toLowerCase().includes(province.name.toLowerCase())
+        );
+        
+        const locationCount = provinceLocations.length;
+        
+        const el = document.createElement('div');
+        el.className = 'province-marker';
+        el.style.cssText = `
+          width: ${Math.max(45, locationCount * 10)}px;
+          height: ${Math.max(45, locationCount * 10)}px;
+          background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 50%, hsl(var(--primary-foreground)) 100%);
+          border: 3px solid hsl(var(--background));
+          border-radius: 50%;
+          cursor: pointer;
+          transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+          position: relative;
+          transform-origin: center;
+          box-shadow: 
+            0 0 0 0 hsl(var(--primary) / 0.7),
+            0 8px 25px hsl(var(--primary) / 0.4),
+            inset 0 1px 3px hsl(var(--primary-foreground) / 0.3);
+          animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        `;
+
+        const content = document.createElement('div');
+        content.style.cssText = `
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          color: hsl(var(--primary-foreground));
+          font-size: 12px;
+          font-weight: bold;
+          text-align: center;
+          line-height: 1;
+          pointer-events: none;
+        `;
+        content.innerHTML = `${locationCount}<br><span style="font-size: 8px;">${province.name}</span>`;
+        el.appendChild(content);
+
+        el.addEventListener('click', () => {
+          handleProvinceSelect(province.name, provinceLocations, province.coordinates);
+        });
+
+        const marker = new mapboxgl.Marker({
+          element: el,
+          anchor: 'center'
+        })
+          .setLngLat(province.coordinates as [number, number])
+          .addTo(map.current!);
+        
+        markersRef.current.push(marker);
+      });
+    }
+    
     map.current?.flyTo({
       center: [25.4858, 42.7339],
       zoom: 6.5,
@@ -224,14 +384,10 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
     <div className="bg-secondary/50 rounded-lg p-8">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-2xl font-bold">Изберете регион</h3>
-        {selectedProvince && (
-          <button
-            onClick={resetView}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            Покажи всички региони
-          </button>
-        )}
+        <Button onClick={resetView} variant="outline" className="flex items-center gap-2">
+          <RotateCcw className="h-4 w-4" />
+          Покажи всички региони
+        </Button>
       </div>
       
       <div className="relative">
@@ -240,20 +396,6 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
           ref={mapContainer}
           className="w-full h-96 rounded-lg overflow-hidden border border-border shadow-lg"
         />
-        
-        {/* Hover Info */}
-        {hoveredProvince && !selectedProvince && (
-          <div className="absolute top-4 left-4 z-10">
-            <Card>
-              <CardContent className="p-3">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  <span className="font-medium">{hoveredProvince}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
         
         {/* Selected Province Info */}
         {selectedProvince && (
@@ -271,45 +413,113 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
             </Card>
           </div>
         )}
+
+        {/* Location Preview Popup */}
+        {selectedLocation && (
+          <div className="absolute top-4 right-4 z-20 w-80">
+            <Card className="shadow-xl">
+              <div className="relative">
+                {selectedLocation.image && (
+                  <img
+                    src={selectedLocation.image}
+                    alt={selectedLocation.name}
+                    className="w-full h-32 object-cover rounded-t-lg"
+                  />
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2 bg-background/80 hover:bg-background"
+                  onClick={() => setSelectedLocation(null)}
+                >
+                  ×
+                </Button>
+              </div>
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="font-semibold text-lg">{selectedLocation.name}</h3>
+                    {selectedLocation.companies && (
+                      <p className="text-sm text-muted-foreground">{selectedLocation.companies.name}</p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    <span>{selectedLocation.address}</span>
+                  </div>
+
+                  {selectedLocation.amenities && selectedLocation.amenities.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedLocation.amenities.slice(0, 4).map((amenity: string) => {
+                        const IconComponent = amenityIcons[amenity as keyof typeof amenityIcons];
+                        return (
+                          <div key={amenity} className="flex items-center text-xs text-muted-foreground">
+                            {IconComponent && <IconComponent className="h-3 w-3 mr-1" />}
+                            <span className="capitalize">{amenity}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-2">
+                    {selectedLocation.price_day && (
+                      <div>
+                        <span className="text-lg font-semibold">{selectedLocation.price_day}лв</span>
+                        <span className="text-sm text-muted-foreground">/ден</span>
+                      </div>
+                    )}
+                    {selectedLocation.rating && (
+                      <Badge variant="outline" className="flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        {selectedLocation.rating}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
 
-      {/* Province List */}
-      {!selectedProvince && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-6">
-          {bulgariaProvinces.map((province) => {
-            const provinceLocations = locations.filter(loc => 
-              loc.city.toLowerCase().includes(province.nameEn.toLowerCase()) ||
-              loc.city.toLowerCase().includes(province.name.toLowerCase())
-            );
-            
-            return (
-              <div
-                key={province.name}
-                onClick={() => {
-                  setSelectedProvince(province.name);
-                  setProvinceLocations(provinceLocations);
-                  onProvinceSelect?.(province.name);
-                  map.current?.flyTo({
-                    center: province.coordinates as [number, number],
-                    zoom: 9,
-                    duration: 2000
-                  });
-                }}
-                className="p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 hover:scale-105"
-              >
-                <div className="text-center">
-                  <h4 className="font-semibold text-sm">{province.name}</h4>
-                  <p className="text-xs text-muted-foreground">
-                    {provinceLocations.length} офиса
-                  </p>
-                </div>
+      {/* Province List - Always visible */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-6">
+        {bulgariaProvinces.map((province) => {
+          const provinceLocations = locations.filter(loc => 
+            loc.city.toLowerCase().includes(province.nameEn.toLowerCase()) ||
+            loc.city.toLowerCase().includes(province.name.toLowerCase())
+          );
+          
+          const isSelected = selectedProvince === province.name;
+          
+          return (
+            <div
+              key={province.name}
+              onClick={() => {
+                if (isSelected) {
+                  resetView();
+                } else {
+                  handleProvinceSelect(province.name, provinceLocations, province.coordinates);
+                }
+              }}
+              className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 hover:scale-105 ${
+                isSelected ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : ''
+              }`}
+            >
+              <div className="text-center">
+                <h4 className="font-semibold text-sm">{province.name}</h4>
+                <p className="text-xs text-muted-foreground">
+                  {provinceLocations.length} офиса
+                </p>
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+          );
+        })}
+      </div>
 
-      {/* Selected Province Locations */}
+      {/* Selected Province Locations List */}
       {selectedProvince && provinceLocations.length > 0 && (
         <div className="mt-6">
           <h4 className="text-lg font-semibold mb-4">
@@ -317,17 +527,30 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {provinceLocations.map((location) => (
-              <Card key={location.id} className="hover:shadow-lg transition-shadow">
+              <Card 
+                key={location.id} 
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => setSelectedLocation(location)}
+              >
                 <CardContent className="p-4">
                   <h5 className="font-semibold mb-2">{location.name}</h5>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {location.address}
-                  </p>
-                  {location.price_day && (
-                    <Badge variant="outline">
-                      {location.price_day} лв./ден
-                    </Badge>
-                  )}
+                  <div className="flex items-center text-sm text-muted-foreground mb-2">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    <span>{location.address}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    {location.price_day && (
+                      <Badge variant="outline">
+                        {location.price_day} лв./ден
+                      </Badge>
+                    )}
+                    {location.rating && (
+                      <Badge variant="outline" className="flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        {location.rating}
+                      </Badge>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             ))}
