@@ -8,35 +8,38 @@ import { Button } from '@/components/ui/button';
 import { MapPin, Building2, RotateCcw, Star, Wifi, Coffee, Car, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
-// Bulgaria provinces (oblasti) with their approximate coordinates
+// Bulgaria boundaries for highlighting
+const BULGARIA_BOUNDS: [number, number, number, number] = [22.3, 41.2, 28.6, 44.2];
+
+// Bulgaria provinces (oblasti) with their correct coordinates  
 const bulgariaProvinces = [
-  { name: 'София', coordinates: [23.3219, 42.6977], nameEn: 'Sofia' },
-  { name: 'Пловдив', coordinates: [24.7453, 42.1354], nameEn: 'Plovdiv' },
-  { name: 'Варна', coordinates: [27.9147, 43.2141], nameEn: 'Varna' },
-  { name: 'Бургас', coordinates: [27.4626, 42.5048], nameEn: 'Burgas' },
-  { name: 'Русе', coordinates: [25.9704, 43.8564], nameEn: 'Ruse' },
-  { name: 'Стара Загора', coordinates: [25.6272, 42.4258], nameEn: 'Stara Zagora' },
-  { name: 'Плевен', coordinates: [24.6067, 43.4092], nameEn: 'Pleven' },
-  { name: 'Сливен', coordinates: [26.3150, 42.6824], nameEn: 'Sliven' },
-  { name: 'Благоевград', coordinates: [23.0958, 42.0116], nameEn: 'Blagoevgrad' },
-  { name: 'Велико Търново', coordinates: [25.6515, 43.0757], nameEn: 'Veliko Tarnovo' },
-  { name: 'Видин', coordinates: [22.8743, 43.9859], nameEn: 'Vidin' },
-  { name: 'Враца', coordinates: [23.5480, 43.2039], nameEn: 'Vratsa' },
-  { name: 'Габрово', coordinates: [25.3188, 42.8709], nameEn: 'Gabrovo' },
-  { name: 'Добрич', coordinates: [27.8272, 43.5755], nameEn: 'Dobrich' },
-  { name: 'Кърджали', coordinates: [25.3787, 41.6303], nameEn: 'Kardzhali' },
-  { name: 'Кюстендил', coordinates: [22.6893, 42.2858], nameEn: 'Kyustendil' },
-  { name: 'Ловеч', coordinates: [24.7138, 43.1350], nameEn: 'Lovech' },
-  { name: 'Монтана', coordinates: [23.2291, 43.4091], nameEn: 'Montana' },
-  { name: 'Пазарджик', coordinates: [24.3319, 42.1887], nameEn: 'Pazardzhik' },
-  { name: 'Перник', coordinates: [23.0374, 42.6073], nameEn: 'Pernik' },
-  { name: 'Разград', coordinates: [26.5228, 43.5258], nameEn: 'Razgrad' },
-  { name: 'Шумен', coordinates: [26.9255, 43.2706], nameEn: 'Shumen' },
-  { name: 'Силистра', coordinates: [27.2614, 44.1194], nameEn: 'Silistra' },
-  { name: 'Смолян', coordinates: [24.7018, 41.5766], nameEn: 'Smolyan' },
-  { name: 'Хаскрво', coordinates: [25.5557, 41.9449], nameEn: 'Haskovo' },
-  { name: 'Търговище', coordinates: [26.5540, 43.2468], nameEn: 'Targovishte' },
-  { name: 'Ямбол', coordinates: [26.5106, 42.4841], nameEn: 'Yambol' },
+  { name: 'София', coordinates: [23.3219, 42.6977], nameEn: 'Sofia', bounds: [23.1, 42.5, 23.5, 42.9] },
+  { name: 'Пловдив', coordinates: [24.7453, 42.1354], nameEn: 'Plovdiv', bounds: [24.5, 41.9, 25.0, 42.4] },
+  { name: 'Варна', coordinates: [27.9147, 43.2141], nameEn: 'Varna', bounds: [27.7, 43.0, 28.2, 43.5] },
+  { name: 'Бургас', coordinates: [27.4626, 42.5048], nameEn: 'Burgas', bounds: [27.2, 42.3, 27.7, 42.8] },
+  { name: 'Русе', coordinates: [25.9704, 43.8564], nameEn: 'Ruse', bounds: [25.7, 43.6, 26.2, 44.1] },
+  { name: 'Стара Загора', coordinates: [25.6272, 42.4258], nameEn: 'Stara Zagora', bounds: [25.4, 42.2, 25.9, 42.7] },
+  { name: 'Плевен', coordinates: [24.6067, 43.4092], nameEn: 'Pleven', bounds: [24.4, 43.2, 24.9, 43.6] },
+  { name: 'Сливен', coordinates: [26.3150, 42.6824], nameEn: 'Sliven', bounds: [26.1, 42.5, 26.6, 42.9] },
+  { name: 'Благоевград', coordinates: [23.0958, 42.0116], nameEn: 'Blagoevgrad', bounds: [22.9, 41.8, 23.3, 42.3] },
+  { name: 'Велико Търново', coordinates: [25.6515, 43.0757], nameEn: 'Veliko Tarnovo', bounds: [25.4, 42.9, 25.9, 43.3] },
+  { name: 'Видин', coordinates: [22.8743, 43.9859], nameEn: 'Vidin', bounds: [22.6, 43.8, 23.1, 44.2] },
+  { name: 'Враца', coordinates: [23.5480, 43.2039], nameEn: 'Vratsa', bounds: [23.3, 43.0, 23.8, 43.4] },
+  { name: 'Габрово', coordinates: [25.3188, 42.8709], nameEn: 'Gabrovo', bounds: [25.1, 42.7, 25.6, 43.1] },
+  { name: 'Добрич', coordinates: [27.8272, 43.5755], nameEn: 'Dobrich', bounds: [27.6, 43.4, 28.1, 43.8] },
+  { name: 'Кърджали', coordinates: [25.3787, 41.6303], nameEn: 'Kardzhali', bounds: [25.1, 41.4, 25.7, 41.9] },
+  { name: 'Кюстендил', coordinates: [22.6893, 42.2858], nameEn: 'Kyustendil', bounds: [22.5, 42.1, 22.9, 42.5] },
+  { name: 'Ловеч', coordinates: [24.7138, 43.1350], nameEn: 'Lovech', bounds: [24.5, 42.9, 24.9, 43.3] },
+  { name: 'Монтана', coordinates: [23.2291, 43.4091], nameEn: 'Montana', bounds: [23.0, 43.2, 23.5, 43.6] },
+  { name: 'Пазарджик', coordinates: [24.3319, 42.1887], nameEn: 'Pazardzhik', bounds: [24.1, 42.0, 24.6, 42.4] },
+  { name: 'Перник', coordinates: [23.0374, 42.6073], nameEn: 'Pernik', bounds: [22.8, 42.4, 23.3, 42.8] },
+  { name: 'Разград', coordinates: [26.5228, 43.5258], nameEn: 'Razgrad', bounds: [26.3, 43.3, 26.8, 43.7] },
+  { name: 'Шумен', coordinates: [26.9255, 43.2706], nameEn: 'Shumen', bounds: [26.7, 43.1, 27.2, 43.5] },
+  { name: 'Силистра', coordinates: [27.2614, 44.1194], nameEn: 'Silistra', bounds: [27.0, 43.9, 27.5, 44.3] },
+  { name: 'Смолян', coordinates: [24.7018, 41.5766], nameEn: 'Smolyan', bounds: [24.5, 41.4, 25.0, 41.8] },
+  { name: 'Хаскрво', coordinates: [25.5557, 41.9449], nameEn: 'Haskovo', bounds: [25.3, 41.7, 25.8, 42.2] },
+  { name: 'Търговище', coordinates: [26.5540, 43.2468], nameEn: 'Targovishte', bounds: [26.3, 43.1, 26.8, 43.4] },
+  { name: 'Ямбол', coordinates: [26.5106, 42.4841], nameEn: 'Yambol', bounds: [26.3, 42.3, 26.8, 42.7] },
 ];
 
 interface InteractiveMapProps {
@@ -48,10 +51,14 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
   const [provinceLocations, setProvinceLocations] = useState<any[]>([]);
+  const [provinceCities, setProvinceCities] = useState<{[key: string]: any[]}>({});
+  const [cityLocations, setCityLocations] = useState<any[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string>('');
+  const [viewLevel, setViewLevel] = useState<'provinces' | 'cities' | 'locations'>('provinces');
   const { locations } = useLocations();
 
   const amenityIcons = {
@@ -96,17 +103,17 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
   };
 
   // Add province locations as individual markers
-  const addLocationMarkers = (provinceLocations: any[]) => {
+  const addLocationMarkers = (locations: any[]) => {
     clearMarkers();
     
-    provinceLocations.forEach((location) => {
+    locations.forEach((location) => {
       if (!location.latitude || !location.longitude) return;
 
       const el = document.createElement('div');
       el.className = 'location-marker';
       el.style.cssText = `
-        width: 30px;
-        height: 30px;
+        width: 24px;
+        height: 24px;
         background: hsl(var(--primary));
         border: 2px solid hsl(var(--background));
         border-radius: 50%;
@@ -131,8 +138,78 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         setSelectedLocation(location);
       });
 
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([location.longitude, location.latitude])
+      const marker = new mapboxgl.Marker({
+        element: el,
+        anchor: 'center'
+      })
+        .setLngLat([parseFloat(location.longitude), parseFloat(location.latitude)])
+        .addTo(map.current!);
+      
+      markersRef.current.push(marker);
+    });
+  };
+
+  // Add city markers
+  const addCityMarkers = (cities: {[key: string]: any[]}) => {
+    clearMarkers();
+    
+    Object.entries(cities).forEach(([cityName, cityLocations]) => {
+      if (cityLocations.length === 0) return;
+      
+      // Calculate average coordinates for city center
+      const avgLat = cityLocations.reduce((sum, loc) => sum + parseFloat(loc.latitude), 0) / cityLocations.length;
+      const avgLng = cityLocations.reduce((sum, loc) => sum + parseFloat(loc.longitude), 0) / cityLocations.length;
+
+      const el = document.createElement('div');
+      el.className = 'city-marker';
+      el.style.cssText = `
+        width: ${Math.max(35, cityLocations.length * 8)}px;
+        height: ${Math.max(35, cityLocations.length * 8)}px;
+        background: linear-gradient(135deg, hsl(var(--secondary)) 0%, hsl(var(--secondary-foreground)) 100%);
+        border: 2px solid hsl(var(--background));
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        transform-origin: center;
+        box-shadow: 0 4px 12px hsl(var(--secondary) / 0.4);
+      `;
+
+      const content = document.createElement('div');
+      content.style.cssText = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: hsl(var(--secondary-foreground));
+        font-size: 10px;
+        font-weight: bold;
+        text-align: center;
+        line-height: 1;
+        pointer-events: none;
+      `;
+      content.innerHTML = `${cityLocations.length}<br><span style="font-size: 8px;">${cityName}</span>`;
+      el.appendChild(content);
+
+      el.addEventListener('mouseenter', () => {
+        el.style.transform = 'scale(1.2)';
+        el.style.boxShadow = '0 6px 20px hsl(var(--secondary) / 0.6)';
+      });
+
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'scale(1)';
+        el.style.boxShadow = '0 4px 12px hsl(var(--secondary) / 0.4)';
+      });
+
+      el.addEventListener('click', () => {
+        handleCitySelect(cityName, cityLocations, [avgLng, avgLat]);
+      });
+
+      const marker = new mapboxgl.Marker({
+        element: el,
+        anchor: 'center'
+      })
+        .setLngLat([avgLng, avgLat])
         .addTo(map.current!);
       
       markersRef.current.push(marker);
@@ -149,11 +226,52 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       zoom: 6.5,
       projection: 'mercator',
       maxZoom: 18,
-      minZoom: 5
+      minZoom: 5,
+      maxBounds: BULGARIA_BOUNDS
     });
 
     map.current.on('load', () => {
       if (!map.current) return;
+
+      // Add Bulgaria country outline/highlight
+      map.current!.addSource('bulgaria-highlight', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [BULGARIA_BOUNDS[0], BULGARIA_BOUNDS[1]],
+              [BULGARIA_BOUNDS[2], BULGARIA_BOUNDS[1]],
+              [BULGARIA_BOUNDS[2], BULGARIA_BOUNDS[3]], 
+              [BULGARIA_BOUNDS[0], BULGARIA_BOUNDS[3]],
+              [BULGARIA_BOUNDS[0], BULGARIA_BOUNDS[1]]
+            ]]
+          }
+        }
+      });
+
+      map.current!.addLayer({
+        id: 'bulgaria-highlight',
+        type: 'fill',
+        source: 'bulgaria-highlight',
+        paint: {
+          'fill-color': 'hsl(var(--primary))',
+          'fill-opacity': 0.1
+        }
+      });
+
+      map.current!.addLayer({
+        id: 'bulgaria-border',
+        type: 'line',
+        source: 'bulgaria-highlight',
+        paint: {
+          'line-color': 'hsl(var(--primary))',
+          'line-width': 2,
+          'line-opacity': 0.5
+        }
+      });
 
       // Add Bulgaria provinces as circles with hover effects
       bulgariaProvinces.forEach((province) => {
@@ -258,7 +376,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
           element: el,
           anchor: 'center'
         })
-          .setLngLat(province.coordinates as [number, number])
+          .setLngLat([province.coordinates[0], province.coordinates[1]])
           .addTo(map.current!);
         
         markersRef.current.push(marker);
@@ -277,18 +395,49 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
   // Handle province selection
   const handleProvinceSelect = (provinceName: string, provinceLocations: any[], coordinates: number[]) => {
     setSelectedProvince(provinceName);
+    setSelectedCity(null);
     setProvinceLocations(provinceLocations);
     setSelectedLocation(null);
+    setViewLevel('cities');
     onProvinceSelect?.(provinceName);
     
-    // Clear province markers and add location markers
+    // Group locations by city
+    const citiesInProvince = provinceLocations.reduce((acc, location) => {
+      const city = location.city;
+      if (!acc[city]) acc[city] = [];
+      acc[city].push(location);
+      return acc;
+    }, {} as {[key: string]: any[]});
+    
+    setProvinceCities(citiesInProvince);
+    
+    // Clear province markers and add city markers
     clearMarkers();
-    addLocationMarkers(provinceLocations);
+    addCityMarkers(citiesInProvince);
     
     // Animate to province
     map.current?.flyTo({
       center: coordinates as [number, number],
-      zoom: 10,
+      zoom: 9,
+      duration: 2000
+    });
+  };
+
+  // Handle city selection
+  const handleCitySelect = (cityName: string, cityLocations: any[], coordinates: number[]) => {
+    setSelectedCity(cityName);
+    setCityLocations(cityLocations);
+    setSelectedLocation(null);
+    setViewLevel('locations');
+    
+    // Clear city markers and add location markers
+    clearMarkers();
+    addLocationMarkers(cityLocations);
+    
+    // Animate to city
+    map.current?.flyTo({
+      center: coordinates as [number, number],
+      zoom: 12,
       duration: 2000
     });
   };
@@ -296,8 +445,12 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
   // Reset view function
   const resetView = () => {
     setSelectedProvince(null);
+    setSelectedCity(null);
     setProvinceLocations([]);
+    setProvinceCities({});
+    setCityLocations([]);
     setSelectedLocation(null);
+    setViewLevel('provinces');
     clearMarkers();
     
     // Re-add province markers
@@ -353,7 +506,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
           element: el,
           anchor: 'center'
         })
-          .setLngLat(province.coordinates as [number, number])
+          .setLngLat([province.coordinates[0], province.coordinates[1]])
           .addTo(map.current!);
         
         markersRef.current.push(marker);
@@ -391,23 +544,35 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       </div>
       
       <div className="relative">
-        {/* Map Container */}
+        {/* Map Container - Made taller */}
         <div
           ref={mapContainer}
-          className="w-full h-96 rounded-lg overflow-hidden border border-border shadow-lg"
+          className="w-full h-[500px] rounded-lg overflow-hidden border border-border shadow-lg"
         />
         
-        {/* Selected Province Info */}
-        {selectedProvince && (
+        {/* Navigation Info */}
+        {(selectedProvince || selectedCity) && (
           <div className="absolute top-4 left-4 z-10">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Building2 className="h-5 w-5 text-primary" />
-                  <span className="font-bold text-lg">{selectedProvince}</span>
+                  <div className="flex flex-col">
+                    {selectedCity ? (
+                      <>
+                        <span className="font-bold text-lg">{selectedCity}</span>
+                        <span className="text-sm text-muted-foreground">{selectedProvince}</span>
+                      </>
+                    ) : (
+                      <span className="font-bold text-lg">{selectedProvince}</span>
+                    )}
+                  </div>
                 </div>
                 <Badge variant="secondary">
-                  {provinceLocations.length} офиса намерени
+                  {selectedCity 
+                    ? `${cityLocations.length} офиса`
+                    : `${Object.keys(provinceCities).length} града, ${provinceLocations.length} офиса`
+                  }
                 </Badge>
               </CardContent>
             </Card>
@@ -519,14 +684,43 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         })}
       </div>
 
-      {/* Selected Province Locations List */}
-      {selectedProvince && provinceLocations.length > 0 && (
+      {/* Cities in Province */}
+      {selectedProvince && !selectedCity && Object.keys(provinceCities).length > 0 && (
         <div className="mt-6">
           <h4 className="text-lg font-semibold mb-4">
-            Офиси в {selectedProvince}
+            Градове в {selectedProvince}
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {Object.entries(provinceCities).map(([cityName, cityLocations]) => (
+              <div
+                key={cityName}
+                onClick={() => {
+                  const avgLat = cityLocations.reduce((sum, loc) => sum + parseFloat(loc.latitude), 0) / cityLocations.length;
+                  const avgLng = cityLocations.reduce((sum, loc) => sum + parseFloat(loc.longitude), 0) / cityLocations.length;
+                  handleCitySelect(cityName, cityLocations, [avgLng, avgLat]);
+                }}
+                className="p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-secondary hover:bg-secondary/5 hover:scale-105"
+              >
+                <div className="text-center">
+                  <h5 className="font-semibold text-sm">{cityName}</h5>
+                  <p className="text-xs text-muted-foreground">
+                    {cityLocations.length} офиса
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Locations in City */}
+      {selectedCity && cityLocations.length > 0 && (
+        <div className="mt-6">
+          <h4 className="text-lg font-semibold mb-4">
+            Офиси в {selectedCity}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {provinceLocations.map((location) => (
+            {cityLocations.map((location) => (
               <Card 
                 key={location.id} 
                 className="hover:shadow-lg transition-shadow cursor-pointer"
