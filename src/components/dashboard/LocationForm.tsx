@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { X, Plus } from 'lucide-react';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 
 interface LocationFormProps {
   location?: any;
@@ -31,7 +32,9 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
     existingPhotos: location?.photos || [],
     priceDay: location?.price_day || '',
     priceWeek: location?.price_week || '',
-    priceMonth: location?.price_month || ''
+    priceMonth: location?.price_month || '',
+    latitude: location?.latitude || null,
+    longitude: location?.longitude || null
   });
 
   const uploadFile = async (file: File, bucket: string, path: string): Promise<string | null> => {
@@ -102,6 +105,8 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
         price_day: formData.priceDay ? parseFloat(formData.priceDay) : null,
         price_week: formData.priceWeek ? parseFloat(formData.priceWeek) : null,
         price_month: formData.priceMonth ? parseFloat(formData.priceMonth) : null,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
         status: location ? location.status : 'pending'
       };
 
@@ -168,21 +173,33 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="address">Address *</Label>
-            <Input
-              id="address"
+            <AddressAutocomplete
               value={formData.address}
-              onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-              required
+              onChange={(value, coordinates) => {
+                setFormData(prev => ({ 
+                  ...prev, 
+                  address: value,
+                  latitude: coordinates?.lat || null,
+                  longitude: coordinates?.lng || null
+                }));
+              }}
+              label="Address *"
+              placeholder="Enter address in Bulgaria..."
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="city">City *</Label>
-            <Input
-              id="city"
+            <AddressAutocomplete
               value={formData.city}
-              onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-              required
+              onChange={(value, coordinates) => {
+                setFormData(prev => ({ 
+                  ...prev, 
+                  city: value,
+                  latitude: coordinates?.lat || null,
+                  longitude: coordinates?.lng || null
+                }));
+              }}
+              label="City *"
+              placeholder="Enter city in Bulgaria..."
             />
           </div>
         </div>

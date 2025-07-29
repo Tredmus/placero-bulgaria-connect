@@ -4,6 +4,7 @@ import { LocationForm } from './LocationForm';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 
 interface CompanyLocationFormProps {
   onSuccess: () => void;
@@ -33,7 +34,9 @@ export function CompanyLocationForm({ onSuccess, onCancel }: CompanyLocationForm
     photos: ['', '', '', '', ''],
     priceDay: '',
     priceWeek: '',
-    priceMonth: ''
+    priceMonth: '',
+    latitude: null,
+    longitude: null
   });
 
   const uploadFile = async (file: File, bucket: string, path: string): Promise<string | null> => {
@@ -119,6 +122,8 @@ export function CompanyLocationForm({ onSuccess, onCancel }: CompanyLocationForm
           price_day: formData.priceDay ? parseFloat(formData.priceDay) : null,
           price_week: formData.priceWeek ? parseFloat(formData.priceWeek) : null,
           price_month: formData.priceMonth ? parseFloat(formData.priceMonth) : null,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
           status: 'pending'
         });
 
