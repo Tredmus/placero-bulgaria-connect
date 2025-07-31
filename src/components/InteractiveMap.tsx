@@ -173,11 +173,13 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       el.addEventListener('mouseenter', () => {
         el.style.transform = 'scale(1.3)';
         el.style.boxShadow = '0 6px 20px hsl(var(--primary) / 0.6)';
+        el.style.zIndex = '1000';
       });
 
       el.addEventListener('mouseleave', () => {
         el.style.transform = 'scale(1)';
         el.style.boxShadow = '0 4px 12px hsl(var(--primary) / 0.4)';
+        el.style.zIndex = 'auto';
       });
 
       el.addEventListener('click', () => {
@@ -186,7 +188,9 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
 
       const marker = new mapboxgl.Marker({
         element: el,
-        anchor: 'center'
+        anchor: 'center',
+        pitchAlignment: 'map',
+        rotationAlignment: 'map'
       })
         .setLngLat([parseFloat(location.longitude.toString()), parseFloat(location.latitude.toString())])
         .addTo(map.current!);
@@ -243,11 +247,13 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       el.addEventListener('mouseenter', () => {
         el.style.transform = 'scale(1.2)';
         el.style.boxShadow = '0 6px 20px hsl(var(--secondary) / 0.6)';
+        el.style.zIndex = '1000';
       });
 
       el.addEventListener('mouseleave', () => {
         el.style.transform = 'scale(1)';
         el.style.boxShadow = '0 4px 12px hsl(var(--secondary) / 0.4)';
+        el.style.zIndex = 'auto';
       });
 
       el.addEventListener('click', () => {
@@ -256,7 +262,9 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
 
       const marker = new mapboxgl.Marker({
         element: el,
-        anchor: 'center'
+        anchor: 'center',
+        pitchAlignment: 'map',
+        rotationAlignment: 'map'
       })
         .setLngLat([avgLng, avgLat])
         .addTo(map.current!);
@@ -275,8 +283,9 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       zoom: 6.5,
       projection: 'mercator',
       maxZoom: 18,
-      minZoom: 5,
-      maxBounds: BULGARIA_BOUNDS
+      minZoom: 2,
+      // Remove maxBounds to allow scrolling anywhere
+      renderWorldCopies: false
     });
 
     map.current.on('load', () => {
@@ -383,45 +392,29 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         content.innerHTML = `${locationCount}<br><span style="font-size: 8px;">${province.name}</span>`;
         el.appendChild(content);
 
-        // Create popup for hover info
-        const popup = new mapboxgl.Popup({
-          closeButton: false,
-          closeOnClick: false,
-          offset: [0, -15]
-        });
-
-        // Add hover effects
+        // Add hover effects without popup (fix positioning issue)
         el.addEventListener('mouseenter', () => {
           setHoveredProvince(province.name);
           el.style.transform = 'scale(1.2)';
           el.style.boxShadow = '0 8px 30px hsl(var(--primary) / 0.5)';
-          
-          // Show popup
-          popup.setLngLat(data.coordinates)
-            .setHTML(`
-              <div style="padding: 8px; background: hsl(var(--background)); border: 1px solid hsl(var(--border)); border-radius: 6px; color: hsl(var(--foreground)); font-size: 12px;">
-                <strong>${province.name}</strong><br>
-                ${locationCount} офиса
-              </div>
-            `)
-            .addTo(map.current!);
         });
 
         el.addEventListener('mouseleave', () => {
           setHoveredProvince(null);
           el.style.transform = 'scale(1)';
           el.style.boxShadow = '0 4px 20px hsl(var(--primary) / 0.3)';
-          popup.remove();
         });
 
         el.addEventListener('click', () => {
           handleProvinceSelect(province.name, data.locations, data.coordinates);
         });
 
-        // Add marker to map (anchored to fix positioning issues)
+        // Add marker to map with fixed positioning
         const marker = new mapboxgl.Marker({
           element: el,
-          anchor: 'center'
+          anchor: 'center',
+          pitchAlignment: 'map',
+          rotationAlignment: 'map'
         })
           .setLngLat(data.coordinates)
           .addTo(map.current!);
@@ -599,7 +592,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         {/* Map Container - Made taller */}
         <div
           ref={mapContainer}
-          className="w-full h-[500px] rounded-lg overflow-hidden border border-border shadow-lg"
+          className="w-full h-[600px] rounded-lg overflow-hidden border border-border shadow-lg"
         />
         
         {/* Navigation Info */}
