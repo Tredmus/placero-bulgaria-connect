@@ -222,17 +222,17 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       const el = document.createElement('div');
       el.className = 'city-marker';
       el.style.cssText = `
-        width: ${Math.max(45, cityLocations.length * 10)}px;
-        height: ${Math.max(45, cityLocations.length * 10)}px;
+        width: ${Math.max(35, cityLocations.length * 8)}px;
+        height: ${Math.max(35, cityLocations.length * 8)}px;
         background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 50%, hsl(var(--primary-foreground)) 100%);
-        border: 3px solid hsl(var(--background));
+        border: 2px solid hsl(var(--background));
         border-radius: 50%;
         cursor: pointer;
         transition: all 0.3s ease;
         position: absolute;
         transform: translate(-50%, -50%);
         transform-origin: center center;
-        box-shadow: 0 8px 25px hsl(var(--primary) / 0.4);
+        box-shadow: 0 4px 12px hsl(var(--primary) / 0.4);
         will-change: transform;
       `;
 
@@ -243,7 +243,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         left: 50%;
         transform: translate(-50%, -50%);
         color: hsl(var(--primary-foreground));
-        font-size: 12px;
+        font-size: 10px;
         font-weight: bold;
         text-align: center;
         line-height: 1;
@@ -370,84 +370,101 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
 
   // Function to update markers based on zoom level
   const updateMarkersBasedOnZoom = (zoomLevel: number) => {
+    console.log('Zoom level:', zoomLevel, 'Selected Province:', selectedProvince, 'Selected City:', selectedCity, 'View Level:', viewLevel);
+    
     if (!selectedProvince && !selectedCity) { // Only if no manual selection
       if (zoomLevel >= 10) {
         // High zoom: Show all individual locations
         if (viewLevel !== 'locations') {
+          console.log('Switching to locations view');
           setViewLevel('locations');
           addAllLocationMarkers();
         }
       } else if (zoomLevel >= 8) {
         // Medium zoom: Show all cities
         if (viewLevel !== 'cities') {
+          console.log('Switching to cities view');
           setViewLevel('cities');
           addAllCityMarkers();
         }
       } else {
         // Low zoom: Show provinces
         if (viewLevel !== 'provinces') {
+          console.log('Switching to provinces view');
           setViewLevel('provinces');
-          // Re-add province markers
-          clearMarkers();
-          bulgariaProvinces.forEach((province) => {
-            const data = provinceData[province.name];
-            if (!data || data.locations.length === 0) return;
-            
-            const locationCount = data.locations.length;
-            
-            const el = document.createElement('div');
-            el.className = 'province-marker';
-            el.style.cssText = `
-              width: ${Math.max(45, locationCount * 10)}px;
-              height: ${Math.max(45, locationCount * 10)}px;
-              background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 50%, hsl(var(--primary-foreground)) 100%);
-              border: 3px solid hsl(var(--background));
-              border-radius: 50%;
-              cursor: pointer;
-              transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-              position: absolute;
-              transform: translate(-50%, -50%);
-              transform-origin: center center;
-              box-shadow: 
-                0 0 0 0 hsl(var(--primary) / 0.7),
-                0 8px 25px hsl(var(--primary) / 0.4),
-                inset 0 1px 3px hsl(var(--primary-foreground) / 0.3);
-              animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-              will-change: transform;
-            `;
-
-            const content = document.createElement('div');
-            content.style.cssText = `
-              position: absolute;
-              top: 50%;
-              left: 50%;
-              transform: translate(-50%, -50%);
-              color: hsl(var(--primary-foreground));
-              font-size: 12px;
-              font-weight: bold;
-              text-align: center;
-              line-height: 1;
-              pointer-events: none;
-            `;
-            content.innerHTML = `${locationCount}<br><span style="font-size: 8px;">${province.name}</span>`;
-            el.appendChild(content);
-
-            el.addEventListener('click', () => {
-              handleProvinceSelect(province.name, data.locations, data.coordinates);
-            });
-
-            const marker = new mapboxgl.Marker({
-              element: el,
-              anchor: 'center'
-            })
-              .setLngLat(data.coordinates)
-              .addTo(map.current!);
-            
-            markersRef.current.push(marker);
-          });
+          addProvinceMarkers();
         }
       }
     }
+  };
+
+  // Extracted function to add province markers
+  const addProvinceMarkers = () => {
+    clearMarkers();
+    bulgariaProvinces.forEach((province) => {
+      const data = provinceData[province.name];
+      if (!data || data.locations.length === 0) return;
+      
+      const locationCount = data.locations.length;
+      
+      const el = document.createElement('div');
+      el.className = 'province-marker';
+      el.style.cssText = `
+        width: ${Math.max(45, locationCount * 10)}px;
+        height: ${Math.max(45, locationCount * 10)}px;
+        background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 50%, hsl(var(--primary-foreground)) 100%);
+        border: 3px solid hsl(var(--background));
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        position: absolute;
+        transform: translate(-50%, -50%);
+        transform-origin: center center;
+        box-shadow: 
+          0 0 0 0 hsl(var(--primary) / 0.7),
+          0 8px 25px hsl(var(--primary) / 0.4),
+          inset 0 1px 3px hsl(var(--primary-foreground) / 0.3);
+        animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        will-change: transform;
+      `;
+
+      const content = document.createElement('div');
+      content.style.cssText = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: hsl(var(--primary-foreground));
+        font-size: 12px;
+        font-weight: bold;
+        text-align: center;
+        line-height: 1;
+        pointer-events: none;
+      `;
+      content.innerHTML = `${locationCount}<br><span style="font-size: 8px;">${province.name}</span>`;
+      el.appendChild(content);
+
+      el.addEventListener('mouseenter', () => {
+        setHoveredProvince(province.name);
+      });
+
+      el.addEventListener('mouseleave', () => {
+        setHoveredProvince(null);
+      });
+
+      el.addEventListener('click', () => {
+        handleProvinceSelect(province.name, data.locations, data.coordinates);
+      });
+
+      const marker = new mapboxgl.Marker({
+        element: el,
+        anchor: 'center'
+      })
+        .setLngLat(data.coordinates)
+        .addTo(map.current!);
+      
+      markersRef.current.push(marker);
+    });
   };
 
   useEffect(() => {
@@ -601,11 +618,17 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
 
     // Add zoom event listener for dynamic pin visibility
     map.current.on('zoom', () => {
-      if (map.current) {
+      if (map.current && Object.keys(provinceData).length > 0) {
         const zoomLevel = map.current.getZoom();
         updateMarkersBasedOnZoom(zoomLevel);
       }
     });
+
+    // Set initial zoom-based view after province data is loaded
+    if (Object.keys(provinceData).length > 0) {
+      const initialZoom = map.current.getZoom();
+      updateMarkersBasedOnZoom(initialZoom);
+    }
 
     return () => {
       clearMarkers();
