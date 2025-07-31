@@ -172,17 +172,6 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         will-change: transform;
       `;
 
-      el.addEventListener('mouseenter', () => {
-        el.style.transform = 'translate(-50%, -50%) scale(1.3)';
-        el.style.boxShadow = '0 6px 20px hsl(var(--primary) / 0.6)';
-        el.style.zIndex = '1000';
-      });
-
-      el.addEventListener('mouseleave', () => {
-        el.style.transform = 'translate(-50%, -50%) scale(1)';
-        el.style.boxShadow = '0 4px 12px hsl(var(--primary) / 0.4)';
-        el.style.zIndex = 'auto';
-      });
 
       el.addEventListener('click', () => {
         setSelectedLocation(location);
@@ -246,19 +235,6 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       content.innerHTML = `${cityLocations.length}<br><span style="font-size: 8px;">${cityName}</span>`;
       el.appendChild(content);
 
-      el.addEventListener('mouseenter', () => {
-        el.style.top = '50%';
-        el.style.left = '50%';
-        el.style.transform = 'translate(-50%, -50%)  scale(1.2)';
-        el.style.boxShadow = '0 6px 20px hsl(var(--secondary) / 0.6)';
-        el.style.zIndex = '1000';
-      });
-
-      el.addEventListener('mouseleave', () => {
-        el.style.transform = 'translate(-50%, -50%) scale(1)';
-        el.style.boxShadow = '0 4px 12px hsl(var(--secondary) / 0.4)';
-        el.style.zIndex = 'auto';
-      });
 
       el.addEventListener('click', () => {
         handleCitySelect(cityName, cityLocations, [avgLng, avgLat]);
@@ -399,14 +375,10 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         // Add hover effects without popup (fix positioning issue)
         el.addEventListener('mouseenter', () => {
           setHoveredProvince(province.name);
-          el.style.transform = 'translate(-50%, -50%) scale(1.2)';
-          el.style.boxShadow = '0 8px 30px hsl(var(--primary) / 0.5)';
         });
 
         el.addEventListener('mouseleave', () => {
           setHoveredProvince(null);
-          el.style.transform = 'translate(-50%, -50%) scale(1)';
-          el.style.boxShadow = '0 4px 20px hsl(var(--primary) / 0.3)';
         });
 
         el.addEventListener('click', () => {
