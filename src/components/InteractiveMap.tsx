@@ -62,6 +62,9 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
   const [provinceData, setProvinceData] = useState<{[key: string]: {locations: any[], coordinates: [number, number]}}>({}); 
   const { locations } = useLocations();
 
+  // Debounce timeout for zoom events
+  const zoomTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Helper function to clean city names for better grouping
   const cleanCityName = (city: string): string => {
     return city.toLowerCase()
@@ -172,6 +175,18 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         will-change: transform;
       `;
 
+      el.addEventListener('mouseenter', () => {
+        el.style.transform = 'translate(-50%, -50%) scale(1.2)';
+        el.style.boxShadow = '0 6px 20px hsl(var(--primary) / 0.6)';
+        el.style.zIndex = '1000';
+      });
+
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'translate(-50%, -50%) scale(1)';
+        el.style.boxShadow = '0 4px 12px hsl(var(--primary) / 0.4)';
+        el.style.zIndex = 'auto';
+      });
+
 
       el.addEventListener('click', () => {
         setSelectedLocation(location);
@@ -205,19 +220,31 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       const el = document.createElement('div');
       el.className = 'city-marker';
       el.style.cssText = `
-        width: ${Math.max(35, cityLocations.length * 8)}px;
-        height: ${Math.max(35, cityLocations.length * 8)}px;
-        background: linear-gradient(135deg, hsl(var(--secondary)) 0%, hsl(var(--secondary-foreground)) 100%);
-        border: 2px solid hsl(var(--background));
+        width: ${Math.max(45, cityLocations.length * 10)}px;
+        height: ${Math.max(45, cityLocations.length * 10)}px;
+        background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 50%, hsl(var(--primary-foreground)) 100%);
+        border: 3px solid hsl(var(--background));
         border-radius: 50%;
         cursor: pointer;
         transition: all 0.3s ease;
         position: absolute;
         transform: translate(-50%, -50%);
         transform-origin: center center;
-        box-shadow: 0 4px 12px hsl(var(--secondary) / 0.4);
+        box-shadow: 0 4px 12px hsl(var(--primary) / 0.4);
         will-change: transform;
       `;
+
+      el.addEventListener('mouseenter', () => {
+        el.style.transform = 'translate(-50%, -50%) scale(1.2)';
+        el.style.boxShadow = '0 6px 20px hsl(var(--primary) / 0.6)';
+        el.style.zIndex = '1000';
+      });
+
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'translate(-50%, -50%) scale(1)';
+        el.style.boxShadow = '0 4px 12px hsl(var(--primary) / 0.4)';
+        el.style.zIndex = 'auto';
+      });
 
       const content = document.createElement('div');
       content.style.cssText = `
@@ -225,8 +252,8 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        color: hsl(var(--secondary-foreground));
-        font-size: 10px;
+        color: hsl(var(--primary-foreground));
+        font-size: 12px;
         font-weight: bold;
         text-align: center;
         line-height: 1;
@@ -372,13 +399,19 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         content.innerHTML = `${locationCount}<br><span style="font-size: 8px;">${province.name}</span>`;
         el.appendChild(content);
 
-        // Add hover effects without popup (fix positioning issue)
+        // Add hover effects
         el.addEventListener('mouseenter', () => {
           setHoveredProvince(province.name);
+          el.style.transform = 'translate(-50%, -50%) scale(1.2)';
+          el.style.boxShadow = '0 8px 30px hsl(var(--primary) / 0.5)';
+          el.style.zIndex = '1000';
         });
 
         el.addEventListener('mouseleave', () => {
           setHoveredProvince(null);
+          el.style.transform = 'translate(-50%, -50%) scale(1)';
+          el.style.boxShadow = '0 4px 20px hsl(var(--primary) / 0.3)';
+          el.style.zIndex = 'auto';
         });
 
         el.addEventListener('click', () => {
@@ -400,11 +433,166 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
     // Add navigation controls
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
+    // Add zoom event listener for dynamic pin switching
+    map.current.on('zoom', () => {
+      if (!map.current) return;
+      
+      // Clear existing timeout
+      if (zoomTimeoutRef.current) {
+        clearTimeout(zoomTimeoutRef.current);
+      }
+      
+      // Debounce zoom changes to prevent excessive updates
+      zoomTimeoutRef.current = setTimeout(() => {
+        updateMarkersBasedOnZoom();
+      }, 300);
+    });
+
     return () => {
+      if (zoomTimeoutRef.current) {
+        clearTimeout(zoomTimeoutRef.current);
+      }
       clearMarkers();
       map.current?.remove();
     };
   }, [mapboxToken, locations, onProvinceSelect, provinceData]);
+
+  // Update markers based on zoom level
+  const updateMarkersBasedOnZoom = () => {
+    if (!map.current) return;
+    
+    const zoom = map.current.getZoom();
+    
+    // Don't interfere with manual selections
+    if (selectedProvince || selectedCity) return;
+    
+    if (zoom < 8) {
+      // Level 1: Show province markers
+      if (viewLevel !== 'provinces') {
+        setViewLevel('provinces');
+        clearMarkers();
+        
+        // Re-add province markers
+        bulgariaProvinces.forEach((province) => {
+          const data = provinceData[province.name];
+          if (!data || data.locations.length === 0) return;
+          addProvinceMarker(province, data);
+        });
+      }
+    } else if (zoom >= 8 && zoom < 12) {
+      // Level 2: Show city markers for visible area
+      if (viewLevel !== 'cities' || !selectedProvince) {
+        setViewLevel('cities');
+        
+        // Get all visible provinces and show their cities
+        const visibleLocations = getVisibleLocations();
+        if (visibleLocations.length > 0) {
+          const citiesInArea = visibleLocations.reduce((acc, location) => {
+            if (!location.city) return acc;
+            const cleanCity = cleanCityName(location.city);
+            if (!acc[cleanCity]) acc[cleanCity] = [];
+            acc[cleanCity].push(location);
+            return acc;
+          }, {} as {[key: string]: any[]});
+          
+          clearMarkers();
+          addCityMarkers(citiesInArea);
+        }
+      }
+    } else if (zoom >= 12) {
+      // Level 3: Show individual location markers
+      if (viewLevel !== 'locations') {
+        setViewLevel('locations');
+        const visibleLocations = getVisibleLocations();
+        clearMarkers();
+        addLocationMarkers(visibleLocations);
+      }
+    }
+  };
+
+  // Get locations visible in current map bounds
+  const getVisibleLocations = () => {
+    if (!map.current) return [];
+    
+    const bounds = map.current.getBounds();
+    return locations.filter(location => {
+      if (!location.latitude || !location.longitude) return false;
+      const lat = parseFloat(location.latitude.toString());
+      const lng = parseFloat(location.longitude.toString());
+      return bounds.contains([lng, lat]);
+    });
+  };
+
+  // Helper function to add a single province marker
+  const addProvinceMarker = (province: any, data: any) => {
+    if (!map.current) return;
+    
+    const locationCount = data.locations.length;
+    
+    const el = document.createElement('div');
+    el.className = 'province-marker';
+    el.style.cssText = `
+      width: ${Math.max(45, locationCount * 10)}px;
+      height: ${Math.max(45, locationCount * 10)}px;
+      background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 50%, hsl(var(--primary-foreground)) 100%);
+      border: 3px solid hsl(var(--background));
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: absolute;
+      transform: translate(-50%, -50%);
+      transform-origin: center center;
+      box-shadow: 
+        0 0 0 0 hsl(var(--primary) / 0.7),
+        0 8px 25px hsl(var(--primary) / 0.4),
+        inset 0 1px 3px hsl(var(--primary-foreground) / 0.3);
+      animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      will-change: transform;
+    `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: hsl(var(--primary-foreground));
+      font-size: 12px;
+      font-weight: bold;
+      text-align: center;
+      line-height: 1;
+      pointer-events: none;
+    `;
+    content.innerHTML = `${locationCount}<br><span style="font-size: 8px;">${province.name}</span>`;
+    el.appendChild(content);
+
+    el.addEventListener('mouseenter', () => {
+      setHoveredProvince(province.name);
+      el.style.transform = 'translate(-50%, -50%) scale(1.2)';
+      el.style.boxShadow = '0 8px 30px hsl(var(--primary) / 0.5)';
+      el.style.zIndex = '1000';
+    });
+
+    el.addEventListener('mouseleave', () => {
+      setHoveredProvince(null);
+      el.style.transform = 'translate(-50%, -50%) scale(1)';
+      el.style.boxShadow = '0 4px 20px hsl(var(--primary) / 0.3)';
+      el.style.zIndex = 'auto';
+    });
+
+    el.addEventListener('click', () => {
+      handleProvinceSelect(province.name, data.locations, data.coordinates);
+    });
+
+    const marker = new mapboxgl.Marker({
+      element: el,
+      anchor: 'center'
+    })
+      .setLngLat(data.coordinates)
+      .addTo(map.current!);
+    
+    markersRef.current.push(marker);
+  };
 
   // Handle province selection
   const handleProvinceSelect = (provinceName: string, provinceLocations: any[], coordinates: number[]) => {
@@ -492,13 +680,15 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
           border-radius: 50%;
           cursor: pointer;
           transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-          position: relative;
-          transform-origin: center;
+          position: absolute;
+          transform: translate(-50%, -50%);
+          transform-origin: center center;
           box-shadow: 
             0 0 0 0 hsl(var(--primary) / 0.7),
             0 8px 25px hsl(var(--primary) / 0.4),
             inset 0 1px 3px hsl(var(--primary-foreground) / 0.3);
           animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+          will-change: transform;
         `;
 
         const content = document.createElement('div');
@@ -516,6 +706,20 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         `;
         content.innerHTML = `${locationCount}<br><span style="font-size: 8px;">${province.name}</span>`;
         el.appendChild(content);
+
+        el.addEventListener('mouseenter', () => {
+          setHoveredProvince(province.name);
+          el.style.transform = 'translate(-50%, -50%) scale(1.2)';
+          el.style.boxShadow = '0 8px 30px hsl(var(--primary) / 0.5)';
+          el.style.zIndex = '1000';
+        });
+
+        el.addEventListener('mouseleave', () => {
+          setHoveredProvince(null);
+          el.style.transform = 'translate(-50%, -50%) scale(1)';
+          el.style.boxShadow = '0 4px 20px hsl(var(--primary) / 0.3)';
+          el.style.zIndex = 'auto';
+        });
 
         el.addEventListener('click', () => {
           handleProvinceSelect(province.name, data.locations, data.coordinates);
