@@ -222,9 +222,9 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       const el = document.createElement('div');
       el.className = 'city-marker';
       el.style.cssText = `
-        width: ${Math.max(35, cityLocations.length * 8)}px;
-        height: ${Math.max(35, cityLocations.length * 8)}px;
-        background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 50%, hsl(var(--primary-foreground)) 100%);
+        width: ${Math.max(30, cityLocations.length * 6)}px;
+        height: ${Math.max(30, cityLocations.length * 6)}px;
+        background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
         border: 2px solid hsl(var(--background));
         border-radius: 50%;
         cursor: pointer;
@@ -232,7 +232,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         position: absolute;
         transform: translate(-50%, -50%);
         transform-origin: center center;
-        box-shadow: 0 4px 12px hsl(var(--primary) / 0.4);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
         will-change: transform;
       `;
 
@@ -284,9 +284,9 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       const el = document.createElement('div');
       el.className = 'city-marker';
       el.style.cssText = `
-        width: ${Math.max(45, cityLocations.length * 10)}px;
-        height: ${Math.max(45, cityLocations.length * 10)}px;
-        background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 50%, hsl(var(--primary-foreground)) 100%);
+        width: ${Math.max(35, cityLocations.length * 8)}px;
+        height: ${Math.max(35, cityLocations.length * 8)}px;
+        background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
         border: 3px solid hsl(var(--background));
         border-radius: 50%;
         cursor: pointer;
@@ -294,7 +294,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         position: absolute;
         transform: translate(-50%, -50%);
         transform-origin: center center;
-        box-shadow: 0 8px 25px hsl(var(--primary) / 0.4);
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
         will-change: transform;
       `;
 
@@ -339,8 +339,8 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       const el = document.createElement('div');
       el.className = 'location-marker';
       el.style.cssText = `
-        width: 24px;
-        height: 24px;
+        width: 16px;
+        height: 16px;
         background: hsl(var(--primary));
         border: 2px solid hsl(var(--background));
         border-radius: 50%;
@@ -352,6 +352,9 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         box-shadow: 0 4px 12px hsl(var(--primary) / 0.4);
         will-change: transform;
       `;
+      
+      // Add debug info to verify coordinates
+      console.log(`Location ${location.name}: lat=${location.latitude}, lng=${location.longitude}`);
 
       el.addEventListener('click', () => {
         setSelectedLocation(location);
@@ -372,28 +375,27 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
   const updateMarkersBasedOnZoom = (zoomLevel: number) => {
     console.log('Zoom level:', zoomLevel, 'Selected Province:', selectedProvince, 'Selected City:', selectedCity, 'View Level:', viewLevel);
     
-    if (!selectedProvince && !selectedCity) { // Only if no manual selection
-      if (zoomLevel >= 10) {
-        // High zoom: Show all individual locations
-        if (viewLevel !== 'locations') {
-          console.log('Switching to locations view');
-          setViewLevel('locations');
-          addAllLocationMarkers();
-        }
-      } else if (zoomLevel >= 8) {
-        // Medium zoom: Show all cities
-        if (viewLevel !== 'cities') {
-          console.log('Switching to cities view');
-          setViewLevel('cities');
-          addAllCityMarkers();
-        }
-      } else {
-        // Low zoom: Show provinces
-        if (viewLevel !== 'provinces') {
-          console.log('Switching to provinces view');
-          setViewLevel('provinces');
-          addProvinceMarkers();
-        }
+    // Always auto-switch based on zoom level
+    if (zoomLevel >= 10) {
+      // High zoom: Show all individual locations
+      if (viewLevel !== 'locations') {
+        console.log('Switching to locations view');
+        setViewLevel('locations');
+        addAllLocationMarkers();
+      }
+    } else if (zoomLevel >= 8) {
+      // Medium zoom: Show all cities
+      if (viewLevel !== 'cities') {
+        console.log('Switching to cities view');
+        setViewLevel('cities');
+        addAllCityMarkers();
+      }
+    } else {
+      // Low zoom: Show provinces
+      if (viewLevel !== 'provinces') {
+        console.log('Switching to provinces view');
+        setViewLevel('provinces');
+        addProvinceMarkers();
       }
     }
   };
