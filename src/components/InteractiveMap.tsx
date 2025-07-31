@@ -165,19 +165,21 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         border-radius: 50%;
         cursor: pointer;
         transition: all 0.3s ease;
-        position: relative;
-        transform-origin: center;
+        position: absolute;
+        transform: translate(-50%, -50%);
+        transform-origin: center center;
         box-shadow: 0 4px 12px hsl(var(--primary) / 0.4);
+        will-change: transform;
       `;
 
       el.addEventListener('mouseenter', () => {
-        el.style.transform = 'scale(1.3)';
+        el.style.transform = 'translate(-50%, -50%) scale(1.3)';
         el.style.boxShadow = '0 6px 20px hsl(var(--primary) / 0.6)';
         el.style.zIndex = '1000';
       });
 
       el.addEventListener('mouseleave', () => {
-        el.style.transform = 'scale(1)';
+        el.style.transform = 'translate(-50%, -50%) scale(1)';
         el.style.boxShadow = '0 4px 12px hsl(var(--primary) / 0.4)';
         el.style.zIndex = 'auto';
       });
@@ -188,9 +190,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
 
       const marker = new mapboxgl.Marker({
         element: el,
-        anchor: 'center',
-        pitchAlignment: 'map',
-        rotationAlignment: 'map'
+        anchor: 'center'
       })
         .setLngLat([parseFloat(location.longitude.toString()), parseFloat(location.latitude.toString())])
         .addTo(map.current!);
@@ -223,9 +223,11 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         border-radius: 50%;
         cursor: pointer;
         transition: all 0.3s ease;
-        position: relative;
-        transform-origin: center;
+        position: absolute;
+        transform: translate(-50%, -50%);
+        transform-origin: center center;
         box-shadow: 0 4px 12px hsl(var(--secondary) / 0.4);
+        will-change: transform;
       `;
 
       const content = document.createElement('div');
@@ -245,13 +247,13 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       el.appendChild(content);
 
       el.addEventListener('mouseenter', () => {
-        el.style.transform = 'scale(1.2)';
+        el.style.transform = 'translate(-50%, -50%) scale(1.2)';
         el.style.boxShadow = '0 6px 20px hsl(var(--secondary) / 0.6)';
         el.style.zIndex = '1000';
       });
 
       el.addEventListener('mouseleave', () => {
-        el.style.transform = 'scale(1)';
+        el.style.transform = 'translate(-50%, -50%) scale(1)';
         el.style.boxShadow = '0 4px 12px hsl(var(--secondary) / 0.4)';
         el.style.zIndex = 'auto';
       });
@@ -262,9 +264,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
 
       const marker = new mapboxgl.Marker({
         element: el,
-        anchor: 'center',
-        pitchAlignment: 'map',
-        rotationAlignment: 'map'
+        anchor: 'center'
       })
         .setLngLat([avgLng, avgLat])
         .addTo(map.current!);
@@ -349,13 +349,15 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
           border-radius: 50%;
           cursor: pointer;
           transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-          position: relative;
-          transform-origin: center;
+          position: absolute;
+          transform: translate(-50%, -50%);
+          transform-origin: center center;
           box-shadow: 
             0 0 0 0 hsl(var(--primary) / 0.7),
             0 8px 25px hsl(var(--primary) / 0.4),
             inset 0 1px 3px hsl(var(--primary-foreground) / 0.3);
           animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+          will-change: transform;
         `;
         
         // Add CSS animation for pulsing ring effect
@@ -395,13 +397,13 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         // Add hover effects without popup (fix positioning issue)
         el.addEventListener('mouseenter', () => {
           setHoveredProvince(province.name);
-          el.style.transform = 'scale(1.2)';
+          el.style.transform = 'translate(-50%, -50%) scale(1.2)';
           el.style.boxShadow = '0 8px 30px hsl(var(--primary) / 0.5)';
         });
 
         el.addEventListener('mouseleave', () => {
           setHoveredProvince(null);
-          el.style.transform = 'scale(1)';
+          el.style.transform = 'translate(-50%, -50%) scale(1)';
           el.style.boxShadow = '0 4px 20px hsl(var(--primary) / 0.3)';
         });
 
@@ -412,9 +414,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         // Add marker to map with fixed positioning
         const marker = new mapboxgl.Marker({
           element: el,
-          anchor: 'center',
-          pitchAlignment: 'map',
-          rotationAlignment: 'map'
+          anchor: 'center'
         })
           .setLngLat(data.coordinates)
           .addTo(map.current!);
