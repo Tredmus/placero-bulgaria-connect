@@ -247,13 +247,13 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       el.appendChild(content);
 
       el.addEventListener('mouseenter', () => {
-        el.style.transform = 'translate(-50%, -50%) scale(1.2)';
+        el.style.transform = 'scale(1.2)';
         el.style.boxShadow = '0 6px 20px hsl(var(--secondary) / 0.6)';
         el.style.zIndex = '1000';
       });
 
       el.addEventListener('mouseleave', () => {
-        el.style.transform = 'translate(-50%, -50%) scale(1)';
+        el.style.transform = 'scale(1)';
         el.style.boxShadow = '0 4px 12px hsl(var(--secondary) / 0.4)';
         el.style.zIndex = 'auto';
       });
