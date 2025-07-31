@@ -255,8 +255,6 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       });
 
       el.addEventListener('mouseleave', () => {
-        el.style.top = '50%';
-        el.style.left = '50%';
         el.style.transform = 'translate(-50%, -50%) scale(1)';
         el.style.boxShadow = '0 4px 12px hsl(var(--secondary) / 0.4)';
         el.style.zIndex = 'auto';
