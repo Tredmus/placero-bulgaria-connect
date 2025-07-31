@@ -18,6 +18,9 @@ interface MapboxSuggestion {
   properties: {
     short_code?: string;
   };
+  strategy?: string;
+  accuracy_score?: number;
+  coordinates_display?: string;
 }
 
 const AddressAutocomplete = ({ 
@@ -107,6 +110,23 @@ const AddressAutocomplete = ({
                   <p className="text-sm font-medium truncate">
                     {suggestion.place_name}
                   </p>
+                  {suggestion.coordinates_display && (
+                    <p className="text-xs text-muted-foreground">
+                      📍 {suggestion.coordinates_display}
+                    </p>
+                  )}
+                  {suggestion.accuracy_score && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <div className={`w-2 h-2 rounded-full ${
+                        suggestion.accuracy_score > 0.8 ? 'bg-green-500' : 
+                        suggestion.accuracy_score > 0.6 ? 'bg-yellow-500' : 'bg-red-500'
+                      }`} />
+                      <span className="text-xs text-muted-foreground">
+                        {suggestion.accuracy_score > 0.8 ? 'High' : 
+                         suggestion.accuracy_score > 0.6 ? 'Medium' : 'Low'} accuracy
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

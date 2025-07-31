@@ -148,6 +148,33 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
     markersRef.current = [];
   };
 
+  // Create optimized marker element to reduce lag
+  const createMarkerElement = (size: number, color: string, borderColor: string = 'hsl(var(--background))') => {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      width: ${size}px;
+      height: ${size}px;
+      background: ${color};
+      border: 2px solid ${borderColor};
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+      transform-origin: center center;
+      transition: transform 0.2s ease;
+      will-change: transform;
+    `;
+    
+    // Add smooth hover effect
+    el.addEventListener('mouseenter', () => {
+      el.style.transform = 'scale(1.1)';
+    });
+    el.addEventListener('mouseleave', () => {
+      el.style.transform = 'scale(1)';
+    });
+    
+    return el;
+  };
+
   // Add province locations as individual markers
   const addLocationMarkers = (locations: any[]) => {
     clearMarkers();
@@ -155,32 +182,14 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
     locations.forEach((location) => {
       if (!location.latitude || !location.longitude) return;
 
-      const el = document.createElement('div');
-      el.className = 'location-marker';
-      el.style.cssText = `
-        width: 24px;
-        height: 24px;
-        background: hsl(var(--primary));
-        border: 2px solid hsl(var(--background));
-        border-radius: 50%;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: absolute;
-        transform: translate(-50%, -50%);
-        transform-origin: center center;
-        box-shadow: 0 4px 12px hsl(var(--primary) / 0.4);
-        will-change: transform;
-      `;
+      const el = createMarkerElement(24, 'hsl(var(--primary))');
 
 
       el.addEventListener('click', () => {
         setSelectedLocation(location);
       });
 
-      const marker = new mapboxgl.Marker({
-        element: el,
-        anchor: 'center'
-      })
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([parseFloat(location.longitude.toString()), parseFloat(location.latitude.toString())])
         .addTo(map.current!);
       
@@ -219,22 +228,8 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
        const avgLat = validLocations.reduce((sum, loc) => sum + parseFloat(loc.latitude.toString()), 0) / validLocations.length;
        const avgLng = validLocations.reduce((sum, loc) => sum + parseFloat(loc.longitude.toString()), 0) / validLocations.length;
 
-      const el = document.createElement('div');
-      el.className = 'city-marker';
-      el.style.cssText = `
-        width: ${Math.max(30, cityLocations.length * 6)}px;
-        height: ${Math.max(30, cityLocations.length * 6)}px;
-        background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
-        border: 2px solid hsl(var(--background));
-        border-radius: 50%;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: absolute;
-        transform: translate(-50%, -50%);
-        transform-origin: center center;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-        will-change: transform;
-      `;
+      const size = Math.max(30, cityLocations.length * 6);
+      const el = createMarkerElement(size, 'linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%)');
 
       const content = document.createElement('div');
       content.style.cssText = `
@@ -256,10 +251,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         handleCitySelect(cityName, cityLocations, [avgLng, avgLat]);
       });
 
-      const marker = new mapboxgl.Marker({
-        element: el,
-        anchor: 'center'
-      })
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([avgLng, avgLat])
         .addTo(map.current!);
       
@@ -281,22 +273,10 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
        const avgLat = validLocations.reduce((sum, loc) => sum + parseFloat(loc.latitude.toString()), 0) / validLocations.length;
        const avgLng = validLocations.reduce((sum, loc) => sum + parseFloat(loc.longitude.toString()), 0) / validLocations.length;
 
-      const el = document.createElement('div');
-      el.className = 'city-marker';
-      el.style.cssText = `
-        width: ${Math.max(35, cityLocations.length * 8)}px;
-        height: ${Math.max(35, cityLocations.length * 8)}px;
-        background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
-        border: 3px solid hsl(var(--background));
-        border-radius: 50%;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: absolute;
-        transform: translate(-50%, -50%);
-        transform-origin: center center;
-        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
-        will-change: transform;
-      `;
+      const size = Math.max(35, cityLocations.length * 8);
+      const el = createMarkerElement(size, 'linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%)');
+      el.style.border = '3px solid hsl(var(--background))';
+      el.style.boxShadow = '0 8px 25px rgba(16, 185, 129, 0.4)';
 
       const content = document.createElement('div');
       content.style.cssText = `
@@ -318,10 +298,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         handleCitySelect(cityName, cityLocations, [avgLng, avgLat]);
       });
 
-      const marker = new mapboxgl.Marker({
-        element: el,
-        anchor: 'center'
-      })
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([avgLng, avgLat])
         .addTo(map.current!);
       
@@ -336,22 +313,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
     locations.forEach((location) => {
       if (!location.latitude || !location.longitude) return;
 
-      const el = document.createElement('div');
-      el.className = 'location-marker';
-      el.style.cssText = `
-        width: 16px;
-        height: 16px;
-        background: hsl(var(--primary));
-        border: 2px solid hsl(var(--background));
-        border-radius: 50%;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: absolute;
-        transform: translate(-50%, -50%);
-        transform-origin: center center;
-        box-shadow: 0 4px 12px hsl(var(--primary) / 0.4);
-        will-change: transform;
-      `;
+      const el = createMarkerElement(16, 'hsl(var(--primary))');
       
       // Add debug info to verify coordinates
       console.log(`Location ${location.name}: lat=${location.latitude}, lng=${location.longitude}`);
@@ -360,10 +322,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
         setSelectedLocation(location);
       });
 
-      const marker = new mapboxgl.Marker({
-        element: el,
-        anchor: 'center'
-      })
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([parseFloat(location.longitude.toString()), parseFloat(location.latitude.toString())])
         .addTo(map.current!);
       

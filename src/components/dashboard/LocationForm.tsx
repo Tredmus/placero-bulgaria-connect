@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { X, Plus } from 'lucide-react';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
+import { CoordinateValidator } from '@/components/CoordinateValidator';
 
 interface LocationFormProps {
   location?: any;
@@ -203,6 +204,22 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
             />
           </div>
         </div>
+
+        {/* Coordinate Validator */}
+        {(formData.latitude && formData.longitude) && (
+          <CoordinateValidator
+            latitude={formData.latitude}
+            longitude={formData.longitude}
+            address={formData.address}
+            onCoordinatesChange={(lat, lng) => {
+              setFormData(prev => ({ 
+                ...prev, 
+                latitude: lat,
+                longitude: lng
+              }));
+            }}
+          />
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="description">Description</Label>
