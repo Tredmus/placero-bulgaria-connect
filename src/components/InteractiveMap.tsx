@@ -664,21 +664,6 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
     setSelectedLocation(null);
     setViewLevel('provinces');
     clearMarkers();
-
-    // Make land (continents) white
-map.current!.addLayer({
-  id: 'white-land-overlay',
-  type: 'fill',
-  source: {
-    type: 'vector',
-    url: 'mapbox://mapbox.mapbox-streets-v8'
-  },
-  'source-layer': 'land',
-  paint: {
-    'fill-color': '#ffffff',
-    'fill-opacity': 1
-  }
-}, 'waterway-label'); // Insert before labels so they're not hidden
     
     // Re-add province markers
     if (map.current) {
@@ -937,8 +922,6 @@ map.current!.addLayer({
           </div>
         </div>
       )}
-
-      
 
       {/* Locations in City */}
       {selectedCity && cityLocations.length > 0 && (
