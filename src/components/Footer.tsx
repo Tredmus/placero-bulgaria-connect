@@ -18,7 +18,7 @@ const Footer = () => {
 
           {/* Quick Links */}
           <div>
-            <h3 className="font-semibold text-lg mb-4">Връзки</h3>
+            <h3 className="font-semibold text-white mb-4">Връзки</h3>
             <ul className="space-y-2 text-background/80">
               <li><a href="#" className="hover:text-primary transition-colors">Начало</a></li>
               <li><a href="#" className="hover:text-primary transition-colors">Локации</a></li>
@@ -29,7 +29,7 @@ const Footer = () => {
 
           {/* For Partners */}
           <div>
-            <h3 className="font-semibold text-lg mb-4">За партньори</h3>
+            <h3 className="font-semibold text-white mb-4">За партньори</h3>
             <ul className="space-y-2 text-background/80">
               <li><a href="#" className="hover:text-primary transition-colors">Станете партньор</a></li>
               <li><a href="#" className="hover:text-primary transition-colors">Цени</a></li>
