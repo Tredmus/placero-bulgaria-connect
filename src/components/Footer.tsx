@@ -8,7 +8,7 @@ const Footer = () => {
           {/* Logo & Description */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Building2 className="h-8 w-8 text-primary" />
+              <Building2 className="h-8 w-8 text-white" />
               <span className="text-2xl font-bold">Placero</span>
             </div>
             <p className="text-white/80">
@@ -40,7 +40,7 @@ const Footer = () => {
 
           {/* Contact */}
           <div>
-            <h3 className="font-semibold text-lg mb-4">Контакти</h3>
+            <h3 className="font-semibold text-white mb-4">Контакти</h3>
             <div className="space-y-3 text-white/80">
               <div className="flex items-center space-x-2">
                 <Mail className="h-4 w-4" />
