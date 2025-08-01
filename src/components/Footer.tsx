@@ -8,7 +8,7 @@ const Footer = () => {
           {/* Logo & Description */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Building2 className="h-8 w-8 text-primary" />
+              <Building2 className="h-8 w-8 text-white" />
               <span className="text-2xl font-bold">Placero</span>
             </div>
             <p className="text-background/80">
