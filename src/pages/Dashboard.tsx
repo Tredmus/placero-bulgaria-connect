@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Building2, MapPin, FileText, Eye } from 'lucide-react';
+import { Plus, Building2, MapPin, FileText, Eye, Crown } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { CompanyCard } from '@/components/dashboard/CompanyCard';
@@ -306,13 +306,55 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">
-          {userRole === 'admin' ? 'Manage pending submissions' : 'Manage your workspace listings'}
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+      <div className="container mx-auto py-8 px-4">
+        <div className="mb-8 placero-fade-in">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl">
+              <Building2 className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                Dashboard
+              </h1>
+              <p className="text-muted-foreground text-lg">
+                {userRole === 'admin' ? 'Manage pending submissions' : 'Manage your workspace listings'}
+              </p>
+            </div>
+          </div>
+          
+          {/* Dashboard Stats Bar */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            <div className="placero-card p-6 text-center placero-hover-lift placero-scale-in placero-stagger-1 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5"></div>
+              <div className="relative z-10">
+                <div className="text-3xl font-bold text-primary mb-1">{userCompanies.length}</div>
+                <div className="text-sm text-muted-foreground">Companies</div>
+              </div>
+            </div>
+            <div className="placero-card p-6 text-center placero-hover-lift placero-scale-in placero-stagger-2 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-accent/20 to-accent/10"></div>
+              <div className="relative z-10">
+                <div className="text-3xl font-bold text-primary mb-1">{userLocations.length}</div>
+                <div className="text-sm text-muted-foreground">Locations</div>
+              </div>
+            </div>
+            <div className="placero-card p-6 text-center placero-hover-lift placero-scale-in placero-stagger-3 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-secondary/20 to-secondary/10"></div>
+              <div className="relative z-10">
+                <div className="text-3xl font-bold text-primary mb-1">{userArticles.length}</div>
+                <div className="text-sm text-muted-foreground">Articles</div>
+              </div>
+            </div>
+            <div className="placero-card p-6 text-center placero-hover-lift placero-scale-in placero-stagger-4 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-muted/20 to-muted/10"></div>
+              <div className="relative z-10">
+                <div className="text-3xl font-bold text-primary mb-1">{userBanners.length}</div>
+                <div className="text-sm text-muted-foreground">Banners</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
       {userRole === 'host' && (
         <div className="space-y-6">
@@ -354,38 +396,56 @@ export default function Dashboard() {
           ) : (
             <>
               {showPlansCTA && (
-                <Card className="mb-6 border-gradient-to-r from-blue-500 to-purple-600 bg-gradient-to-r from-blue-50 to-purple-50">
-                  <CardContent className="pt-6">
+                <div className="mb-6 placero-card-hero relative overflow-hidden placero-fade-in">
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/5"></div>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -translate-y-16 translate-x-16"></div>
+                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-primary/5 rounded-full translate-y-12 -translate-x-12"></div>
+                  
+                  <CardContent className="pt-8 pb-6 relative z-10">
                     <div className="text-center">
-                      <h3 className="text-xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                      <div className="mb-4 flex justify-center">
+                        <div className="p-3 bg-primary/20 rounded-full">
+                          <Crown className="h-8 w-8 text-primary" />
+                        </div>
+                      </div>
+                      <h3 className="text-2xl font-bold mb-2 text-foreground placero-heading">
                         🎉 Great job! Your workspace is ready
                       </h3>
-                      <p className="text-muted-foreground mb-4">
+                      <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                         Now choose a plan to unlock premium features and get more visibility for your coworking space.
                       </p>
                       <Button 
                         size="lg" 
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                        className="placero-button-primary shadow-[var(--shadow-glow)]"
                         onClick={() => setActiveTab('plans')}
                       >
                         Choose Your Plan ✨
                       </Button>
                     </div>
                   </CardContent>
-                </Card>
+                </div>
               )}
             
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="locations" className="flex items-center gap-2">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 placero-slide-up">
+              <TabsList className="grid w-full grid-cols-3 placero-surface p-1 h-auto">
+                <TabsTrigger 
+                  value="locations" 
+                  className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
+                >
                   <MapPin className="h-4 w-4" />
                   Locations
                 </TabsTrigger>
-                <TabsTrigger value="articles" className="flex items-center gap-2">
+                <TabsTrigger 
+                  value="articles" 
+                  className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
+                >
                   <FileText className="h-4 w-4" />
                   Articles
                 </TabsTrigger>
-                <TabsTrigger value="plans" className="flex items-center gap-2">
+                <TabsTrigger 
+                  value="plans" 
+                  className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
+                >
                   <Building2 className="h-4 w-4" />
                   Plans
                 </TabsTrigger>
@@ -601,8 +661,69 @@ export default function Dashboard() {
       )}
 
       {userRole === 'admin' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <>
+          <div className="mb-8 placero-fade-in">
+            <h2 className="text-3xl font-bold mb-6 placero-heading">Admin Review</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="placero-card-elevated relative overflow-hidden placero-hover-lift">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5"></div>
+                <CardHeader className="pb-3 relative z-10">
+                  <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    Companies
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="text-3xl font-bold text-primary">{pendingCompanies.length}</div>
+                  <p className="text-xs text-muted-foreground">Pending review</p>
+                </CardContent>
+              </div>
+
+              <div className="placero-card-elevated relative overflow-hidden placero-hover-lift">
+                <div className="absolute inset-0 bg-gradient-to-br from-accent/20 to-accent/10"></div>
+                <CardHeader className="pb-3 relative z-10">
+                  <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    Locations
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="text-3xl font-bold text-primary">{pendingLocations.length}</div>
+                  <p className="text-xs text-muted-foreground">Pending review</p>
+                </CardContent>
+              </div>
+
+              <div className="placero-card-elevated relative overflow-hidden placero-hover-lift">
+                <div className="absolute inset-0 bg-gradient-to-br from-secondary/20 to-secondary/10"></div>
+                <CardHeader className="pb-3 relative z-10">
+                  <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <FileText className="h-4 w-4 text-primary" />
+                    Articles
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="text-3xl font-bold text-primary">{pendingArticles.length}</div>
+                  <p className="text-xs text-muted-foreground">Pending review</p>
+                </CardContent>
+              </div>
+
+              <div className="placero-card-elevated relative overflow-hidden placero-hover-lift">
+                <div className="absolute inset-0 bg-gradient-to-br from-muted/20 to-muted/10"></div>
+                <CardHeader className="pb-3 relative z-10">
+                  <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <FileText className="h-4 w-4 text-primary" />
+                    Banners
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="text-3xl font-bold text-primary">{pendingBanners.length}</div>
+                  <p className="text-xs text-muted-foreground">Pending review</p>
+                </CardContent>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Pending Companies */}
             <Card>
               <CardHeader>
@@ -738,8 +859,9 @@ export default function Dashboard() {
                  )}
                </CardContent>
              </Card>
-           </div>
-         </div>
+            </div>
+          </div>
+        </>
       )}
 
       <PreviewDialog
@@ -755,6 +877,7 @@ export default function Dashboard() {
         description={confirmDialog.description}
         onConfirm={confirmDialog.onConfirm}
       />
+      </div>
     </div>
   );
 }

@@ -53,36 +53,47 @@ const BannerDisplay = () => {
   }
 
   return (
-    <section className="py-8 bg-primary/5">
+    <section className="py-8 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10">
       <div className="container mx-auto px-4">
         <div className="space-y-4">
-          {banners.map((banner) => (
+          {banners.map((banner, index) => (
             <div
               key={banner.id}
-              className="flex items-center gap-4 p-4 bg-background rounded-lg border shadow-sm"
+              className="placero-card-elevated flex items-center gap-4 p-6 placero-hover-lift relative overflow-hidden placero-fade-in"
+              style={{animationDelay: `${index * 0.1}s`}}
             >
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-accent/5"></div>
+              
               {banner.companies?.logo && (
-                <img
-                  src={banner.companies.logo}
-                  alt={banner.companies.name}
-                  className="w-12 h-12 rounded object-cover flex-shrink-0"
-                />
+                <div className="relative z-10">
+                  <img
+                    src={banner.companies.logo}
+                    alt={banner.companies.name}
+                    className="w-14 h-14 rounded-xl object-cover flex-shrink-0 shadow-md"
+                  />
+                </div>
               )}
-              <div className="flex-grow">
-                <p className="text-sm font-medium text-foreground">
+              
+              <div className="flex-grow relative z-10">
+                <p className="text-base font-semibold text-foreground mb-1">
                   {banner.text}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground">
                   {banner.companies?.name}
                 </p>
               </div>
+              
               {banner.image && (
-                <img
-                  src={banner.image}
-                  alt="Banner"
-                  className="w-16 h-16 rounded object-cover flex-shrink-0"
-                />
+                <div className="relative z-10">
+                  <img
+                    src={banner.image}
+                    alt="Banner"
+                    className="w-20 h-16 rounded-lg object-cover flex-shrink-0 shadow-md"
+                  />
+                </div>
               )}
+              
+              <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full -translate-y-12 translate-x-12 placero-floating"></div>
             </div>
           ))}
         </div>

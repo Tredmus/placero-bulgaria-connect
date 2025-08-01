@@ -128,28 +128,36 @@ const PlansTab = ({ userCompanies, onSubscriptionUpdate }: PlansTabProps) => {
   const hasCompany = userCompanies.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 placero-fade-in">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold mb-2">Choose Your Plan</h2>
-        <p className="text-muted-foreground">
+        <div className="flex justify-center mb-4">
+          <div className="p-4 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl">
+            <Crown className="h-10 w-10 text-primary" />
+          </div>
+        </div>
+        <h2 className="text-3xl font-bold mb-4 placero-heading">Choose Your Plan</h2>
+        <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
           {hasCompany 
-            ? "Upgrade your workspace to unlock premium features" 
+            ? "Upgrade your workspace to unlock premium features and boost your visibility" 
             : "Please create your first company and location before selecting a plan"
           }
         </p>
       </div>
 
       {!hasCompany && (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <Building2 className="h-5 w-5 text-amber-600" />
-              <p className="text-amber-800">
+        <div className="placero-card relative overflow-hidden border-l-4 border-l-primary">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5"></div>
+          <CardContent className="pt-6 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-primary/20 rounded-lg">
+                <Building2 className="h-5 w-5 text-primary" />
+              </div>
+              <p className="text-foreground font-medium">
                 You need to create your first company and location before you can select a plan.
               </p>
             </div>
           </CardContent>
-        </Card>
+        </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -159,55 +167,73 @@ const PlansTab = ({ userCompanies, onSubscriptionUpdate }: PlansTabProps) => {
           const isPopular = plan.tier === 2;
 
           return (
-            <Card 
+            <div 
               key={plan.id} 
-              className={`relative ${getPlanColor(plan.tier)} ${isCurrentPlan ? 'ring-2 ring-primary' : ''}`}
+              className={`placero-card-elevated relative overflow-hidden ${isCurrentPlan ? 'ring-2 ring-primary placero-hover-glow' : 'placero-hover-lift'} transition-all duration-300`}
             >
+              <div className="absolute inset-0 bg-gradient-to-br from-card via-card to-muted/30"></div>
+              
               {isPopular && (
-                <Badge className="absolute -top-2 left-1/2 -translate-x-1/2">
-                  Most Popular
-                </Badge>
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-20">
+                  <Badge className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg">
+                    Most Popular
+                  </Badge>
+                </div>
               )}
               {isCurrentPlan && (
-                <Badge variant="secondary" className="absolute -top-2 right-4">
-                  Current Plan
-                </Badge>
+                <div className="absolute -top-2 right-4 z-20">
+                  <Badge className="bg-gradient-to-r from-secondary to-secondary/80 text-secondary-foreground shadow-lg">
+                    Current Plan
+                  </Badge>
+                </div>
               )}
               
-              <CardHeader className="text-center pb-4">
-                <div className="flex justify-center mb-2">
-                  <Icon className="h-8 w-8 text-primary" />
+              <CardHeader className="text-center pb-4 relative z-10">
+                <div className="flex justify-center mb-4">
+                  <div className="p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl">
+                    <Icon className="h-8 w-8 text-primary" />
+                  </div>
                 </div>
-                <CardTitle className="text-xl">{plan.name}</CardTitle>
-                <CardDescription>
-                  <span className="text-3xl font-bold text-foreground">
+                <CardTitle className="text-2xl font-bold placero-heading">{plan.name}</CardTitle>
+                <CardDescription className="mt-4">
+                  <span className="text-4xl font-bold text-foreground">
                     ${plan.price_month}
                   </span>
-                  <span className="text-muted-foreground">/month</span>
+                  <span className="text-muted-foreground text-lg">/month</span>
                 </CardDescription>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground mt-2">
                   or ${plan.price_year}/year (save ${((plan.price_month * 12) - plan.price_year).toFixed(2)})
                 </p>
               </CardHeader>
 
-              <CardContent className="space-y-4">
-                <ul className="space-y-2">
+              <CardContent className="space-y-6 relative z-10">
+                <ul className="space-y-3">
                   {plan.perks.map((perk, index) => (
-                    <li key={index} className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                      <span className="text-sm">{perk}</span>
+                    <li key={index} className="flex items-center gap-3 placero-fade-in" style={{animationDelay: `${index * 0.1}s`}}>
+                      <div className="p-1 bg-primary/20 rounded-full">
+                        <Check className="h-3 w-3 text-primary flex-shrink-0" />
+                      </div>
+                      <span className="text-sm text-foreground">{perk}</span>
                     </li>
                   ))}
                 </ul>
 
                 <Button
-                  className="w-full"
-                  variant={isCurrentPlan ? "outline" : "default"}
+                  className={`w-full h-12 text-base font-semibold transition-all duration-200 ${
+                    isCurrentPlan 
+                      ? "placero-button-ghost" 
+                      : isPopular 
+                        ? "placero-button-primary" 
+                        : "placero-button-secondary"
+                  }`}
                   disabled={!hasCompany || processingPlan === plan.id || isCurrentPlan}
                   onClick={() => handleSelectPlan(plan)}
                 >
                   {processingPlan === plan.id ? (
-                    "Processing..."
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                      Processing...
+                    </div>
                   ) : isCurrentPlan ? (
                     "Current Plan"
                   ) : (
@@ -215,22 +241,29 @@ const PlansTab = ({ userCompanies, onSubscriptionUpdate }: PlansTabProps) => {
                   )}
                 </Button>
               </CardContent>
-            </Card>
+            </div>
           );
         })}
       </div>
 
       {hasCompany && !currentPlan && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="pt-6">
+        <div className="placero-card-hero relative overflow-hidden mt-8">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10"></div>
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full -translate-y-12 translate-x-12"></div>
+          <CardContent className="pt-8 pb-6 relative z-10">
             <div className="text-center">
-              <h3 className="font-semibold text-blue-900 mb-2">Ready to get started?</h3>
-              <p className="text-blue-800 mb-4">
+              <div className="mb-4 flex justify-center">
+                <div className="p-3 bg-primary/20 rounded-full">
+                  <Zap className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+              <h3 className="text-xl font-bold text-foreground mb-2">Ready to get started?</h3>
+              <p className="text-muted-foreground max-w-md mx-auto">
                 Choose a plan above to unlock premium features for your workspace.
               </p>
             </div>
           </CardContent>
-        </Card>
+        </div>
       )}
     </div>
   );
