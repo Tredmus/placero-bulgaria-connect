@@ -8,44 +8,61 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Placero Design System */
-    --background: 0 0% 100%;
-    --foreground: 0 0% 0%;
+    /* Placero Premium Dark Design System */
+    --background: 222 84% 4.9%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
+    --card: 224 71% 6%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
+    --popover: 224 71% 6%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 140 75% 23%;
+    --primary: 140 75% 35%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 0%;
+    --secondary: 215 28% 10%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 215 28% 12%;
+    --muted-foreground: 217 10% 65%;
 
-    --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 0%;
+    --accent: 215 28% 15%;
+    --accent-foreground: 210 40% 98%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 140 75% 23%;
+    --border: 215 28% 18%;
+    --input: 215 28% 15%;
+    --ring: 140 75% 35%;
 
-    --radius: 0.25rem;
+    --radius: 0.5rem;
 
-    /* Custom Placero Variables */
-    --placero-green: 140 75% 23%;
-    --placero-light-gray: 0 0% 96%;
-    --placero-gray: 0 0% 45%;
-    --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-elevated: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Premium Placero Variables */
+    --placero-green: 140 75% 35%;
+    --placero-green-glow: 140 75% 45%;
+    --placero-surface: 224 71% 6%;
+    --placero-surface-elevated: 224 71% 8%;
+    --placero-surface-hover: 224 71% 10%;
+    --placero-border: 215 28% 18%;
+    --placero-border-subtle: 215 28% 12%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(140 75% 35%) 0%, hsl(140 75% 45%) 100%);
+    --gradient-surface: linear-gradient(135deg, hsl(224 71% 6%) 0%, hsl(224 71% 8%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(222 84% 4.9%) 0%, hsl(224 71% 6%) 50%, hsl(215 28% 10%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(224 71% 6%) 0%, hsl(224 71% 8%) 100%);
+    
+    /* Shadows */
+    --shadow-card: 0 4px 16px -4px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.2);
+    --shadow-elevated: 0 20px 40px -12px rgb(0 0 0 / 0.4), 0 8px 16px -4px rgb(0 0 0 / 0.25);
+    --shadow-glow: 0 0 40px -8px hsl(140 75% 35% / 0.3);
+    --shadow-premium: 0 32px 64px -12px rgb(0 0 0 / 0.4), 0 0 0 1px hsl(215 28% 18%);
+    
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
     --sidebar-background: 0 0% 98%;
 
@@ -115,19 +132,88 @@ All colors MUST be HSL.
 }
 
 @layer components {
+  /* Premium Card Components */
   .placero-card {
-    @apply bg-card rounded border shadow-[var(--shadow-card)] transition-[var(--transition-smooth)];
+    @apply bg-gradient-to-br from-card to-card border border-border/50 rounded-xl shadow-[var(--shadow-card)] transition-[var(--transition-smooth)] hover:shadow-[var(--shadow-elevated)] hover:border-border/80;
   }
   
   .placero-card-elevated {
-    @apply bg-card rounded border shadow-[var(--shadow-elevated)] transition-[var(--transition-smooth)];
+    @apply bg-gradient-to-br from-card to-card border border-border/50 rounded-xl shadow-[var(--shadow-elevated)] transition-[var(--transition-smooth)] hover:shadow-[var(--shadow-premium)] hover:border-primary/20;
   }
   
+  .placero-card-hero {
+    @apply bg-gradient-to-br from-card via-card to-muted/30 border border-border/30 rounded-2xl shadow-[var(--shadow-premium)] backdrop-blur-sm;
+  }
+
+  /* Premium Button Components */
   .placero-button-primary {
-    @apply bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded font-medium transition-[var(--transition-smooth)];
+    @apply bg-gradient-to-r from-primary to-primary hover:from-primary/90 hover:to-primary hover:shadow-[var(--shadow-glow)] text-primary-foreground px-8 py-4 rounded-xl font-semibold transition-[var(--transition-smooth)] transform hover:scale-105;
   }
   
   .placero-button-secondary {
-    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 px-6 py-3 rounded font-medium transition-[var(--transition-smooth)];
+    @apply bg-gradient-to-r from-secondary to-secondary/80 hover:from-secondary/90 hover:to-secondary border border-border/50 hover:border-border text-secondary-foreground px-8 py-4 rounded-xl font-semibold transition-[var(--transition-smooth)] transform hover:scale-105;
+  }
+
+  .placero-button-ghost {
+    @apply bg-transparent hover:bg-accent/50 text-foreground border border-transparent hover:border-border/50 px-8 py-4 rounded-xl font-semibold transition-[var(--transition-smooth)];
+  }
+
+  /* Surface and Layout Components */
+  .placero-surface {
+    @apply bg-gradient-to-br from-muted via-muted to-muted/80 border border-border/30 rounded-2xl;
+  }
+
+  .placero-glass {
+    @apply bg-card/80 backdrop-blur-md border border-border/20 rounded-2xl shadow-[var(--shadow-card)];
+  }
+
+  /* Text and Typography */
+  .placero-heading {
+    @apply text-foreground font-bold tracking-tight;
+  }
+
+  .placero-subheading {
+    @apply text-muted-foreground font-medium;
+  }
+
+  /* Hover and Interactive Effects */
+  .placero-hover-lift {
+    @apply transition-[var(--transition-smooth)] hover:transform hover:scale-105 hover:shadow-[var(--shadow-elevated)];
+  }
+
+  .placero-hover-glow {
+    @apply transition-[var(--transition-smooth)] hover:shadow-[var(--shadow-glow)] hover:border-primary/30;
+  }
+
+  /* Animations */
+  .placero-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+
+  .placero-slide-up {
+    animation: slideUp 0.8s ease-out forwards;
+  }
+}
+
+/* Keyframe Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

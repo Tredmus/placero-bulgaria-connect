@@ -8,31 +8,38 @@ const HeroSection = () => {
   const { user } = useAuth();
   
   return (
-    <section className="relative bg-background">
-      <div className="container mx-auto px-4 py-16 lg:py-24">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+    <section className="relative min-h-screen bg-gradient-to-br from-background via-muted/10 to-accent/20 overflow-hidden">
+      {/* Background Elements */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(140,255,141,0.1),rgba(255,255,255,0))]" />
+      <div className="absolute inset-0 bg-grid-pattern opacity-5" />
+      
+      <div className="container mx-auto px-4 py-20 lg:py-32 relative z-10">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Content */}
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <h1 className="text-4xl lg:text-6xl font-bold text-foreground leading-tight">
+          <div className="space-y-10 placero-fade-in">
+            <div className="space-y-6">
+              <div className="inline-flex items-center px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
+                ✨ Най-доброто работно пространство в България
+              </div>
+              <h1 className="text-5xl lg:text-7xl font-bold text-foreground leading-tight tracking-tight">
                 Намерете идеалното
-                <span className="text-primary block">работно място</span>
+                <span className="text-transparent bg-gradient-to-r from-primary to-primary/80 bg-clip-text block">работно място</span>
               </h1>
-              <p className="text-xl text-muted-foreground max-w-lg">
+              <p className="text-xl lg:text-2xl text-muted-foreground max-w-2xl leading-relaxed">
                 Открийте и резервирайте най-добрите споделени работни пространства в България. От София до Варна - всички възможности на едно място.
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-6">
               <Link to="/locations">
-                <Button size="lg" className="placero-button-primary">
+                <Button size="lg" className="placero-button-primary group">
                   Разгледайте локации
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
               {!user && (
                 <Link to="/auth?tab=signup">
-                  <Button size="lg" variant="outline">
+                  <Button size="lg" className="placero-button-secondary">
                     Станете партньор
                   </Button>
                 </Link>
@@ -40,50 +47,59 @@ const HeroSection = () => {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-6 pt-8">
-              <div className="text-center">
-                <div className="flex items-center justify-center mb-2">
-                  <Building2 className="h-8 w-8 text-primary" />
+            <div className="grid grid-cols-3 gap-8 pt-12">
+              <div className="placero-glass p-6 text-center placero-hover-lift">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+                    <Building2 className="h-8 w-8 text-primary" />
+                  </div>
                 </div>
-                <div className="text-2xl font-bold text-foreground">150+</div>
-                <div className="text-sm text-muted-foreground">Локации</div>
+                <div className="text-3xl font-bold text-foreground mb-1">150+</div>
+                <div className="text-muted-foreground font-medium">Локации</div>
               </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center mb-2">
-                  <Users className="h-8 w-8 text-primary" />
+              <div className="placero-glass p-6 text-center placero-hover-lift">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+                    <Users className="h-8 w-8 text-primary" />
+                  </div>
                 </div>
-                <div className="text-2xl font-bold text-foreground">5000+</div>
-                <div className="text-sm text-muted-foreground">Потребители</div>
+                <div className="text-3xl font-bold text-foreground mb-1">5000+</div>
+                <div className="text-muted-foreground font-medium">Потребители</div>
               </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center mb-2">
-                  <Star className="h-8 w-8 text-primary" />
+              <div className="placero-glass p-6 text-center placero-hover-lift">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+                    <Star className="h-8 w-8 text-primary" />
+                  </div>
                 </div>
-                <div className="text-2xl font-bold text-foreground">4.8</div>
-                <div className="text-sm text-muted-foreground">Рейтинг</div>
+                <div className="text-3xl font-bold text-foreground mb-1">4.8</div>
+                <div className="text-muted-foreground font-medium">Рейтинг</div>
               </div>
             </div>
           </div>
 
           {/* Image */}
-          <div className="relative">
-            <div className="placero-card-elevated overflow-hidden">
-              <img
-                src={heroImage}
-                alt="Modern workspace"
-                className="w-full h-[500px] object-cover"
-              />
-            </div>
-            
-            {/* Floating badge */}
-            <div className="absolute -bottom-6 left-6 placero-card bg-background p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
-                  <Building2 className="h-6 w-6 text-primary-foreground" />
-                </div>
-                <div>
-                  <div className="font-semibold text-foreground">Нови локации</div>
-                  <div className="text-sm text-muted-foreground">Всяка седмица</div>
+          <div className="relative placero-slide-up">
+            <div className="relative">
+              <div className="placero-card-hero overflow-hidden relative">
+                <img
+                  src={heroImage}
+                  alt="Modern workspace"
+                  className="w-full h-[600px] object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent" />
+              </div>
+              
+              {/* Floating badge */}
+              <div className="absolute -bottom-8 -left-4 placero-card-hero p-6 placero-hover-glow">
+                <div className="flex items-center space-x-4">
+                  <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary/80 rounded-2xl flex items-center justify-center shadow-[var(--shadow-glow)]">
+                    <Building2 className="h-8 w-8 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-lg text-foreground">Нови локации</div>
+                    <div className="text-muted-foreground font-medium">Всяка седмица</div>
+                  </div>
                 </div>
               </div>
             </div>
