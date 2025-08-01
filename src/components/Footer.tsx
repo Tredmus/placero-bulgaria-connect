@@ -11,7 +11,7 @@ const Footer = () => {
               <Building2 className="h-8 w-8 text-primary" />
               <span className="text-2xl font-bold">Placero</span>
             </div>
-            <p className="text-background/80">
+            <p className="text-white/80">
               Водещата платформа за споделени работни пространства в България
             </p>
           </div>
@@ -19,7 +19,7 @@ const Footer = () => {
           {/* Quick Links */}
           <div>
             <h3 className="font-semibold text-white mb-4">Връзки</h3>
-            <ul className="space-y-2 text-background/80">
+            <ul className="space-y-2 text-white/80">
               <li><a href="#" className="hover:text-primary transition-colors">Начало</a></li>
               <li><a href="#" className="hover:text-primary transition-colors">Локации</a></li>
               <li><a href="#" className="hover:text-primary transition-colors">Компании</a></li>
@@ -30,7 +30,7 @@ const Footer = () => {
           {/* For Partners */}
           <div>
             <h3 className="font-semibold text-white mb-4">За партньори</h3>
-            <ul className="space-y-2 text-background/80">
+            <ul className="space-y-2 text-white/80">
               <li><a href="#" className="hover:text-primary transition-colors">Станете партньор</a></li>
               <li><a href="#" className="hover:text-primary transition-colors">Цени</a></li>
               <li><a href="#" className="hover:text-primary transition-colors">Поддръжка</a></li>
@@ -40,8 +40,8 @@ const Footer = () => {
 
           {/* Contact */}
           <div>
-            <h3 className="font-semibold text-white mb-4">Контакти</h3>
-            <div className="space-y-3 text-background/80">
+            <h3 className="font-semibold text-lg mb-4">Контакти</h3>
+            <div className="space-y-3 text-white/80">
               <div className="flex items-center space-x-2">
                 <Mail className="h-4 w-4" />
                 <span>info@placero.bg</span>
@@ -58,7 +58,7 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="border-t border-background/20 mt-8 pt-8 text-center text-background/60">
+        <div className="border-t border-white/20 mt-8 pt-8 text-center text-white/60">
           <p>&copy; 2024 Placero. Всички права запазени.</p>
         </div>
       </div>
