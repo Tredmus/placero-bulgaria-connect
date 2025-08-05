@@ -136,39 +136,40 @@ const PlaceroMap = ({ onProvinceSelect }: PlaceroMapProps) => {
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainer.current || !mapboxToken) return;
+  if (!mapContainer.current || !mapboxToken) return;
 
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [25.4858, 42.7339], // Center of Bulgaria
-      zoom: 6.1,
-      pitch: 45,
-      bearing: -17.6,
-      antialias: true,
-      maxZoom: 18,
-      minZoom: 4
-    });
+  // **Guarantee** Mapbox has a valid key before we call `new Map`
+  mapboxgl.accessToken = mapboxToken;
 
-    // Add navigation controls
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+  const m = new mapboxgl.Map({
+    container: mapContainer.current,
+    style: 'mapbox://styles/mapbox/dark-v11',
+    center: [25.4858, 42.7339],
+    zoom: 6.1,
+    pitch: 45,
+    bearing: -17.6,
+    antialias: true,
+    maxZoom: 18,
+    minZoom: 4
+  });
+  map.current = m;
 
-    map.current.on('load', () => {
-      setIsLoading(false);
-      loadBulgariaProvinces();
-    });
+  m.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    map.current.on('error', (e) => {
-      console.error('Map error:', e);
-      setIsLoading(false);
-    });
+  // add some quick logs so you can see what’s happening
+  m.on('load', () => {
+    console.log('🗺️ Map load event fired');
+    setIsLoading(false);
+    loadBulgariaProvinces();
+  });
+  m.on('error', (e) => {
+    console.error('🗺️ Map error event:', e.error || e);
+    setIsLoading(false);
+  });
 
-    return () => {
-      if (map.current) {
-        map.current.remove();
-      }
-    };
-  }, [mapboxToken]);
+  return () => m.remove();
+}, [mapboxToken]);
+
 
   // Load Bulgaria provinces GeoJSON
   const loadBulgariaProvinces = async () => {
