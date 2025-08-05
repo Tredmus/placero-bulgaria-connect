@@ -1,0 +1,85 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "София", "name_en": "Sofia" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [23.0, 42.4], [23.6, 42.4], [23.6, 43.0], [23.0, 43.0], [23.0, 42.4]
+        ]]
+      }
+    },
+    {
+      "type": "Feature", 
+      "properties": { "name": "Пловдив", "name_en": "Plovdiv" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [24.4, 41.9], [25.0, 41.9], [25.0, 42.5], [24.4, 42.5], [24.4, 41.9]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Варна", "name_en": "Varna" },
+      "geometry": {
+        "type": "Polygon", 
+        "coordinates": [[
+          [27.5, 42.9], [28.2, 42.9], [28.2, 43.6], [27.5, 43.6], [27.5, 42.9]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Бургас", "name_en": "Burgas" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [27.1, 42.2], [27.8, 42.2], [27.8, 42.8], [27.1, 42.8], [27.1, 42.2]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Русе", "name_en": "Ruse" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [25.6, 43.5], [26.3, 43.5], [26.3, 44.1], [25.6, 44.1], [25.6, 43.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Стара Загора", "name_en": "Stara Zagora" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [25.3, 42.1], [26.0, 42.1], [26.0, 42.7], [25.3, 42.7], [25.3, 42.1]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Плевен", "name_en": "Pleven" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [24.3, 43.1], [25.0, 43.1], [25.0, 43.7], [24.3, 43.7], [24.3, 43.1]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Сливен", "name_en": "Sliven" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [25.9, 42.4], [26.6, 42.4], [26.6, 43.0], [25.9, 43.0], [25.9, 42.4]
+        ]]
+      }
+    }
+  ]
+}
