@@ -746,7 +746,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
   return (
     <div className="bg-secondary/50 rounded-lg p-8">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold">Изберете регион</h3>
+        <h3 className="text-2xl font-bold">Изберете 2 регион</h3>
         <Button onClick={resetView} variant="outline" className="flex items-center gap-2">
           <RotateCcw className="h-4 w-4" />
           Покажи всички региони
