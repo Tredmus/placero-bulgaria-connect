@@ -449,6 +449,7 @@ const InteractiveMapCopy = ({ onProvinceSelect }: InteractiveMapCopyProps) => {
         type: 'geojson',
         data: {
           type: 'Feature',
+          properties: {},
           geometry: {
             type: 'Polygon',
             coordinates: [[
