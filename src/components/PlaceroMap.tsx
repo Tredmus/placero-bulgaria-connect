@@ -7,6 +7,93 @@ import { Button } from '@/components/ui/button';
 import { RotateCcw, MapPin, Loader2 } from 'lucide-react';
 import * as turf from '@turf/turf';
 
+// Bulgaria provinces GeoJSON data
+const bulgariaProvincesGeoJSON: GeoJSON.FeatureCollection = {
+  "type": "FeatureCollection" as const,
+  "features": [
+    {
+      "type": "Feature" as const,
+      "properties": { "name": "София", "name_en": "Sofia" },
+      "geometry": {
+        "type": "Polygon" as const,
+        "coordinates": [[
+          [23.0, 42.4], [23.6, 42.4], [23.6, 43.0], [23.0, 43.0], [23.0, 42.4]
+        ]]
+      }
+    },
+    {
+      "type": "Feature" as const, 
+      "properties": { "name": "Пловдив", "name_en": "Plovdiv" },
+      "geometry": {
+        "type": "Polygon" as const,
+        "coordinates": [[
+          [24.4, 41.9], [25.0, 41.9], [25.0, 42.5], [24.4, 42.5], [24.4, 41.9]
+        ]]
+      }
+    },
+    {
+      "type": "Feature" as const,
+      "properties": { "name": "Варна", "name_en": "Varna" },
+      "geometry": {
+        "type": "Polygon" as const,
+        "coordinates": [[
+          [27.5, 42.9], [28.2, 42.9], [28.2, 43.6], [27.5, 43.6], [27.5, 42.9]
+        ]]
+      }
+    },
+    {
+      "type": "Feature" as const,
+      "properties": { "name": "Бургас", "name_en": "Burgas" },
+      "geometry": {
+        "type": "Polygon" as const,
+        "coordinates": [[
+          [27.1, 42.2], [27.8, 42.2], [27.8, 42.8], [27.1, 42.8], [27.1, 42.2]
+        ]]
+      }
+    },
+    {
+      "type": "Feature" as const,
+      "properties": { "name": "Русе", "name_en": "Ruse" },
+      "geometry": {
+        "type": "Polygon" as const,
+        "coordinates": [[
+          [25.6, 43.5], [26.3, 43.5], [26.3, 44.1], [25.6, 44.1], [25.6, 43.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature" as const,
+      "properties": { "name": "Стара Загора", "name_en": "Stara Zagora" },
+      "geometry": {
+        "type": "Polygon" as const,
+        "coordinates": [[
+          [25.3, 42.1], [26.0, 42.1], [26.0, 42.7], [25.3, 42.7], [25.3, 42.1]
+        ]]
+      }
+    },
+    {
+      "type": "Feature" as const,
+      "properties": { "name": "Плевен", "name_en": "Pleven" },
+      "geometry": {
+        "type": "Polygon" as const,
+        "coordinates": [[
+          [24.3, 43.1], [25.0, 43.1], [25.0, 43.7], [24.3, 43.7], [24.3, 43.1]
+        ]]
+      }
+    },
+    {
+      "type": "Feature" as const,
+      "properties": { "name": "Сливен", "name_en": "Sliven" },
+      "geometry": {
+        "type": "Polygon" as const,
+        "coordinates": [[
+          [25.9, 42.4], [26.6, 42.4], [26.6, 43.0], [25.9, 43.0], [25.9, 42.4]
+        ]]
+      }
+    }
+  ]
+};
+
 interface PlaceroMapProps {
   onProvinceSelect?: (provinceName: string) => void;
 }
@@ -30,14 +117,14 @@ const PlaceroMap = ({ onProvinceSelect }: PlaceroMapProps) => {
           setMapboxToken(data.token);
           mapboxgl.accessToken = data.token;
         } else {
-          // Fallback token
+          // Use the provided token
           const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
           setMapboxToken(token);
           mapboxgl.accessToken = token;
         }
       } catch (error) {
         console.error('Error fetching Mapbox token:', error);
-        // Fallback token
+        // Use the provided token as fallback
         const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         setMapboxToken(token);
         mapboxgl.accessToken = token;
@@ -88,11 +175,15 @@ const PlaceroMap = ({ onProvinceSelect }: PlaceroMapProps) => {
     if (!map.current) return;
 
     try {
-      // Add provinces source
+      console.log('🗺️ Loading provinces data...');
+      
+      // Add provinces source with embedded GeoJSON data
       map.current.addSource('provinces', {
         type: 'geojson',
-        data: '/data/bg_provinces.geojson'
+        data: bulgariaProvincesGeoJSON
       });
+
+      console.log('🗺️ Provinces source added successfully');
 
       // Add province fill-extrusion layer
       map.current.addLayer({
@@ -116,17 +207,7 @@ const PlaceroMap = ({ onProvinceSelect }: PlaceroMapProps) => {
         }
       });
 
-      // Add province outline
-      map.current.addLayer({
-        id: 'province-outline',
-        type: 'line',
-        source: 'provinces',
-        paint: {
-          'line-color': 'hsl(158, 64%, 62%)',
-          'line-width': 2,
-          'line-opacity': 0.8
-        }
-      });
+      console.log('🗺️ Province layers added successfully');
 
       // Add click handler
       map.current.on('click', 'province-extrusion', handleProvinceClick);
@@ -144,7 +225,7 @@ const PlaceroMap = ({ onProvinceSelect }: PlaceroMapProps) => {
       });
 
     } catch (error) {
-      console.error('Error loading provinces:', error);
+      console.error('🗺️ Error loading provinces:', error);
     }
   };
 
