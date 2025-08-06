@@ -759,4 +759,4 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
   );
 };
 
-export default InteractiveMap;
+export default InteractiveMapCopy;
