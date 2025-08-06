@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
-import { TileLayer } from '@deck.gl/geo-layers';
+import { GeoJsonLayer, ScatterplotLayer, BitmapLayer } from '@deck.gl/layers';
 import * as turf from '@turf/turf';
 import { useLocations } from '@/hooks/useLocations';
 
@@ -27,7 +26,6 @@ export default function InteractiveMap() {
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
   const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
   const [maskPolygons, setMaskPolygons] = useState<any>(null);
-  const [selectedProvinceGeometry, setSelectedProvinceGeometry] = useState<any>(null);
 
   useEffect(() => {
     fetch(GEOJSON_URL)
@@ -35,9 +33,9 @@ export default function InteractiveMap() {
       .then(data => {
         setProvinces(data);
 
-        // Create a simple mask around Bulgaria boundaries
-        const bbox = turf.bboxPolygon([19.3, 41.2, 28.6, 44.2]);
-        setMaskPolygons(bbox);
+        const countryPolygon = turf.union(...data.features);
+        const mask = turf.difference(turf.bboxPolygon([19.3, 41.2, 28.6, 44.2]), countryPolygon);
+        setMaskPolygons(mask);
       });
   }, []);
 
@@ -95,7 +93,6 @@ export default function InteractiveMap() {
     if (info.object?.properties) {
       const name = info.object.properties.name_en || info.object.properties.name;
       setSelectedProvince(name);
-      setSelectedProvinceGeometry(info.object);
       animateElevation(name);
 
       const coordinates = info.object.properties.centroid || turf.centroid(info.object).geometry.coordinates;
@@ -105,44 +102,13 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  // Add base map layer using OpenStreetMap tiles
-  layers.push(new TileLayer({
-    id: 'base-map',
-    data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    minZoom: 0,
-    maxZoom: 19,
-    tileSize: 256,
-    refinementStrategy: 'best-available'
+  layers.push(new BitmapLayer({
+    id: 'satellite-base',
+    bounds: [19.3, 41.2, 28.6, 44.2],
+    image: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/6/40/44',
+    desaturate: 0,
+    opacity: 1
   }));
-
-  // Add satellite layer only for selected province  
-  if (selectedProvince && selectedProvinceGeometry) {
-    const currentElevation = elevationMap[selectedProvinceGeometry.properties.name_en] || elevationMap[selectedProvinceGeometry.properties.name] || 10000;
-    
-    layers.push(new TileLayer({
-      id: 'satellite-layer',
-      data: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      minZoom: 0,
-      maxZoom: 19,
-      tileSize: 256,
-      refinementStrategy: 'best-available',
-      // Position the satellite layer at the province elevation minus offset
-      getElevation: () => currentElevation - 100,
-      updateTriggers: { getElevation: elevationMap }
-    }));
-
-    // Add a clipping mask for the selected province
-    layers.push(new GeoJsonLayer({
-      id: 'province-mask',
-      data: selectedProvinceGeometry,
-      filled: true,
-      stroked: false,
-      getFillColor: [255, 255, 255, 0], // Transparent
-      getElevation: currentElevation - 100,
-      extruded: true,
-      updateTriggers: { getElevation: elevationMap }
-    }));
-  }
 
   if (provinces) {
     layers.push(new GeoJsonLayer({
