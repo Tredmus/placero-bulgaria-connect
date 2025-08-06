@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer, TileLayer } from '@deck.gl/layers';
-import { Map } from 'react-map-gl';
+import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
 import * as turf from '@turf/turf';
 import { useLocations } from '@/hooks/useLocations';
 
@@ -34,9 +33,9 @@ export default function InteractiveMap() {
       .then(data => {
         setProvinces(data);
 
-        const countryPolygon = turf.union(...data.features);
-        const mask = turf.difference(turf.bboxPolygon([19.3, 41.2, 28.6, 44.2]), countryPolygon);
-        setMaskPolygons(mask);
+        // Create a simple bounding box mask without complex turf operations
+        const bbox = turf.bboxPolygon([19.3, 41.2, 28.6, 44.2]);
+        setMaskPolygons(bbox);
       });
   }, []);
 
@@ -171,12 +170,7 @@ export default function InteractiveMap() {
         onViewStateChange={onViewStateChange}
         style={{ width: '100%', height: '100%' }}
         getTooltip={({ object }) => object?.properties?.name_en || object?.properties?.name || null}
-      >
-        <Map
-          mapStyle="mapbox://styles/mapbox/streets-v11"
-          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-        />
-      </DeckGL>
+      />
     </div>
   );
 }
