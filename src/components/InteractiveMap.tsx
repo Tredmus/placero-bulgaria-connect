@@ -72,31 +72,14 @@ export default function InteractiveMap() {
   }, []);
 
   const onClickProvince = useCallback((info: any) => {
-  if (info.object && info.object.properties && info.object.geometry?.coordinates?.[0]) {
-    const name = info.object.properties.name_en || info.object.properties.name;
-    setSelectedProvince(name);
-
-    // Calculate rough centroid
-    const coords = info.object.geometry.coordinates[0];
-    const center = coords.reduce(
-      (acc, [lng, lat]) => {
-        acc[0] += lng;
-        acc[1] += lat;
-        return acc;
-      },
-      [0, 0]
-    ).map(val => val / coords.length);
-
-    setViewState(prev => ({
-      ...prev,
-      longitude: center[0],
-      latitude: center[1],
-      zoom: 8,
-      pitch: 60,
-      transitionDuration: 1000
-    }));
-  }
-}, []);
+    if (info.object && info.object.properties) {
+      const name = info.object.properties.name_en || info.object.properties.name;
+      setSelectedProvince(name);
+      // fly to province centroid
+      const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
+      setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 60, transitionDuration: 1000 }));
+    }
+  }, []);
 
   const layers = [];
 
@@ -109,21 +92,16 @@ export default function InteractiveMap() {
         filled: true,
         stroked: true,
         wireframe: true,
+        extruded: true,
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
-        extruded: true, // must be true
-        getElevation: f => {
-          if (f.properties.name_en === selectedProvince) return 300000;
-          return 10000; // small base elevation for other provinces
-        },
-        getFillColor: f =>
-          f.properties.name_en === selectedProvince
-            ? [34, 197, 94]
-            : [16, 185, 129],
+        getElevation: f => f.properties.name_en === selectedProvince ? 300000 : 10000,
+        getFillColor: f => f.properties.name_en === selectedProvince ? [34, 197, 94] : [16, 185, 129],
         onClick: onClickProvince,
         updateTriggers: {
-          getElevation: [selectedProvince] // ensures animation re-renders
+          getElevation: selectedProvince,
+          getFillColor: selectedProvince
         }
       })
     );
