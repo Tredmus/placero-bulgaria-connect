@@ -89,12 +89,13 @@ export default function InteractiveMap() {
         id: 'provinces',
         data: provinces,
         pickable: true,
-        stroked: true, // enable stroke
-        getLineColor: [0, 0, 0, 120], // semi-transparent black border
-        getLineWidth: 1, 
+        filled: true,
+        stroked: true,
+        wireframe: true,
+        getLineColor: [0, 0, 0, 255],
+        getLineWidth: () => 1,
         lineWidthMinPixels: 1,
         extruded: true,
-        wireframe: false,
         getElevation: f => (f.properties.name_en === selectedProvince ? 300000 : 0),
         getFillColor: f => (f.properties.name_en === selectedProvince ? [34, 197, 94] : [16, 185, 129]),
         onClick: onClickProvince
