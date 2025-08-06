@@ -1,8 +1,8 @@
+
 import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
 import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { TileLayer } from '@deck.gl/geo-layers';
-import { Map } from 'react-map-gl';
 import * as turf from '@turf/turf';
 import { useLocations } from '@/hooks/useLocations';
 
@@ -117,7 +117,7 @@ export default function InteractiveMap() {
     
     layers.push(new TileLayer({
       id: 'satellite',
-      data: 'https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.jpg?access_token=' + (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''),
+      data: 'https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.jpg?access_token=' + (import.meta.env.VITE_MAPBOX_TOKEN || ''),
       minZoom: 0,
       maxZoom: 19,
       tileSize: 256,
