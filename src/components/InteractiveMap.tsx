@@ -72,14 +72,31 @@ export default function InteractiveMap() {
   }, []);
 
   const onClickProvince = useCallback((info: any) => {
-    if (info.object && info.object.properties) {
-      const name = info.object.properties.name_en || info.object.properties.name;
-      setSelectedProvince(name);
-      // fly to province centroid
-      const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
-      setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 60, transitionDuration: 1000 }));
-    }
-  }, []);
+  if (info.object && info.object.properties && info.object.geometry?.coordinates?.[0]) {
+    const name = info.object.properties.name_en || info.object.properties.name;
+    setSelectedProvince(name);
+
+    // Calculate rough centroid
+    const coords = info.object.geometry.coordinates[0];
+    const center = coords.reduce(
+      (acc, [lng, lat]) => {
+        acc[0] += lng;
+        acc[1] += lat;
+        return acc;
+      },
+      [0, 0]
+    ).map(val => val / coords.length);
+
+    setViewState(prev => ({
+      ...prev,
+      longitude: center[0],
+      latitude: center[1],
+      zoom: 8,
+      pitch: 60,
+      transitionDuration: 1000
+    }));
+  }
+}, []);
 
   const layers = [];
 
