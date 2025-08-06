@@ -133,17 +133,17 @@ export default function InteractiveMap() {
         maxZoom: 19,
         tileSize: 512,
         renderSubLayers: (props: any) => {
-          const { bbox, data } = props;
-          const { west, north, east, south } = bbox;
+          const { tile } = props;
+          const { bbox } = tile;
+          
+          if (!bbox) return null;
           
           return new BitmapLayer({
             ...props,
             id: `${props.id}-bitmap`,
-            image: data,
-            bounds: [west, south, east, north],
-            coordinateSystem: 3857,
-            extruded: false,
-            getElevation: 9900
+            image: props.data,
+            bounds: [bbox.left, bbox.bottom, bbox.right, bbox.top],
+            coordinateSystem: 3857
           });
         }
       })
