@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { DeckGL } from '@deck.gl/react';
 import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
-import { StaticMap } from 'react-map-gl/dist/esm';
+import StaticMap from 'react-map-gl/dist/esm/components/static-map';
 import { useLocations } from '@/hooks/useLocations';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
