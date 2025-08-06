@@ -94,7 +94,6 @@ export default function InteractiveMap() {
         wireframe: true,
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
-        lineWidthMinPixels: 1,
         extruded: true,
         getElevation: f => (f.properties.name_en === selectedProvince ? 300000 : 0),
         getFillColor: f => (f.properties.name_en === selectedProvince ? [34, 197, 94] : [16, 185, 129]),
