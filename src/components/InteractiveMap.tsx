@@ -58,68 +58,91 @@ export default function InteractiveMap() {
 
   // Initialize Mapbox map
   useEffect(() => {
-    if (!mapContainerRef.current || !mapboxToken || !provinces) return;
+  if (!mapContainerRef.current || !mapboxToken || !provinces) return;
 
-    mapRef.current = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12',
-      center: [viewState.longitude, viewState.latitude],
-      zoom: viewState.zoom,
-      pitch: viewState.pitch,
-      bearing: viewState.bearing,
-      interactive: false // DeckGL will handle interactions
+  mapRef.current = new mapboxgl.Map({
+    container: mapContainerRef.current,
+    style: 'mapbox://styles/mapbox/satellite-streets-v12',
+    center: [viewState.longitude, viewState.latitude],
+    zoom: viewState.zoom,
+    pitch: viewState.pitch,
+    bearing: viewState.bearing,
+    interactive: false // DeckGL will handle interactions
+  });
+
+  mapRef.current.on('load', () => {
+    if (!mapRef.current || !provinces) return;
+
+    // 🌍 Add terrain source
+    mapRef.current.addSource('mapbox-dem', {
+      type: 'raster-dem',
+      url: 'mapbox://mapbox.terrain-rgb',
+      tileSize: 512,
+      maxzoom: 14
     });
 
-    mapRef.current.on('load', () => {
-      if (!mapRef.current || !provinces) return;
+    // ⛰️ Enable 3D terrain
+    mapRef.current.setTerrain({
+      source: 'mapbox-dem',
+      exaggeration: 1.5
+    });
 
-      // Add all provinces as a source for potential masking
-      mapRef.current.addSource('all-provinces', {
-        type: 'geojson',
-        data: provinces
-      });
+    // (Optional) Add hillshade for visual terrain shading
+    mapRef.current.addLayer({
+      id: 'hillshade',
+      type: 'hillshade',
+      source: 'mapbox-dem',
+      layout: {},
+      paint: {}
+    });
 
-      // Add world mask source (starts with full coverage to hide everything)
-      mapRef.current.addSource('world-mask', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'Polygon',
-            coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
-          }
+    // Add all provinces as a source for potential masking
+    mapRef.current.addSource('all-provinces', {
+      type: 'geojson',
+      data: provinces
+    });
+
+    // Add world mask source (starts with full coverage to hide everything)
+    mapRef.current.addSource('world-mask', {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
         }
-      });
-
-      // Add mask layer that covers everything outside selected province
-      mapRef.current.addLayer({
-        id: 'world-mask-layer',
-        type: 'fill',
-        source: 'world-mask',
-        paint: {
-          'fill-color': '#1a1a2e',
-          'fill-opacity': 1
-        }
-      });
-
-      // Set satellite layer elevation to appear below 3D provinces
-      const layers = mapRef.current.getStyle().layers;
-      const satelliteLayer = layers?.find(layer => layer.type === 'raster');
-      
-      if (satelliteLayer) {
-        // Add custom properties to position satellite layer below provinces
-        mapRef.current.setPaintProperty(satelliteLayer.id, 'raster-opacity', 0.8);
       }
     });
 
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
+    // Add mask layer that covers everything outside selected province
+    mapRef.current.addLayer({
+      id: 'world-mask-layer',
+      type: 'fill',
+      source: 'world-mask',
+      paint: {
+        'fill-color': '#1a1a2e',
+        'fill-opacity': 1
       }
-    };
-  }, [mapboxToken, provinces]);
+    });
+
+    // Set satellite layer opacity (if raster found)
+    const layers = mapRef.current.getStyle().layers;
+    const satelliteLayer = layers?.find(layer => layer.type === 'raster');
+
+    if (satelliteLayer) {
+      mapRef.current.setPaintProperty(satelliteLayer.id, 'raster-opacity', 0.8);
+    }
+  });
+
+  return () => {
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+  };
+}, [mapboxToken, provinces]);
+
 
   // Update mask when selected province changes
   useEffect(() => {
