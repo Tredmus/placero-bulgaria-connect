@@ -106,14 +106,14 @@ const InteractiveMap = () => {
 
         // add markers
         clearMarkers();
-        const filtered = locations.filter(loc => loc.province === name);
+        const filtered = locations.filter(loc => loc.city?.toLowerCase().includes(name.toLowerCase()));
         filtered.forEach(loc => {
           if (!loc.latitude || !loc.longitude) return;
           const el = document.createElement('div');
           el.style.cssText = 'width:20px;height:20px;background:#10b981;border-radius:50%;cursor:pointer;';
           el.addEventListener('click', () => alert(loc.name));
           const marker = new mapboxgl.Marker(el)
-            .setLngLat([parseFloat(loc.longitude), parseFloat(loc.latitude)])
+            .setLngLat([parseFloat(loc.longitude?.toString() || '0'), parseFloat(loc.latitude?.toString() || '0')])
             .addTo(m);
           markersRef.current.push(marker);
         });
