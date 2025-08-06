@@ -91,6 +91,7 @@ export default function InteractiveMap() {
         pickable: true,
         stroked: true, // enable stroke
         getLineColor: [0, 0, 0, 120], // semi-transparent black border
+        getLineWidth: 1, 
         lineWidthMinPixels: 1,
         extruded: true,
         wireframe: false,
