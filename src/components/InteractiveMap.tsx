@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer, TileLayer, BitmapLayer } from '@deck.gl/layers';
-import { useLocations } from '@/hooks/useLocations';
+import { GeoJsonLayer, ScatterplotLayer, BitmapLayer } from '@deck.gl/layers';
 import * as turf from '@turf/turf';
+import { useLocations } from '@/hooks/useLocations';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -20,22 +20,25 @@ const INITIAL_VIEW_STATE = {
 export default function InteractiveMap() {
   const { locations } = useLocations();
   const [provinces, setProvinces] = useState<any>(null);
-  const [maskGeojson, setMaskGeojson] = useState<any>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const [cityPoints, setCityPoints] = useState<any[]>([]);
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
   const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
+  const [maskData, setMaskData] = useState<any>(null);
 
   useEffect(() => {
-    fetch(GEOJSON_URL).then(res => res.json()).then(data => {
-      setProvinces(data);
+    fetch(GEOJSON_URL)
+      .then(res => res.json())
+      .then(data => {
+        setProvinces(data);
 
-      const outer = turf.bboxPolygon([10, 35, 45, 48]);
-      const combined = turf.union(...data.features);
-      const mask = turf.difference(outer, combined);
-      setMaskGeojson(mask);
-    });
+        const countryMask = turf.difference(
+          turf.bboxPolygon([19.3, 41.2, 28.6, 44.2]),
+          turf.union(...data.features)
+        );
+        setMaskData(countryMask);
+      });
   }, []);
 
   useEffect(() => {
@@ -99,18 +102,6 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  if (maskGeojson) {
-    layers.push(new GeoJsonLayer({
-      id: 'mask-layer',
-      data: maskGeojson,
-      pickable: false,
-      stroked: false,
-      filled: true,
-      getFillColor: [255, 255, 255, 255],
-      getLineColor: [0, 0, 0, 0]
-    }));
-  }
-
   if (provinces) {
     layers.push(new GeoJsonLayer({
       id: 'provinces',
@@ -127,6 +118,23 @@ export default function InteractiveMap() {
       getFillColor: f => (f.properties.name_en === selectedProvince || f.properties.name === selectedProvince) ? [34, 197, 94, 180] : [16, 185, 129, 160],
       onClick: onClickProvince,
       updateTriggers: { getElevation: elevationMap, getFillColor: selectedProvince }
+    }));
+
+    layers.push(new BitmapLayer({
+      id: 'satellite',
+      bounds: [19.3, 41.2, 28.6, 44.2],
+      image: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/6/40/44',
+      desaturate: 0
+    }));
+  }
+
+  if (maskData) {
+    layers.push(new GeoJsonLayer({
+      id: 'mask',
+      data: maskData,
+      filled: true,
+      getFillColor: [0, 0, 0, 255],
+      getLineColor: [0, 0, 0, 0]
     }));
   }
 
