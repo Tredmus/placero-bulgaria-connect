@@ -115,7 +115,7 @@ export default function InteractiveMap() {
             ...props,
             bounds: props.tile.bbox,
             zIndex: 10,
-            elevationScale: 2,
+            elevationScale: 1,
             getElevation: () => 30000 // Raise satellite only when province is selected
           }
         : null;
