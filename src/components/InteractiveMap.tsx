@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, ScatterplotLayer, TileLayer, BitmapLayer } from '@deck.gl/layers';
 import { useLocations } from '@/hooks/useLocations';
+import * as turf from '@turf/turf';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -19,6 +20,7 @@ const INITIAL_VIEW_STATE = {
 export default function InteractiveMap() {
   const { locations } = useLocations();
   const [provinces, setProvinces] = useState<any>(null);
+  const [maskGeojson, setMaskGeojson] = useState<any>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const [cityPoints, setCityPoints] = useState<any[]>([]);
@@ -26,7 +28,14 @@ export default function InteractiveMap() {
   const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    fetch(GEOJSON_URL).then(res => res.json()).then(setProvinces);
+    fetch(GEOJSON_URL).then(res => res.json()).then(data => {
+      setProvinces(data);
+
+      const outer = turf.bboxPolygon([10, 35, 45, 48]);
+      const combined = turf.union(...data.features);
+      const mask = turf.difference(outer, combined);
+      setMaskGeojson(mask);
+    });
   }, []);
 
   useEffect(() => {
@@ -89,6 +98,18 @@ export default function InteractiveMap() {
   }, []);
 
   const layers = [];
+
+  if (maskGeojson) {
+    layers.push(new GeoJsonLayer({
+      id: 'mask-layer',
+      data: maskGeojson,
+      pickable: false,
+      stroked: false,
+      filled: true,
+      getFillColor: [255, 255, 255, 255],
+      getLineColor: [0, 0, 0, 0]
+    }));
+  }
 
   if (provinces) {
     layers.push(new GeoJsonLayer({
