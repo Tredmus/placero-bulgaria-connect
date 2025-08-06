@@ -102,20 +102,20 @@ export default function InteractiveMap() {
   // show cities when zoomed in
   if (viewState.zoom >= 8 && cityPoints.length > 0) {
     layers.push(
-      new ScatterplotLayer({
-        id: 'cities',
-        data: cityPoints,
-        pickable: true,
-        getPosition: d => d.position,
-        getRadius: d => Math.sqrt(d.count) * 5000,
-        getFillColor: [255, 140, 0],
-        onClick: info => {
-          if (info.object) {
-            setViewState(prev => ({ ...prev, longitude: info.object.position[0], latitude: info.object.position[1], zoom: 12, transitionDuration: 1000 }));
-          }
-        }
-      })
-    );
+  new GeoJsonLayer({
+    id: 'provinces',
+    data: provinces,
+    pickable: true,
+    stroked: true, // enable stroke
+    getLineColor: [0, 0, 0, 120], // semi-transparent black border
+    lineWidthMinPixels: 1,
+    extruded: true,
+    wireframe: false,
+    getElevation: f => (f.properties.name_en === selectedProvince ? 300000 : 0),
+    getFillColor: f => (f.properties.name_en === selectedProvince ? [34, 197, 94] : [16, 185, 129]),
+    onClick: onClickProvince
+  })
+);
   }
 
   // show locations when zoomed in further
