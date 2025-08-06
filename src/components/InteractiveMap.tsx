@@ -1,9 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import DeckGL from '@deck.gl/react';
 import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { useLocations } from '@/hooks/useLocations';
+import { supabase } from '@/integrations/supabase/client';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
-const MAPBOX_TOKEN = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw'; // Demo token
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
 const INITIAL_VIEW_STATE = {
@@ -23,6 +25,69 @@ export default function InteractiveMap() {
   const [cityPoints, setCityPoints] = useState<any[]>([]);
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
   const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+
+  // Fetch Mapbox token
+  useEffect(() => {
+    const fetchMapboxToken = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        
+        if (data?.token) {
+          setMapboxToken(data.token);
+          mapboxgl.accessToken = data.token;
+        } else {
+          // Fallback token
+          const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+          setMapboxToken(token);
+          mapboxgl.accessToken = token;
+        }
+      } catch (error) {
+        console.log('Edge function not available, using fallback token');
+        const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+        setMapboxToken(token);
+        mapboxgl.accessToken = token;
+      }
+    };
+    
+    fetchMapboxToken();
+  }, []);
+
+  // Initialize Mapbox map
+  useEffect(() => {
+    if (!mapContainerRef.current || !mapboxToken) return;
+
+    mapRef.current = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      center: [viewState.longitude, viewState.latitude],
+      zoom: viewState.zoom,
+      pitch: viewState.pitch,
+      bearing: viewState.bearing,
+      interactive: false // DeckGL will handle interactions
+    });
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [mapboxToken]);
+
+  // Sync Mapbox map with DeckGL viewState
+  useEffect(() => {
+    if (mapRef.current && viewState) {
+      mapRef.current.jumpTo({
+        center: [viewState.longitude, viewState.latitude],
+        zoom: viewState.zoom,
+        pitch: viewState.pitch,
+        bearing: viewState.bearing
+      });
+    }
+  }, [viewState]);
 
   useEffect(() => {
     fetch(GEOJSON_URL)
@@ -112,7 +177,7 @@ export default function InteractiveMap() {
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
         getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000,
-        getFillColor: f => (f.properties.name_en === selectedProvince || f.properties.name === selectedProvince) ? [34, 197, 94] : [16, 185, 129],
+        getFillColor: f => (f.properties.name_en === selectedProvince || f.properties.name === selectedProvince) ? [34, 197, 94, 180] : [16, 185, 129, 160],
         onClick: onClickProvince,
         updateTriggers: {
           getElevation: elevationMap,
@@ -154,14 +219,44 @@ export default function InteractiveMap() {
     );
   }
 
+  if (!mapboxToken) {
+    return (
+      <div style={{ width: '100%', height: '600px', position: 'relative' }} className="flex items-center justify-center bg-muted">
+        <p className="text-muted-foreground">Loading map...</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
+      <div 
+        ref={mapContainerRef} 
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          position: 'absolute',
+          top: '0',
+          left: '0'
+        }}
+      />
       <DeckGL
         viewState={viewState}
         controller={true}
         layers={layers}
         onViewStateChange={onViewStateChange}
-        style={{ width: '100%', height: '100%' }}
+        style={{ 
+          width: '100%', 
+          height: '100%',
+          position: 'absolute',
+          top: '0',
+          left: '0'
+        }}
+        getTooltip={({ object }) => {
+          if (object && object.properties) {
+            return object.properties.name_en || object.properties.name;
+          }
+          return null;
+        }}
       />
     </div>
   );
