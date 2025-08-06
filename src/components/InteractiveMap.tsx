@@ -186,13 +186,13 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
-      zoom: 6,
-      pitch: 45,
-      bearing: -17,
-      maxBounds: [[22.3, 41.2], [28.6, 44.2]], // Restrict to Bulgaria
+      zoom: 6.5,
+      pitch: 30,
+      bearing: 0,
+      maxBounds: [[22.0, 40.9], [29.0, 44.5]], // Restrict to Bulgaria with buffer
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 5
+      minZoom: 5.5
     });
 
     // Add navigation controls
@@ -202,7 +202,12 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       if (!map.current) return;
       console.log('Map loaded successfully');
       
-      // Add debug logging
+      // Add Bulgaria mask to hide everything outside Bulgaria borders
+      addBulgariaMask();
+      
+      // Add provinces layer for 3D extrusion
+      addProvincesLayer();
+      
       console.log('Province data loaded:', Object.keys(provinceData).length, 'provinces');
     });
 
@@ -211,6 +216,133 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       map.current?.remove();
     };
   }, [mapboxToken, locations, onProvinceSelect, provinceData]);
+
+  // Add Bulgaria mask to hide non-Bulgaria areas
+  const addBulgariaMask = () => {
+    if (!map.current) return;
+
+    // World polygon with Bulgaria hole to mask everything outside Bulgaria
+    const bulgariaMask = {
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Polygon' as const,
+        coordinates: [
+          // Outer ring (world bounds)
+          [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]],
+          // Inner ring (Bulgaria border - simplified)
+          [
+            [22.357, 41.235], [22.950, 41.337], [23.692, 41.309], [24.721, 41.634],
+            [25.325, 41.826], [26.065, 41.826], [27.243, 42.273], [28.038, 42.613],
+            [28.560, 43.208], [28.229, 43.756], [27.970, 43.812], [27.243, 44.175],
+            [26.065, 44.175], [25.325, 43.943], [24.721, 43.682], [23.692, 43.376],
+            [22.950, 43.069], [22.357, 42.273], [22.357, 41.235]
+          ]
+        ]
+      },
+      properties: {}
+    };
+
+    map.current.addSource('bulgaria-mask', {
+      type: 'geojson',
+      data: bulgariaMask
+    });
+
+    map.current.addLayer({
+      id: 'bulgaria-mask',
+      type: 'fill',
+      source: 'bulgaria-mask',
+      paint: {
+        'fill-color': '#0a0a0a',
+        'fill-opacity': 0.8
+      }
+    });
+  };
+
+  // Add provinces layer for 3D highlighting
+  const addProvincesLayer = () => {
+    if (!map.current || Object.keys(provinceData).length === 0) return;
+
+    // Create GeoJSON from province data
+    const provincesGeoJSON = {
+      type: 'FeatureCollection' as const,
+      features: Object.entries(provinceData).map(([name, data]) => ({
+        type: 'Feature' as const,
+        properties: {
+          name: name,
+          locationCount: data.locations.length
+        },
+        geometry: {
+          type: 'Point' as const,
+          coordinates: data.coordinates
+        }
+      }))
+    };
+
+    map.current.addSource('provinces', {
+      type: 'geojson',
+      data: provincesGeoJSON
+    });
+
+    // Add province circles with extrusion effect (simulated with size and shadow)
+    map.current.addLayer({
+      id: 'provinces-base',
+      type: 'circle',
+      source: 'provinces',
+      paint: {
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['get', 'locationCount'],
+          1, 20,
+          5, 35,
+          10, 50
+        ],
+        'circle-color': '#10b981',
+        'circle-opacity': 0.6,
+        'circle-stroke-width': 3,
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-opacity': 0.8
+      }
+    });
+
+    // Add hover and click interactions
+    map.current.on('mouseenter', 'provinces-base', (e) => {
+      map.current!.getCanvas().style.cursor = 'pointer';
+      
+      if (e.features && e.features[0]) {
+        const provinceName = e.features[0].properties?.name;
+        setHoveredProvince(provinceName);
+        
+        // Highlight on hover
+        map.current!.setPaintProperty('provinces-base', 'circle-color', [
+          'case',
+          ['==', ['get', 'name'], provinceName],
+          '#22c55e', // Brighter green
+          '#10b981'  // Default green
+        ]);
+      }
+    });
+
+    map.current.on('mouseleave', 'provinces-base', () => {
+      map.current!.getCanvas().style.cursor = '';
+      setHoveredProvince(null);
+      
+      // Reset highlight
+      map.current!.setPaintProperty('provinces-base', 'circle-color', '#10b981');
+    });
+
+    map.current.on('click', 'provinces-base', (e) => {
+      if (e.features && e.features[0]) {
+        const provinceName = e.features[0].properties?.name;
+        const data = provinceData[provinceName];
+        
+        if (data) {
+          console.log('Province clicked from map:', provinceName);
+          handleProvinceSelect(provinceName, data.locations, data.coordinates);
+        }
+      }
+    });
+  };
 
   // Initialize markers when province data and map are ready 
   useEffect(() => {
@@ -375,12 +507,17 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
     // Show initial province markers
     addWorkspaceMarkers([]);
     
-    // Fly back to Bulgaria center
+    // Reset province layer highlighting
+    if (map.current?.getLayer('provinces-base')) {
+      map.current.setPaintProperty('provinces-base', 'circle-color', '#10b981');
+    }
+    
+    // Fly back to Bulgaria center with subtle tilt
     map.current?.flyTo({
       center: [25.4858, 42.7339],
-      zoom: 6,
-      pitch: 45,
-      bearing: -17,
+      zoom: 6.5,
+      pitch: 30,
+      bearing: 0,
       duration: 1500
     });
   };
