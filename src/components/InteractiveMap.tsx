@@ -1,15 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { DeckGL } from '@deck.gl/react';
+// import { DeckGL } from '@deck.gl/react';
 import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
-import { Map } from 'react-map-gl';
+import { StaticMap } from 'react-map-gl/dist/esm';
 import { useLocations } from '@/hooks/useLocations';
-import { supabase } from '@/integrations/supabase/client';
-import type { MapViewState } from '@deck.gl/core';
 
-let MAPBOX_TOKEN = '';
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
-const INITIAL_VIEW_STATE: MapViewState = {
+const INITIAL_VIEW_STATE = {
   longitude: 25.4858,
   latitude: 42.7339,
   zoom: 6.5,
@@ -20,25 +18,10 @@ const INITIAL_VIEW_STATE: MapViewState = {
 export default function InteractiveMap() {
   const { locations } = useLocations();
   const [provinces, setProvinces] = useState<any>(null);
-  const [viewState, setViewState] = useState<MapViewState>(INITIAL_VIEW_STATE);
+  const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const [cityPoints, setCityPoints] = useState<any[]>([]);
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
-
-  // Fetch Mapbox token
-  useEffect(() => {
-    const getMapboxToken = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-        if (!error && data?.token) {
-          MAPBOX_TOKEN = data.token;
-        }
-      } catch (err) {
-        console.error('Failed to fetch Mapbox token:', err);
-      }
-    };
-    getMapboxToken();
-  }, []);
 
   useEffect(() => {
     // load provinces GeoJSON
@@ -50,8 +33,8 @@ export default function InteractiveMap() {
   // derive city and location layers based on selection and zoom
   useEffect(() => {
     if (selectedProvince) {
-      // filter locations in selected province (using city as a fallback since province doesn't exist)
-      const filtered = locations.filter(l => l.city === selectedProvince && l.latitude && l.longitude);
+      // filter locations in selected province
+      const filtered = locations.filter(l => l.province === selectedProvince && l.latitude && l.longitude);
       // group by city
       const cities: Record<string, any[]> = {};
       filtered.forEach(l => {
@@ -62,8 +45,8 @@ export default function InteractiveMap() {
       setCityPoints(
         Object.entries(cities).map(([city, pts]) => {
           const avg = pts.reduce((acc, p) => {
-            acc.longitude += parseFloat(p.longitude!.toString());
-            acc.latitude += parseFloat(p.latitude!.toString());
+            acc.longitude += parseFloat(p.longitude);
+            acc.latitude += parseFloat(p.latitude);
             return acc;
           }, { longitude: 0, latitude: 0 });
           avg.longitude /= pts.length;
@@ -71,15 +54,15 @@ export default function InteractiveMap() {
           return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
         })
       );
-      setLocationPoints(filtered.map(l => ({ position: [parseFloat(l.longitude!.toString()), parseFloat(l.latitude!.toString())], data: l })));
+      setLocationPoints(filtered.map(l => ({ position: [parseFloat(l.longitude), parseFloat(l.latitude)], data: l })));
     } else {
       setCityPoints([]);
       setLocationPoints([]);
     }
   }, [selectedProvince, locations]);
 
-  const onViewStateChange = useCallback((params: any) => {
-    setViewState(params.viewState);
+  const onViewStateChange = useCallback(({ viewState: vs }) => {
+    setViewState(vs);
   }, []);
 
   const onClickProvince = useCallback((info: any) => {
@@ -145,19 +128,20 @@ export default function InteractiveMap() {
   }
 
   return (
-    <div style={{ width: '100%', height: '600px', position: 'relative' }}>
-      <DeckGL
-        viewState={viewState}
-        controller={true}
-        layers={layers}
-        onViewStateChange={onViewStateChange}
-      >
-        <Map
-          reuseMaps
-          mapStyle="mapbox://styles/mapbox/dark-v11"
-          mapboxAccessToken={MAPBOX_TOKEN}
-        />
-      </DeckGL>
-    </div>
+    <DeckGL
+      initialViewState={INITIAL_VIEW_STATE}
+      viewState={viewState}
+      controller={true}
+      layers={layers}
+      onViewStateChange={onViewStateChange}
+      style={{ width: '100%', height: '600px' }}
+    >
+      <StaticMap
+        reuseMaps
+        mapStyle="mapbox://styles/mapbox/dark-v11"
+        preventStyleDiffing
+        mapboxApiAccessToken={MAPBOX_TOKEN}
+      />
+    </DeckGL>
   );
 }
