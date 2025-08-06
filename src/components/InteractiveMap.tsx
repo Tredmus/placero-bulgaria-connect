@@ -90,8 +90,8 @@ export default function InteractiveMap() {
         data: provinces,
         pickable: true,
         stroked: true, // enable stroke
-        getLineColor: [0, 0, 0], // semi-transparent black border
-        lineWidthMinPixels: 10,
+        getLineColor: [0, 0, 0, 120], // semi-transparent black border
+        lineWidthMinPixels: 1,
         extruded: true,
         wireframe: false,
         getElevation: f => (f.properties.name_en === selectedProvince ? 300000 : 0),
