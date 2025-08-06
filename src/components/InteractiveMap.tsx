@@ -202,8 +202,11 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
       if (!map.current) return;
       console.log('Map loaded successfully');
       
-      // Initialize with province markers only
-      addProvinceMarkers();
+      // Add Bulgaria mask to hide everything outside Bulgaria borders
+      addBulgariaMask();
+      
+      // Add provinces layer for 3D extrusion
+      addProvincesLayer();
       
       console.log('Province data loaded:', Object.keys(provinceData).length, 'provinces');
     });
@@ -214,50 +217,130 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
     };
   }, [mapboxToken, locations, onProvinceSelect, provinceData]);
 
-  // Add simplified province markers using createMarkerElement helper
-  const addProvinceMarkers = () => {
+  // Add Bulgaria mask to hide non-Bulgaria areas
+  const addBulgariaMask = () => {
+    if (!map.current) return;
+
+    // World polygon with Bulgaria hole to mask everything outside Bulgaria
+    const bulgariaMask = {
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Polygon' as const,
+        coordinates: [
+          // Outer ring (world bounds)
+          [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]],
+          // Inner ring (Bulgaria border - simplified)
+          [
+            [22.357, 41.235], [22.950, 41.337], [23.692, 41.309], [24.721, 41.634],
+            [25.325, 41.826], [26.065, 41.826], [27.243, 42.273], [28.038, 42.613],
+            [28.560, 43.208], [28.229, 43.756], [27.970, 43.812], [27.243, 44.175],
+            [26.065, 44.175], [25.325, 43.943], [24.721, 43.682], [23.692, 43.376],
+            [22.950, 43.069], [22.357, 42.273], [22.357, 41.235]
+          ]
+        ]
+      },
+      properties: {}
+    };
+
+    map.current.addSource('bulgaria-mask', {
+      type: 'geojson',
+      data: bulgariaMask
+    });
+
+    map.current.addLayer({
+      id: 'bulgaria-mask',
+      type: 'fill',
+      source: 'bulgaria-mask',
+      paint: {
+        'fill-color': '#0a0a0a',
+        'fill-opacity': 0.8
+      }
+    });
+  };
+
+  // Add provinces layer for 3D highlighting
+  const addProvincesLayer = () => {
     if (!map.current || Object.keys(provinceData).length === 0) return;
-    
-    clearMarkers();
-    
-    Object.entries(provinceData).forEach(([provinceName, data]) => {
-      const locationCount = data.locations.length;
-      const size = Math.max(32, Math.min(80, locationCount * 8));
-      
-      // Use the helper function to create marker element
-      const el = createMarkerElement(size, '#10b981', '#ffffff');
-      
-      // Add text content
-      el.innerHTML = `
-        <div style="
-          color: white;
-          font-weight: bold;
-          font-size: 12px;
-          text-align: center;
-          line-height: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          height: 100%;
-        ">
-          <div>${locationCount}</div>
-          <div style="font-size: 8px; margin-top: 2px;">${provinceName}</div>
-        </div>
-      `;
 
-      el.addEventListener('click', () => {
-        handleProvinceSelect(provinceName, data.locations, data.coordinates);
-      });
+    // Create GeoJSON from province data
+    const provincesGeoJSON = {
+      type: 'FeatureCollection' as const,
+      features: Object.entries(provinceData).map(([name, data]) => ({
+        type: 'Feature' as const,
+        properties: {
+          name: name,
+          locationCount: data.locations.length
+        },
+        geometry: {
+          type: 'Point' as const,
+          coordinates: data.coordinates
+        }
+      }))
+    };
 
-      const marker = new mapboxgl.Marker({
-        element: el,
-        anchor: 'center'
-      })
-        .setLngLat(data.coordinates)
-        .addTo(map.current!);
+    map.current.addSource('provinces', {
+      type: 'geojson',
+      data: provincesGeoJSON
+    });
+
+    // Add province circles with extrusion effect (simulated with size and shadow)
+    map.current.addLayer({
+      id: 'provinces-base',
+      type: 'circle',
+      source: 'provinces',
+      paint: {
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['get', 'locationCount'],
+          1, 20,
+          5, 35,
+          10, 50
+        ],
+        'circle-color': '#10b981',
+        'circle-opacity': 0.6,
+        'circle-stroke-width': 3,
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-opacity': 0.8
+      }
+    });
+
+    // Add hover and click interactions
+    map.current.on('mouseenter', 'provinces-base', (e) => {
+      map.current!.getCanvas().style.cursor = 'pointer';
       
-      markersRef.current.push(marker);
+      if (e.features && e.features[0]) {
+        const provinceName = e.features[0].properties?.name;
+        setHoveredProvince(provinceName);
+        
+        // Highlight on hover
+        map.current!.setPaintProperty('provinces-base', 'circle-color', [
+          'case',
+          ['==', ['get', 'name'], provinceName],
+          '#22c55e', // Brighter green
+          '#10b981'  // Default green
+        ]);
+      }
+    });
+
+    map.current.on('mouseleave', 'provinces-base', () => {
+      map.current!.getCanvas().style.cursor = '';
+      setHoveredProvince(null);
+      
+      // Reset highlight
+      map.current!.setPaintProperty('provinces-base', 'circle-color', '#10b981');
+    });
+
+    map.current.on('click', 'provinces-base', (e) => {
+      if (e.features && e.features[0]) {
+        const provinceName = e.features[0].properties?.name;
+        const data = provinceData[provinceName];
+        
+        if (data) {
+          console.log('Province clicked from map:', provinceName);
+          handleProvinceSelect(provinceName, data.locations, data.coordinates);
+        }
+      }
     });
   };
 
@@ -265,33 +348,113 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
   useEffect(() => {
     if (map.current && Object.keys(provinceData).length > 0 && !selectedProvince) {
       console.log('Initializing province markers - province data ready');
-      addProvinceMarkers();
+      addWorkspaceMarkers([]);
     }
   }, [provinceData, selectedProvince]);
 
-  // Add workspace markers for selected province using createMarkerElement helper
-  const addWorkspaceMarkers = (filteredLocations: any[]) => {
+  // Add workspace markers function - replaces old marker system
+  const addWorkspaceMarkers = (filteredLocations: any[] = []) => {
     clearMarkers();
     
-    filteredLocations.forEach((location) => {
-      if (!location.latitude || !location.longitude) return;
+    // Use filtered locations if provided, otherwise show provinces as markers  
+    const locationsToShow = filteredLocations.length > 0 ? filteredLocations : [];
+    
+    if (filteredLocations.length === 0 && !selectedProvince) {
+      // Show province markers for initial view
+      bulgariaProvinces.forEach((province) => {
+        const data = provinceData[province.name];
+        if (!data || data.locations.length === 0) return;
+        
+        const locationCount = data.locations.length;
+        
+        // Create green circular marker
+        const el = document.createElement('div');
+        el.style.cssText = `
+          width: ${Math.max(32, Math.min(80, locationCount * 8))}px;
+          height: ${Math.max(32, Math.min(80, locationCount * 8))}px;
+          background: #10b981;
+          border: 3px solid #ffffff;
+          border-radius: 50%;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          color: white;
+          font-size: 12px;
+          text-align: center;
+          line-height: 1;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        `;
+        
+        el.innerHTML = `${locationCount}<br><span style="font-size: 8px;">${province.name}</span>`;
+        
+        // Hover effects
+        el.addEventListener('mouseenter', () => {
+          el.style.transform = 'scale(1.1)';
+          el.style.boxShadow = '0 6px 20px rgba(16, 185, 129, 0.6)';
+        });
+        
+        el.addEventListener('mouseleave', () => {
+          el.style.transform = 'scale(1)';
+          el.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)';
+        });
 
-      // Use the helper function to create marker element
-      const el = createMarkerElement(28, '#10b981', '#ffffff');
+        el.addEventListener('click', () => {
+          console.log('Province marker clicked:', province.name);
+          handleProvinceSelect(province.name, data.locations, data.coordinates);
+        });
 
-      el.addEventListener('click', () => {
-        setSelectedLocation(location);
+        const marker = new mapboxgl.Marker({
+          element: el,
+          anchor: 'center'
+        })
+          .setLngLat(data.coordinates)
+          .addTo(map.current!);
+        
+        markersRef.current.push(marker);
       });
+    } else {
+      // Show individual workspace markers
+      locationsToShow.forEach((location) => {
+        if (!location.latitude || !location.longitude) return;
 
-      const marker = new mapboxgl.Marker({ 
-        element: el, 
-        anchor: 'center' 
-      })
-        .setLngLat([parseFloat(location.longitude.toString()), parseFloat(location.latitude.toString())])
-        .addTo(map.current!);
-      
-      markersRef.current.push(marker);
-    });
+        const el = document.createElement('div');
+        el.style.cssText = `
+          width: 28px;
+          height: 28px;
+          background: #10b981;
+          border: 2px solid #ffffff;
+          border-radius: 50%;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        `;
+
+        // Hover effects
+        el.addEventListener('mouseenter', () => {
+          el.style.transform = 'scale(1.2)';
+          el.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.5)';
+        });
+        
+        el.addEventListener('mouseleave', () => {
+          el.style.transform = 'scale(1)';
+          el.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.3)';
+        });
+
+        el.addEventListener('click', () => {
+          console.log('Workspace clicked:', location.name);
+          setSelectedLocation(location);
+        });
+
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([parseFloat(location.longitude.toString()), parseFloat(location.latitude.toString())])
+          .addTo(map.current!);
+        
+        markersRef.current.push(marker);
+      });
+    }
   };
 
   // Handle province selection - NEW LOGIC 
@@ -353,7 +516,7 @@ const InteractiveMap = ({ onProvinceSelect }: InteractiveMapProps) => {
     map.current?.flyTo({
       center: [25.4858, 42.7339],
       zoom: 6.5,
-      pitch: 20, // Reduced initial tilt
+      pitch: 30,
       bearing: 0,
       duration: 1500
     });
