@@ -96,8 +96,8 @@ export default function InteractiveMap() {
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
-        getElevation: f => f.properties.name_en === selectedProvince ? 300000 : 10000,
-        getFillColor: f => f.properties.name_en === selectedProvince ? [34, 197, 94] : [16, 185, 129],
+        getElevation: f => (f.properties.name_en === selectedProvince || f.properties.name === selectedProvince) ? 300000 : 10000,
+        getFillColor: f => (f.properties.name_en === selectedProvince || f.properties.name === selectedProvince) ? [34, 197, 94] : [16, 185, 129],
         onClick: onClickProvince,
         updateTriggers: {
           getElevation: selectedProvince,
