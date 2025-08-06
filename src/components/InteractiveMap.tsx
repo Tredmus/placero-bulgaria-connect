@@ -59,13 +59,18 @@ export default function InteractiveMap() {
         setProvinces(data);
         
         // Create merged boundary for masking
-        if (data && data.features) {
-          const union = data.features.reduce((acc: any, feature: any) => {
-            if (!acc) return feature;
-            return turf.union(acc, feature);
-          }, null);
-          
-          setBulgariaBoundary(union);
+        if (data && data.features && data.features.length > 0) {
+          try {
+            let union = data.features[0];
+            for (let i = 1; i < data.features.length; i++) {
+              union = turf.union(union, data.features[i]);
+            }
+            setBulgariaBoundary(union);
+          } catch (error) {
+            console.error('Error creating Bulgaria boundary:', error);
+            // Fallback: use the first province as boundary
+            setBulgariaBoundary(data.features[0]);
+          }
         }
       });
   }, []);
