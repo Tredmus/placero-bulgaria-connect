@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, ScatterplotLayer, TileLayer, BitmapLayer } from '@deck.gl/layers';
 import { useLocations } from '@/hooks/useLocations';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
@@ -91,6 +91,24 @@ export default function InteractiveMap() {
   const layers = [];
 
   if (provinces) {
+    layers.push(
+      new TileLayer({
+        id: 'satellite-base',
+        data: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        minZoom: INITIAL_VIEW_STATE.minZoom,
+        maxZoom: INITIAL_VIEW_STATE.maxZoom,
+        tileSize: 256,
+        renderSubLayers: props => {
+          const { bbox: [minX, minY, maxX, maxY] } = props.tile;
+          return new BitmapLayer(props, {
+            data: null,
+            image: props.data,
+            bounds: [minX, minY, maxX, maxY]
+          });
+        }
+      })
+    );
+
     layers.push(new GeoJsonLayer({
       id: 'provinces',
       data: provinces,
@@ -137,7 +155,7 @@ export default function InteractiveMap() {
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
       <DeckGL
         viewState={viewState}
-        controller={true}
+        controller={{ minZoom: INITIAL_VIEW_STATE.minZoom, maxZoom: INITIAL_VIEW_STATE.maxZoom }}
         layers={layers}
         onViewStateChange={onViewStateChange}
         style={{ width: '100%', height: '100%' }}
