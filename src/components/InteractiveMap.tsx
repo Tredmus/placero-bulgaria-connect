@@ -91,7 +91,7 @@ export default function InteractiveMap() {
         pickable: true,
         filled: true,
         stroked: true,
-        
+        wireframe: true,
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
