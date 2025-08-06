@@ -73,25 +73,6 @@ export default function InteractiveMap() {
     mapRef.current.on('load', () => {
       if (!mapRef.current || !provinces) return;
 
-      mapRef.current.addSource('mapbox-dem', {
-        type: 'raster-dem',
-        url: 'mapbox://mapbox.terrain-rgb',
-        tileSize: 512,
-        maxzoom: 14
-      });
-
-      mapRef.current.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
-
-      // (optional) Add hillshade for visual relief
-      mapRef.current.addLayer({
-        id: 'hillshade',
-        type: 'hillshade',
-        source: 'mapbox-dem',
-        layout: {},
-        paint: {}
-      });
-
-
       // Add all provinces as a source for potential masking
       mapRef.current.addSource('all-provinces', {
         type: 'geojson',
