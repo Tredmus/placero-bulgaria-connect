@@ -236,7 +236,7 @@ export default function InteractiveMap() {
         current = target;
       }
       setElevationMap(prev => ({
-        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: 30000 }), {}),
+        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: 10000 }), {}),
         [name]: current
       }));
     }, 16);
@@ -268,7 +268,7 @@ export default function InteractiveMap() {
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
-        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 30000,
+        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000,
         getFillColor: f => {
           const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
           return isSelected ? [34, 197, 94, 120] : [16, 185, 129, 80];
