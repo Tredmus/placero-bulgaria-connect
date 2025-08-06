@@ -105,17 +105,30 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  // Add satellite layer only for selected province
+  // Add base map layer using OpenStreetMap tiles
+  layers.push(new TileLayer({
+    id: 'base-map',
+    data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    minZoom: 0,
+    maxZoom: 19,
+    tileSize: 256,
+    refinementStrategy: 'best-available'
+  }));
+
+  // Add satellite layer only for selected province  
   if (selectedProvince && selectedProvinceGeometry) {
     const currentElevation = elevationMap[selectedProvinceGeometry.properties.name_en] || elevationMap[selectedProvinceGeometry.properties.name] || 10000;
     
     layers.push(new TileLayer({
       id: 'satellite-layer',
-      data: 'https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoibG92YWJsZSIsImEiOiJjbTNjcGNtdXQwNmFsMmpwcHNhYjVqNjVpIn0.Pc9_sPOGlSVU6NMELwKxJQ',
+      data: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       minZoom: 0,
       maxZoom: 19,
       tileSize: 256,
-      refinementStrategy: 'best-available'
+      refinementStrategy: 'best-available',
+      // Position the satellite layer at the province elevation minus offset
+      getElevation: () => currentElevation - 100,
+      updateTriggers: { getElevation: elevationMap }
     }));
 
     // Add a clipping mask for the selected province
@@ -125,9 +138,8 @@ export default function InteractiveMap() {
       filled: true,
       stroked: false,
       getFillColor: [255, 255, 255, 0], // Transparent
-      getElevation: currentElevation - 100, // Slightly below the province
+      getElevation: currentElevation - 100,
       extruded: true,
-      operation: 'mask',
       updateTriggers: { getElevation: elevationMap }
     }));
   }
