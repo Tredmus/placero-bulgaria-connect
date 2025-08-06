@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer, BitmapLayer } from '@deck.gl/layers';
-import { TileLayer } from '@deck.gl/geo-layers';
+import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -25,6 +26,8 @@ export default function InteractiveMap() {
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
   const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
 
   // Fetch Mapbox token
   useEffect(() => {
@@ -34,20 +37,57 @@ export default function InteractiveMap() {
         
         if (data?.token) {
           setMapboxToken(data.token);
+          mapboxgl.accessToken = data.token;
         } else {
           // Fallback token
           const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
           setMapboxToken(token);
+          mapboxgl.accessToken = token;
         }
       } catch (error) {
         console.log('Edge function not available, using fallback token');
         const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         setMapboxToken(token);
+        mapboxgl.accessToken = token;
       }
     };
     
     fetchMapboxToken();
   }, []);
+
+  // Initialize Mapbox map
+  useEffect(() => {
+    if (!mapContainerRef.current || !mapboxToken) return;
+
+    mapRef.current = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      center: [viewState.longitude, viewState.latitude],
+      zoom: viewState.zoom,
+      pitch: viewState.pitch,
+      bearing: viewState.bearing,
+      interactive: false // DeckGL will handle interactions
+    });
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [mapboxToken]);
+
+  // Sync Mapbox map with DeckGL viewState
+  useEffect(() => {
+    if (mapRef.current && viewState) {
+      mapRef.current.jumpTo({
+        center: [viewState.longitude, viewState.latitude],
+        zoom: viewState.zoom,
+        pitch: viewState.pitch,
+        bearing: viewState.bearing
+      });
+    }
+  }, [viewState]);
 
   useEffect(() => {
     fetch(GEOJSON_URL)
@@ -123,33 +163,6 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  // Add base terrain layer with map tiles
-  if (mapboxToken) {
-    layers.push(
-      new TileLayer({
-        id: 'tile-layer',
-        data: `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`,
-        minZoom: 0,
-        maxZoom: 19,
-        tileSize: 512,
-        renderSubLayers: (props: any) => {
-          const { tile } = props;
-          const { bbox } = tile;
-          
-          if (!bbox) return null;
-          
-          return new BitmapLayer({
-            ...props,
-            id: `${props.id}-bitmap`,
-            image: props.data,
-            bounds: [bbox.left, bbox.bottom, bbox.right, bbox.top],
-            coordinateSystem: 3857
-          });
-        }
-      })
-    );
-  }
-
   if (provinces) {
     layers.push(
       new GeoJsonLayer({
@@ -164,7 +177,7 @@ export default function InteractiveMap() {
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
         getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000,
-        getFillColor: f => (f.properties.name_en === selectedProvince || f.properties.name === selectedProvince) ? [34, 197, 94, 180] : [16, 185, 129, 160],
+        getFillColor: f => (f.properties.name_en === selectedProvince || f.properties.name === selectedProvince) ? [34, 197, 94, 120] : [16, 185, 129, 80],
         onClick: onClickProvince,
         updateTriggers: {
           getElevation: elevationMap,
@@ -216,6 +229,16 @@ export default function InteractiveMap() {
 
   return (
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
+      <div 
+        ref={mapContainerRef} 
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          position: 'absolute',
+          top: '0',
+          left: '0'
+        }}
+      />
       <DeckGL
         viewState={viewState}
         controller={true}
