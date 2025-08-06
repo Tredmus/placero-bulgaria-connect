@@ -1,12 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { DeckGL } from '@deck.gl/react';
 import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
-import { Map as ReactMapGL } from 'react-map-gl';
-import 'react-map-gl/dist/style.css';
+import { StaticMap } from 'react-map-gl';
 import { useLocations } from '@/hooks/useLocations';
-import { supabase } from '@/integrations/supabase/client';
 
-let MAPBOX_TOKEN: string = '';
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
 const INITIAL_VIEW_STATE = {
@@ -26,19 +24,6 @@ export default function InteractiveMap() {
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
 
   useEffect(() => {
-    // Fetch Mapbox token
-    const fetchMapboxToken = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-        if (error) throw error;
-        MAPBOX_TOKEN = data.token;
-      } catch (error) {
-        console.error('Error fetching Mapbox token:', error);
-      }
-    };
-    
-    fetchMapboxToken();
-    
     // load provinces GeoJSON
     fetch(GEOJSON_URL)
       .then(res => res.json())
@@ -48,8 +33,8 @@ export default function InteractiveMap() {
   // derive city and location layers based on selection and zoom
   useEffect(() => {
     if (selectedProvince) {
-      // filter locations by city matching to provinces (simplified approach)
-      const filtered = locations.filter(l => l.city && l.latitude && l.longitude);
+      // filter locations in selected province
+      const filtered = locations.filter(l => l.province === selectedProvince && l.latitude && l.longitude);
       // group by city
       const cities: Record<string, any[]> = {};
       filtered.forEach(l => {
@@ -60,8 +45,8 @@ export default function InteractiveMap() {
       setCityPoints(
         Object.entries(cities).map(([city, pts]) => {
           const avg = pts.reduce((acc, p) => {
-            acc.longitude += p.longitude;
-            acc.latitude += p.latitude;
+            acc.longitude += parseFloat(p.longitude);
+            acc.latitude += parseFloat(p.latitude);
             return acc;
           }, { longitude: 0, latitude: 0 });
           avg.longitude /= pts.length;
@@ -69,14 +54,14 @@ export default function InteractiveMap() {
           return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
         })
       );
-      setLocationPoints(filtered.map(l => ({ position: [l.longitude, l.latitude], data: l })));
+      setLocationPoints(filtered.map(l => ({ position: [parseFloat(l.longitude), parseFloat(l.latitude)], data: l })));
     } else {
       setCityPoints([]);
       setLocationPoints([]);
     }
   }, [selectedProvince, locations]);
 
-  const onViewStateChange = useCallback(({ viewState: vs }: any) => {
+  const onViewStateChange = useCallback(({ viewState: vs }) => {
     setViewState(vs);
   }, []);
 
@@ -90,19 +75,19 @@ export default function InteractiveMap() {
     }
   }, []);
 
-  const layers: any[] = [];
+  const layers = [];
 
   if (provinces) {
     layers.push(
-      new (GeoJsonLayer as any)({
+      new GeoJsonLayer({
         id: 'provinces',
         data: provinces,
         pickable: true,
         stroked: false,
         extruded: true,
         wireframe: false,
-        getElevation: (f: any) => (f.properties.name_en === selectedProvince ? 300000 : 0),
-        getFillColor: (f: any) => (f.properties.name_en === selectedProvince ? [34, 197, 94] : [16, 185, 129]),
+        getElevation: f => (f.properties.name_en === selectedProvince ? 300000 : 0),
+        getFillColor: f => (f.properties.name_en === selectedProvince ? [34, 197, 94] : [16, 185, 129]),
         onClick: onClickProvince
       })
     );
@@ -111,14 +96,14 @@ export default function InteractiveMap() {
   // show cities when zoomed in
   if (viewState.zoom >= 8 && cityPoints.length > 0) {
     layers.push(
-      new (ScatterplotLayer as any)({
+      new ScatterplotLayer({
         id: 'cities',
         data: cityPoints,
         pickable: true,
-        getPosition: (d: any) => d.position,
-        getRadius: (d: any) => Math.sqrt(d.count) * 5000,
+        getPosition: d => d.position,
+        getRadius: d => Math.sqrt(d.count) * 5000,
         getFillColor: [255, 140, 0],
-        onClick: (info: any) => {
+        onClick: info => {
           if (info.object) {
             setViewState(vs => ({ ...vs, longitude: info.object.position[0], latitude: info.object.position[1], zoom: 12 }));
           }
@@ -130,29 +115,32 @@ export default function InteractiveMap() {
   // show locations when zoomed in further
   if (viewState.zoom >= 12 && locationPoints.length > 0) {
     layers.push(
-      new (ScatterplotLayer as any)({
+      new ScatterplotLayer({
         id: 'locations',
         data: locationPoints,
         pickable: true,
-        getPosition: (d: any) => d.position,
+        getPosition: d => d.position,
         getRadius: 2000,
         getFillColor: [255, 0, 128],
-        onClick: (info: any) => info.object && alert(info.object.data.name)
+        onClick: info => info.object && alert(info.object.data.name)
       })
     );
   }
 
   return (
     <DeckGL
-      viewState={viewState as any}
+      initialViewState={INITIAL_VIEW_STATE}
+      viewState={viewState}
       controller={true}
       layers={layers}
       onViewStateChange={onViewStateChange}
       style={{ width: '100%', height: '600px' }}
     >
-      <ReactMapGL
+      <StaticMap
+        reuseMaps
         mapStyle="mapbox://styles/mapbox/dark-v11"
-        mapboxAccessToken={MAPBOX_TOKEN}
+        preventStyleDiffing
+        mapboxApiAccessToken={MAPBOX_TOKEN}
       />
     </DeckGL>
   );
