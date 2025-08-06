@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer, BitmapLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, ScatterplotLayer, TileLayer } from '@deck.gl/layers';
+import { Map } from 'react-map-gl';
 import * as turf from '@turf/turf';
 import { useLocations } from '@/hooks/useLocations';
 
@@ -25,7 +26,7 @@ export default function InteractiveMap() {
   const [cityPoints, setCityPoints] = useState<any[]>([]);
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
   const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
-  const [maskData, setMaskData] = useState<any>(null);
+  const [maskPolygons, setMaskPolygons] = useState<any>(null);
 
   useEffect(() => {
     fetch(GEOJSON_URL)
@@ -33,7 +34,9 @@ export default function InteractiveMap() {
       .then(data => {
         setProvinces(data);
 
-        // Remove mask functionality to avoid turf.js compatibility issues
+        const countryPolygon = turf.union(...data.features);
+        const mask = turf.difference(turf.bboxPolygon([19.3, 41.2, 28.6, 44.2]), countryPolygon);
+        setMaskPolygons(mask);
       });
   }, []);
 
@@ -98,6 +101,14 @@ export default function InteractiveMap() {
 
   const layers = [];
 
+  layers.push(new TileLayer({
+    id: 'basemap',
+    data: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    minZoom: 0,
+    maxZoom: 19,
+    tileSize: 256
+  }));
+
   if (provinces) {
     layers.push(new GeoJsonLayer({
       id: 'provinces',
@@ -115,19 +126,12 @@ export default function InteractiveMap() {
       onClick: onClickProvince,
       updateTriggers: { getElevation: elevationMap, getFillColor: selectedProvince }
     }));
-
-    layers.push(new BitmapLayer({
-      id: 'satellite',
-      bounds: [19.3, 41.2, 28.6, 44.2],
-      image: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/6/40/44',
-      desaturate: 0
-    }));
   }
 
-  if (maskData) {
+  if (maskPolygons) {
     layers.push(new GeoJsonLayer({
-      id: 'mask',
-      data: maskData,
+      id: 'mask-layer',
+      data: maskPolygons,
       filled: true,
       getFillColor: [0, 0, 0, 255],
       getLineColor: [0, 0, 0, 0]
@@ -167,7 +171,12 @@ export default function InteractiveMap() {
         onViewStateChange={onViewStateChange}
         style={{ width: '100%', height: '100%' }}
         getTooltip={({ object }) => object?.properties?.name_en || object?.properties?.name || null}
-      />
+      >
+        <Map
+          mapStyle="mapbox://styles/mapbox/streets-v11"
+          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+        />
+      </DeckGL>
     </div>
   );
 }
