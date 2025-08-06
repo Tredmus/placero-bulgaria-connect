@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@deck.gl/core": "^9.1.14",
-    "@deck.gl/extensions": "^9.1.14",
     "@deck.gl/geo-layers": "^9.1.14",
     "@deck.gl/layers": "^9.1.14",
     "@deck.gl/react": "^9.1.14",
