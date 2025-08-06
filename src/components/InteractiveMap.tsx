@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { DeckGL } from '@deck.gl/react';
 import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
-import { Map } from 'react-map-gl';
+import { Map as ReactMapGL } from 'react-map-gl';
+import 'react-map-gl/dist/style.css';
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -75,7 +76,7 @@ export default function InteractiveMap() {
     }
   }, [selectedProvince, locations]);
 
-  const onViewStateChange = useCallback(({ viewState: vs }) => {
+  const onViewStateChange = useCallback(({ viewState: vs }: any) => {
     setViewState(vs);
   }, []);
 
@@ -143,15 +144,13 @@ export default function InteractiveMap() {
 
   return (
     <DeckGL
-      initialViewState={INITIAL_VIEW_STATE}
-      viewState={viewState}
+      viewState={viewState as any}
       controller={true}
       layers={layers}
       onViewStateChange={onViewStateChange}
       style={{ width: '100%', height: '600px' }}
     >
-      <Map
-        reuseMaps
+      <ReactMapGL
         mapStyle="mapbox://styles/mapbox/dark-v11"
         mapboxAccessToken={MAPBOX_TOKEN}
       />
