@@ -70,66 +70,47 @@ export default function InteractiveMap() {
       interactive: false // DeckGL will handle interactions
     });
 
-    // Create Bulgaria boundary mask from provinces
     mapRef.current.on('load', () => {
       if (!mapRef.current || !provinces) return;
 
-      // Create union of all provinces to get Bulgaria boundary
-      let bulgariaBoundary = provinces.features[0];
-      for (let i = 1; i < provinces.features.length; i++) {
-        try {
-          bulgariaBoundary = union(bulgariaBoundary, provinces.features[i]);
-        } catch (error) {
-          console.warn('Error creating union with feature', i, error);
-        }
-      }
-
-      // Add Bulgaria boundary as source
-      mapRef.current.addSource('bulgaria-boundary', {
+      // Add all provinces as a source for potential masking
+      mapRef.current.addSource('all-provinces', {
         type: 'geojson',
-        data: bulgariaBoundary
+        data: provinces
       });
 
-      // Add mask layer - this will create the clipping effect
-      mapRef.current.addLayer({
-        id: 'bulgaria-mask',
-        type: 'fill',
-        source: 'bulgaria-boundary',
-        paint: {
-          'fill-color': 'rgba(0,0,0,0)', // Transparent fill
-          'fill-opacity': 1
-        }
-      });
-
-      // Add an inverted mask to hide everything outside Bulgaria
-      // Create a large rectangle covering the world, with Bulgaria cut out
-      const worldBounds = [
-        [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]
-      ];
-      
-      const maskWithHole = {
-        type: 'Feature' as const,
-        properties: {},
-        geometry: {
-          type: 'Polygon' as const,
-          coordinates: [worldBounds[0], ...bulgariaBoundary.geometry.coordinates]
-        }
-      };
-
+      // Add world mask source (will be updated dynamically)
       mapRef.current.addSource('world-mask', {
         type: 'geojson',
-        data: maskWithHole
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Polygon',
+            coordinates: []
+          }
+        }
       });
 
+      // Add mask layer that covers everything outside selected province
       mapRef.current.addLayer({
         id: 'world-mask-layer',
         type: 'fill',
         source: 'world-mask',
         paint: {
-          'fill-color': '#1a1a2e', // Dark blue background
+          'fill-color': '#1a1a2e',
           'fill-opacity': 1
         }
       });
+
+      // Set satellite layer elevation to appear below 3D provinces
+      const layers = mapRef.current.getStyle().layers;
+      const satelliteLayer = layers?.find(layer => layer.type === 'raster');
+      
+      if (satelliteLayer) {
+        // Add custom properties to position satellite layer below provinces
+        mapRef.current.setPaintProperty(satelliteLayer.id, 'raster-opacity', 0.8);
+      }
     });
 
     return () => {
@@ -139,6 +120,56 @@ export default function InteractiveMap() {
       }
     };
   }, [mapboxToken, provinces]);
+
+  // Update mask when selected province changes
+  useEffect(() => {
+    if (!mapRef.current || !provinces || !selectedProvince) {
+      // If no province selected, hide all satellite imagery
+      if (mapRef.current && mapRef.current.getSource('world-mask')) {
+        const worldBounds = [
+          [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]
+        ];
+        
+        const fullMask = {
+          type: 'Feature' as const,
+          properties: {},
+          geometry: {
+            type: 'Polygon' as const,
+            coordinates: worldBounds
+          }
+        };
+
+        (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(fullMask);
+      }
+      return;
+    }
+
+    // Find the selected province feature
+    const selectedFeature = provinces.features.find(
+      (feature: any) => 
+        feature.properties.name_en === selectedProvince || 
+        feature.properties.name === selectedProvince
+    );
+
+    if (!selectedFeature) return;
+
+    // Create world bounds with selected province cut out
+    const worldBounds = [
+      [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]
+    ];
+
+    const maskWithHole = {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'Polygon' as const,
+        coordinates: [worldBounds[0], ...selectedFeature.geometry.coordinates]
+      }
+    };
+
+    // Update the mask to show only the selected province
+    (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(maskWithHole);
+  }, [selectedProvince, provinces]);
 
   // Sync Mapbox map with DeckGL viewState
   useEffect(() => {
@@ -197,8 +228,8 @@ export default function InteractiveMap() {
   }, []);
 
   const animateElevation = (name: string) => {
-    let current = 10000;
-    const target = 30000;
+    let current = 30000;
+    const target = 50000;
     const step = 500;
     const interval = setInterval(() => {
       current += step;
@@ -207,7 +238,7 @@ export default function InteractiveMap() {
         current = target;
       }
       setElevationMap(prev => ({
-        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: 10000 }), {}),
+        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: 30000 }), {}),
         [name]: current
       }));
     }, 16);
@@ -239,8 +270,11 @@ export default function InteractiveMap() {
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
-        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000,
-        getFillColor: f => (f.properties.name_en === selectedProvince || f.properties.name === selectedProvince) ? [34, 197, 94, 120] : [16, 185, 129, 80],
+        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 30000,
+        getFillColor: f => {
+          const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
+          return isSelected ? [34, 197, 94, 120] : [16, 185, 129, 80];
+        },
         onClick: onClickProvince,
         updateTriggers: {
           getElevation: elevationMap,
