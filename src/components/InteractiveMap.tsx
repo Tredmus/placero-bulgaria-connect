@@ -5,6 +5,7 @@ import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import union from '@turf/union';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -57,7 +58,7 @@ export default function InteractiveMap() {
 
   // Initialize Mapbox map
   useEffect(() => {
-    if (!mapContainerRef.current || !mapboxToken) return;
+    if (!mapContainerRef.current || !mapboxToken || !provinces) return;
 
     mapRef.current = new mapboxgl.Map({
       container: mapContainerRef.current,
@@ -69,13 +70,58 @@ export default function InteractiveMap() {
       interactive: false // DeckGL will handle interactions
     });
 
+    // Create Bulgaria boundary mask from provinces
+    mapRef.current.on('load', () => {
+      if (!mapRef.current || !provinces) return;
+
+      // Create union of all provinces to get Bulgaria boundary
+      let bulgariaBoundary = provinces.features[0];
+      for (let i = 1; i < provinces.features.length; i++) {
+        try {
+          bulgariaBoundary = union(bulgariaBoundary, provinces.features[i]);
+        } catch (error) {
+          console.warn('Error creating union with feature', i, error);
+        }
+      }
+
+      // Add Bulgaria boundary as source
+      mapRef.current.addSource('bulgaria-boundary', {
+        type: 'geojson',
+        data: bulgariaBoundary
+      });
+
+      // Add invisible layer for the mask
+      mapRef.current.addLayer({
+        id: 'bulgaria-mask',
+        type: 'fill',
+        source: 'bulgaria-boundary',
+        paint: {
+          'fill-opacity': 0
+        }
+      });
+
+      // Update satellite layer to use mask
+      const layers = mapRef.current.getStyle().layers;
+      const satelliteLayer = layers?.find(layer => layer.type === 'raster');
+      
+      if (satelliteLayer) {
+        mapRef.current.setPaintProperty(satelliteLayer.id, 'raster-fade-duration', 0);
+        
+        // Apply mask to satellite layer
+        mapRef.current.setFilter(satelliteLayer.id, [
+          'within',
+          ['literal', bulgariaBoundary.geometry]
+        ]);
+      }
+    });
+
     return () => {
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
     };
-  }, [mapboxToken]);
+  }, [mapboxToken, provinces]);
 
   // Sync Mapbox map with DeckGL viewState
   useEffect(() => {
