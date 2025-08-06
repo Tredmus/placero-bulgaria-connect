@@ -1,10 +1,8 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, ScatterplotLayer, TileLayer } from '@deck.gl/layers';
+import { BitmapLayer } from '@deck.gl/layers';
 import { useLocations } from '@/hooks/useLocations';
-import { supabase } from '@/integrations/supabase/client';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -27,54 +25,6 @@ export default function InteractiveMap() {
   const [cityPoints, setCityPoints] = useState<any[]>([]);
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
   const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
-  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-
-  useEffect(() => {
-    const fetchMapboxToken = async () => {
-      try {
-        const { data } = await supabase.functions.invoke('get-mapbox-token');
-        const token = data?.token || 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
-        setMapboxToken(token);
-        mapboxgl.accessToken = token;
-      } catch {
-        const fallback = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
-        setMapboxToken(fallback);
-        mapboxgl.accessToken = fallback;
-      }
-    };
-
-    fetchMapboxToken();
-  }, []);
-
-  useEffect(() => {
-    if (!mapContainerRef.current || !mapboxToken) return;
-    mapRef.current = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12',
-      center: [viewState.longitude, viewState.latitude],
-      zoom: viewState.zoom,
-      pitch: viewState.pitch,
-      bearing: viewState.bearing,
-      minZoom: INITIAL_VIEW_STATE.minZoom,
-      maxZoom: INITIAL_VIEW_STATE.maxZoom,
-      interactive: false
-    });
-
-    return () => mapRef.current?.remove();
-  }, [mapboxToken]);
-
-  useEffect(() => {
-    if (mapRef.current && viewState) {
-      mapRef.current.jumpTo({
-        center: [viewState.longitude, viewState.latitude],
-        zoom: viewState.zoom,
-        pitch: viewState.pitch,
-        bearing: viewState.bearing
-      });
-    }
-  }, [viewState]);
 
   useEffect(() => {
     fetch(GEOJSON_URL).then(res => res.json()).then(setProvinces);
@@ -142,6 +92,25 @@ export default function InteractiveMap() {
   const layers = [];
 
   if (provinces) {
+    layers.push(
+      new TileLayer({
+        id: 'satellite-base',
+        data: 'https://a.tiles.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.jpg90?access_token=pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw',
+        minZoom: INITIAL_VIEW_STATE.minZoom,
+        maxZoom: INITIAL_VIEW_STATE.maxZoom,
+        tileSize: 256,
+        renderSubLayers: props => {
+          const { bbox: [minX, minY, maxX, maxY] } = props.tile;
+          return new BitmapLayer(props, {
+            data: null,
+            image: props.data,
+            bounds: [minX, minY, maxX, maxY],
+            desaturate: 0
+          });
+        }
+      })
+    );
+
     layers.push(new GeoJsonLayer({
       id: 'provinces',
       data: provinces,
@@ -184,23 +153,14 @@ export default function InteractiveMap() {
     }));
   }
 
-  if (!mapboxToken) {
-    return (
-      <div className="flex items-center justify-center bg-muted" style={{ width: '100%', height: '600px', position: 'relative' }}>
-        <p className="text-muted-foreground">Loading map...</p>
-      </div>
-    );
-  }
-
   return (
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }} />
       <DeckGL
         viewState={viewState}
         controller={{ minZoom: INITIAL_VIEW_STATE.minZoom, maxZoom: INITIAL_VIEW_STATE.maxZoom }}
         layers={layers}
         onViewStateChange={onViewStateChange}
-        style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
+        style={{ width: '100%', height: '100%' }}
         getTooltip={({ object }) => object?.properties?.name_en || object?.properties?.name || null}
       />
     </div>
