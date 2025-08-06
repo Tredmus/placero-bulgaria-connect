@@ -90,29 +90,46 @@ export default function InteractiveMap() {
         data: bulgariaBoundary
       });
 
-      // Add invisible layer for the mask
+      // Add mask layer - this will create the clipping effect
       mapRef.current.addLayer({
         id: 'bulgaria-mask',
         type: 'fill',
         source: 'bulgaria-boundary',
         paint: {
-          'fill-opacity': 0
+          'fill-color': 'rgba(0,0,0,0)', // Transparent fill
+          'fill-opacity': 1
         }
       });
 
-      // Update satellite layer to use mask
-      const layers = mapRef.current.getStyle().layers;
-      const satelliteLayer = layers?.find(layer => layer.type === 'raster');
+      // Add an inverted mask to hide everything outside Bulgaria
+      // Create a large rectangle covering the world, with Bulgaria cut out
+      const worldBounds = [
+        [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]
+      ];
       
-      if (satelliteLayer) {
-        mapRef.current.setPaintProperty(satelliteLayer.id, 'raster-fade-duration', 0);
-        
-        // Apply mask to satellite layer
-        mapRef.current.setFilter(satelliteLayer.id, [
-          'within',
-          ['literal', bulgariaBoundary.geometry]
-        ]);
-      }
+      const maskWithHole = {
+        type: 'Feature' as const,
+        properties: {},
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [worldBounds[0], ...bulgariaBoundary.geometry.coordinates]
+        }
+      };
+
+      mapRef.current.addSource('world-mask', {
+        type: 'geojson',
+        data: maskWithHole
+      });
+
+      mapRef.current.addLayer({
+        id: 'world-mask-layer',
+        type: 'fill',
+        source: 'world-mask',
+        paint: {
+          'fill-color': '#1a1a2e', // Dark blue background
+          'fill-opacity': 1
+        }
+      });
     });
 
     return () => {
