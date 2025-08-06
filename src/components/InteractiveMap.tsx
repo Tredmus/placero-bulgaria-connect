@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, ScatterplotLayer, BitmapLayer } from '@deck.gl/layers';
+import { TileLayer } from '@deck.gl/geo-layers';
+import { MaskExtension } from '@deck.gl/extensions';
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import * as turf from '@turf/turf';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -26,8 +27,7 @@ export default function InteractiveMap() {
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
   const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const [bulgariaBoundary, setBulgariaBoundary] = useState<any>(null);
 
   // Fetch Mapbox token
   useEffect(() => {
@@ -37,62 +37,37 @@ export default function InteractiveMap() {
         
         if (data?.token) {
           setMapboxToken(data.token);
-          mapboxgl.accessToken = data.token;
         } else {
           // Fallback token
           const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
           setMapboxToken(token);
-          mapboxgl.accessToken = token;
         }
       } catch (error) {
         console.log('Edge function not available, using fallback token');
         const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         setMapboxToken(token);
-        mapboxgl.accessToken = token;
       }
     };
     
     fetchMapboxToken();
   }, []);
 
-  // Initialize Mapbox map
-  useEffect(() => {
-    if (!mapContainerRef.current || !mapboxToken) return;
-
-    mapRef.current = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12',
-      center: [viewState.longitude, viewState.latitude],
-      zoom: viewState.zoom,
-      pitch: viewState.pitch,
-      bearing: viewState.bearing,
-      interactive: false // DeckGL will handle interactions
-    });
-
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
-  }, [mapboxToken]);
-
-  // Sync Mapbox map with DeckGL viewState
-  useEffect(() => {
-    if (mapRef.current && viewState) {
-      mapRef.current.jumpTo({
-        center: [viewState.longitude, viewState.latitude],
-        zoom: viewState.zoom,
-        pitch: viewState.pitch,
-        bearing: viewState.bearing
-      });
-    }
-  }, [viewState]);
-
   useEffect(() => {
     fetch(GEOJSON_URL)
       .then(res => res.json())
-      .then(data => setProvinces(data));
+      .then(data => {
+        setProvinces(data);
+        
+        // Create merged boundary for masking
+        if (data && data.features) {
+          const union = data.features.reduce((acc: any, feature: any) => {
+            if (!acc) return feature;
+            return turf.union(acc, feature);
+          }, null);
+          
+          setBulgariaBoundary(union);
+        }
+      });
   }, []);
 
   useEffect(() => {
@@ -163,6 +138,47 @@ export default function InteractiveMap() {
 
   const layers = [];
 
+  // Add masked base map layer
+  if (mapboxToken && bulgariaBoundary) {
+    layers.push(
+      new TileLayer({
+        id: 'masked-map',
+        data: `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`,
+        minZoom: 0,
+        maxZoom: 19,
+        tileSize: 512,
+        extensions: [new MaskExtension()],
+        maskId: 'bulgaria-mask',
+        renderSubLayers: (props: any) => {
+          const { tile } = props;
+          if (!tile || !tile.bbox) return null;
+          
+          const { west, south, east, north } = tile.bbox;
+          
+          return new BitmapLayer({
+            ...props,
+            id: `${props.id}-bitmap`,
+            image: props.data,
+            bounds: [west, south, east, north],
+            extensions: [new MaskExtension()],
+            maskId: 'bulgaria-mask',
+          });
+        }
+      })
+    );
+    
+    // Add mask layer
+    layers.push(
+      new GeoJsonLayer({
+        id: 'bulgaria-mask',
+        data: bulgariaBoundary,
+        operation: 'mask',
+        filled: true,
+        getFillColor: [255, 255, 255, 255], // Not visible, just for masking
+      })
+    );
+  }
+
   if (provinces) {
     layers.push(
       new GeoJsonLayer({
@@ -229,16 +245,6 @@ export default function InteractiveMap() {
 
   return (
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
-      <div 
-        ref={mapContainerRef} 
-        style={{ 
-          width: '100%', 
-          height: '100%', 
-          position: 'absolute',
-          top: '0',
-          left: '0'
-        }}
-      />
       <DeckGL
         viewState={viewState}
         controller={true}
@@ -246,10 +252,7 @@ export default function InteractiveMap() {
         onViewStateChange={onViewStateChange}
         style={{ 
           width: '100%', 
-          height: '100%',
-          position: 'absolute',
-          top: '0',
-          left: '0'
+          height: '100%'
         }}
         getTooltip={({ object }) => {
           if (object && object.properties) {
