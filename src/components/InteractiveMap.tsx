@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-// import { DeckGL } from '@deck.gl/react';
+import DeckGL from '@deck.gl/react';
 import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
-import { StaticMap } from 'react-map-gl/dist/esm';
 import { useLocations } from '@/hooks/useLocations';
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
+const MAPBOX_TOKEN = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw'; // Demo token
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
 const INITIAL_VIEW_STATE = {
@@ -12,7 +11,8 @@ const INITIAL_VIEW_STATE = {
   latitude: 42.7339,
   zoom: 6.5,
   pitch: 45,
-  bearing: 0
+  bearing: 0,
+  transitionDuration: 0
 };
 
 export default function InteractiveMap() {
@@ -34,7 +34,7 @@ export default function InteractiveMap() {
   useEffect(() => {
     if (selectedProvince) {
       // filter locations in selected province
-      const filtered = locations.filter(l => l.province === selectedProvince && l.latitude && l.longitude);
+      const filtered = locations.filter(l => l.city === selectedProvince && l.latitude && l.longitude);
       // group by city
       const cities: Record<string, any[]> = {};
       filtered.forEach(l => {
@@ -45,8 +45,8 @@ export default function InteractiveMap() {
       setCityPoints(
         Object.entries(cities).map(([city, pts]) => {
           const avg = pts.reduce((acc, p) => {
-            acc.longitude += parseFloat(p.longitude);
-            acc.latitude += parseFloat(p.latitude);
+            acc.longitude += typeof p.longitude === 'string' ? parseFloat(p.longitude) : p.longitude;
+            acc.latitude += typeof p.latitude === 'string' ? parseFloat(p.latitude) : p.latitude;
             return acc;
           }, { longitude: 0, latitude: 0 });
           avg.longitude /= pts.length;
@@ -54,15 +54,21 @@ export default function InteractiveMap() {
           return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
         })
       );
-      setLocationPoints(filtered.map(l => ({ position: [parseFloat(l.longitude), parseFloat(l.latitude)], data: l })));
+      setLocationPoints(filtered.map(l => ({ 
+        position: [
+          typeof l.longitude === 'string' ? parseFloat(l.longitude) : l.longitude, 
+          typeof l.latitude === 'string' ? parseFloat(l.latitude) : l.latitude
+        ], 
+        data: l 
+      })));
     } else {
       setCityPoints([]);
       setLocationPoints([]);
     }
   }, [selectedProvince, locations]);
 
-  const onViewStateChange = useCallback(({ viewState: vs }) => {
-    setViewState(vs);
+  const onViewStateChange = useCallback((info: any) => {
+    setViewState(info.viewState);
   }, []);
 
   const onClickProvince = useCallback((info: any) => {
@@ -71,7 +77,7 @@ export default function InteractiveMap() {
       setSelectedProvince(name);
       // fly to province centroid
       const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
-      setViewState(vs => ({ ...vs, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 60 }));
+      setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 60, transitionDuration: 1000 }));
     }
   }, []);
 
@@ -105,7 +111,7 @@ export default function InteractiveMap() {
         getFillColor: [255, 140, 0],
         onClick: info => {
           if (info.object) {
-            setViewState(vs => ({ ...vs, longitude: info.object.position[0], latitude: info.object.position[1], zoom: 12 }));
+            setViewState(prev => ({ ...prev, longitude: info.object.position[0], latitude: info.object.position[1], zoom: 12, transitionDuration: 1000 }));
           }
         }
       })
@@ -128,20 +134,14 @@ export default function InteractiveMap() {
   }
 
   return (
-    <DeckGL
-      initialViewState={INITIAL_VIEW_STATE}
-      viewState={viewState}
-      controller={true}
-      layers={layers}
-      onViewStateChange={onViewStateChange}
-      style={{ width: '100%', height: '600px' }}
-    >
-      <StaticMap
-        reuseMaps
-        mapStyle="mapbox://styles/mapbox/dark-v11"
-        preventStyleDiffing
-        mapboxApiAccessToken={MAPBOX_TOKEN}
+    <div style={{ width: '100%', height: '600px', position: 'relative' }}>
+      <DeckGL
+        viewState={viewState}
+        controller={true}
+        layers={layers}
+        onViewStateChange={onViewStateChange}
+        style={{ width: '100%', height: '100%' }}
       />
-    </DeckGL>
+    </div>
   );
 }
