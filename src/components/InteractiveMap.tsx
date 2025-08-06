@@ -98,7 +98,7 @@ export default function InteractiveMap() {
         extruded: true, // must be true
         getElevation: f => {
           if (f.properties.name_en === selectedProvince) return 300000;
-          return 0; // small base elevation for other provinces
+          return 10000; // small base elevation for other provinces
         },
         getFillColor: f =>
           f.properties.name_en === selectedProvince
