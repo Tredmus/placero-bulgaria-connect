@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, ScatterplotLayer, BitmapLayer } from '@deck.gl/layers';
 import { TileLayer } from '@deck.gl/geo-layers';
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
@@ -132,10 +132,20 @@ export default function InteractiveMap() {
         minZoom: 0,
         maxZoom: 19,
         tileSize: 512,
-        getElevation: 9900,
-        mask: provinces,
-        maskByInstance: false,
-        refinementStrategy: 'best-available'
+        renderSubLayers: (props: any) => {
+          const { bbox, data } = props;
+          const { west, north, east, south } = bbox;
+          
+          return new BitmapLayer({
+            ...props,
+            id: `${props.id}-bitmap`,
+            image: data,
+            bounds: [west, south, east, north],
+            coordinateSystem: 3857,
+            extruded: false,
+            getElevation: 9900
+          });
+        }
       })
     );
   }
