@@ -73,24 +73,16 @@ export default function InteractiveMap() {
       const name = info.object.properties.name_en || info.object.properties.name;
       setSelectedProvince(name);
 
-      let start = 10000;
-      const target = 30000;
-      const duration = 500;
-      const step = 16;
-      const increment = (target - start) / (duration / step);
-
-      let current = start;
-      const interval = setInterval(() => {
-        current += increment;
-        if (current >= target) {
-          clearInterval(interval);
-          current = target;
+      setElevationMap(prev => {
+        const updatedMap: Record<string, number> = {};
+        for (const key in prev) {
+          updatedMap[key] = 10000;
         }
-        setElevationMap(prev => ({
-          ...prev,
-          [name]: current
-        }));
-      }, step);
+        return {
+          ...updatedMap,
+          [name]: 30000
+        };
+      });
 
       const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
       setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 60, transitionDuration: 1000 }));
