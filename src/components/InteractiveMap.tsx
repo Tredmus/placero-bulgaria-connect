@@ -95,13 +95,23 @@ export default function InteractiveMap() {
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
-        extruded: true,
-        getElevation: f => (f.properties.name_en === selectedProvince ? 300000 : 0),
-        getFillColor: f => (f.properties.name_en === selectedProvince ? [34, 197, 94] : [16, 185, 129]),
-        onClick: onClickProvince
+        extruded: true, // must be true
+        getElevation: f => {
+          if (f.properties.name_en === selectedProvince) return 300000;
+          return 10000; // small base elevation for other provinces
+        },
+        getFillColor: f =>
+          f.properties.name_en === selectedProvince
+            ? [34, 197, 94]
+            : [16, 185, 129],
+        onClick: onClickProvince,
+        updateTriggers: {
+          getElevation: [selectedProvince] // ensures animation re-renders
+        }
       })
     );
   }
+
 
   // show cities when zoomed in
   if (viewState.zoom >= 8 && cityPoints.length > 0) {
