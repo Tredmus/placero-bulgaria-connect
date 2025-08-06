@@ -101,13 +101,13 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  layers.push(new TileLayer({
-    id: 'basemap',
-    data: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    minZoom: 0,
-    maxZoom: 19,
-    tileSize: 256
-  }));
+  layers.push(new GeoJsonLayer({
+  id: 'province-mask',
+  data: maskPolygons,
+  filled: true,
+  getFillColor: [0, 0, 0, 255], // Full black outside the country
+  getLineColor: [0, 0, 0, 0]
+}));
 
   if (provinces) {
     layers.push(new GeoJsonLayer({
