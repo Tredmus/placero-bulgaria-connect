@@ -227,7 +227,7 @@ export default function InteractiveMap() {
 
   const animateElevation = (name: string) => {
     let current = 10000;
-    const target = 30000;
+    const target = 20000;
     const step = 500;
     const interval = setInterval(() => {
       current += step;
