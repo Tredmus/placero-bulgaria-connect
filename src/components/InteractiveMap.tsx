@@ -79,7 +79,7 @@ export default function InteractiveMap() {
         data: provinces
       });
 
-      // Add world mask source (will be updated dynamically)
+      // Add world mask source (starts with full coverage to hide everything)
       mapRef.current.addSource('world-mask', {
         type: 'geojson',
         data: {
@@ -87,7 +87,7 @@ export default function InteractiveMap() {
           properties: {},
           geometry: {
             type: 'Polygon',
-            coordinates: []
+            coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
           }
         }
       });
@@ -123,19 +123,17 @@ export default function InteractiveMap() {
 
   // Update mask when selected province changes
   useEffect(() => {
-    if (!mapRef.current || !provinces || !selectedProvince) {
-      // If no province selected, hide all satellite imagery
-      if (mapRef.current && mapRef.current.getSource('world-mask')) {
-        const worldBounds = [
-          [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]
-        ];
-        
+    if (!mapRef.current || !provinces) return;
+
+    if (!selectedProvince) {
+      // Hide all satellite imagery when no province is selected
+      if (mapRef.current.getSource('world-mask')) {
         const fullMask = {
           type: 'Feature' as const,
           properties: {},
           geometry: {
             type: 'Polygon' as const,
-            coordinates: worldBounds
+            coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
           }
         };
 
@@ -333,7 +331,8 @@ export default function InteractiveMap() {
           height: '100%', 
           position: 'absolute',
           top: '0',
-          left: '0'
+          left: '0',
+          zIndex: 0
         }}
       />
       <DeckGL
@@ -346,7 +345,8 @@ export default function InteractiveMap() {
           height: '100%',
           position: 'absolute',
           top: '0',
-          left: '0'
+          left: '0',
+          zIndex: '1'
         }}
         getTooltip={({ object }) => {
           if (object && object.properties) {
