@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer, TileLayer, BitmapLayer } from '@deck.gl/layers';
-import { Map } from 'react-map-gl';
+import { GeoJsonLayer, ScatterplotLayer, BitmapLayer } from '@deck.gl/layers';
+import { TileLayer } from '@deck.gl/geo-layers';
 import * as turf from '@turf/turf';
 import { useLocations } from '@/hooks/useLocations';
 
@@ -34,9 +34,8 @@ export default function InteractiveMap() {
       .then(data => {
         setProvinces(data);
 
-        const countryPolygon = turf.union(...data.features);
-        const mask = turf.difference(turf.bboxPolygon([19.3, 41.2, 28.6, 44.2]), countryPolygon);
-        setMaskPolygons(mask);
+        // Skip mask for now - just set provinces data
+        setMaskPolygons(null);
       });
   }, []);
 
@@ -103,22 +102,11 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  layers.push(new TileLayer({
-    id: 'basemap',
-    data: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    minZoom: 0,
-    maxZoom: 19,
-    tileSize: 256,
-    renderSubLayers: props => {
-      return new BitmapLayer(props, {
-        id: `${props.id}-bitmap`,
-        image: props.data,
-        bounds: props.tile.bbox,
-        getElevation: () => selectedProvince ? 30000 : 0,
-        elevationScale: 1,
-        opacity: 1
-      });
-    }
+  // Simple base layer without elevation for now
+  layers.push(new GeoJsonLayer({
+    id: 'background',
+    data: { type: 'FeatureCollection', features: [] },
+    filled: false
   }));
 
   if (provinces) {
@@ -183,12 +171,7 @@ export default function InteractiveMap() {
         onViewStateChange={onViewStateChange}
         style={{ width: '100%', height: '100%' }}
         getTooltip={({ object }) => object?.properties?.name_en || object?.properties?.name || null}
-      >
-        <Map
-          mapStyle="mapbox://styles/mapbox/streets-v11"
-          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-        />
-      </DeckGL>
+      />
     </div>
   );
 }
