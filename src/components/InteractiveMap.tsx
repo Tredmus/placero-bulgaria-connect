@@ -33,11 +33,7 @@ export default function InteractiveMap() {
       .then(data => {
         setProvinces(data);
 
-        const countryMask = turf.difference(
-          turf.bboxPolygon([19.3, 41.2, 28.6, 44.2]),
-          turf.union(...data.features)
-        );
-        setMaskData(countryMask);
+        // Remove mask functionality to avoid turf.js compatibility issues
       });
   }, []);
 
