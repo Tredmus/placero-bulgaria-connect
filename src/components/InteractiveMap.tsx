@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer, TileLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
+import { TileLayer } from '@deck.gl/geo-layers';
 import { Map } from 'react-map-gl';
 import * as turf from '@turf/turf';
 import { useLocations } from '@/hooks/useLocations';
@@ -34,8 +35,15 @@ export default function InteractiveMap() {
       .then(data => {
         setProvinces(data);
 
-        const countryPolygon = turf.union(...data.features);
-        const mask = turf.difference(turf.bboxPolygon([19.3, 41.2, 28.6, 44.2]), countryPolygon);
+        // Fix union function call - it expects individual features, not an array
+        let unionResult = data.features[0];
+        for (let i = 1; i < data.features.length; i++) {
+          unionResult = turf.union(unionResult, data.features[i]);
+        }
+        
+        // Create mask by subtracting country from bounding box
+        const bbox = turf.bboxPolygon([19.3, 41.2, 28.6, 44.2]);
+        const mask = turf.difference(bbox, unionResult);
         setMaskPolygons(mask);
       });
   }, []);
@@ -103,24 +111,20 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  layers.push(new TileLayer({
-    id: 'basemap',
-    data: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    minZoom: 0,
-    maxZoom: 19,
-    tileSize: 256,
-    renderSubLayers: props => {
-      return props.tile && props.tile.bbox && selectedProvince
-        ? {
-            ...props,
-            bounds: props.tile.bbox,
-            zIndex: 10,
-            elevationScale: 1,
-            getElevation: () => 30000 // Raise satellite only when province is selected
-          }
-        : null;
-    }
-  }));
+  // Add satellite tile layer that follows the selected province elevation
+  if (selectedProvince) {
+    const selectedProvinceElevation = Object.entries(elevationMap).find(([key]) => key === selectedProvince)?.[1] || 10000;
+    
+    layers.push(new TileLayer({
+      id: 'satellite',
+      data: 'https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.jpg?access_token=' + (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''),
+      minZoom: 0,
+      maxZoom: 19,
+      tileSize: 256,
+      getElevation: () => selectedProvinceElevation - 1000,
+      elevationScale: 1
+    }));
+  }
 
   if (provinces) {
     layers.push(new GeoJsonLayer({
@@ -184,12 +188,7 @@ export default function InteractiveMap() {
         onViewStateChange={onViewStateChange}
         style={{ width: '100%', height: '100%' }}
         getTooltip={({ object }) => object?.properties?.name_en || object?.properties?.name || null}
-      >
-        <Map
-          mapStyle="mapbox://styles/mapbox/streets-v11"
-          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-        />
-      </DeckGL>
+      />
     </div>
   );
 }
