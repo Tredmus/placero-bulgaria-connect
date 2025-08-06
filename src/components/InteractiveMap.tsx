@@ -143,17 +143,15 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  // Add masked base map layer
-  if (mapboxToken && bulgariaBoundary) {
+  // Add simple base map layer without masking for now
+  if (mapboxToken) {
     layers.push(
       new TileLayer({
-        id: 'masked-map',
+        id: 'base-map',
         data: `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`,
         minZoom: 0,
         maxZoom: 19,
         tileSize: 512,
-        extensions: [new MaskExtension()],
-        maskId: 'bulgaria-mask',
         renderSubLayers: (props: any) => {
           const { tile } = props;
           if (!tile || !tile.bbox) return null;
@@ -165,21 +163,8 @@ export default function InteractiveMap() {
             id: `${props.id}-bitmap`,
             image: props.data,
             bounds: [west, south, east, north],
-            extensions: [new MaskExtension()],
-            maskId: 'bulgaria-mask',
           });
         }
-      })
-    );
-    
-    // Add mask layer
-    layers.push(
-      new GeoJsonLayer({
-        id: 'bulgaria-mask',
-        data: bulgariaBoundary,
-        operation: 'mask',
-        filled: true,
-        getFillColor: [255, 255, 255, 255], // Not visible, just for masking
       })
     );
   }
