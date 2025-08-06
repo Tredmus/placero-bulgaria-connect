@@ -102,11 +102,23 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  // Simple base layer without elevation for now
+  // Add a simple background layer for contrast
   layers.push(new GeoJsonLayer({
     id: 'background',
-    data: { type: 'FeatureCollection', features: [] },
-    filled: false
+    data: {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[[19.3, 41.2], [28.6, 41.2], [28.6, 44.2], [19.3, 44.2], [19.3, 41.2]]]
+        },
+        properties: {}
+      }]
+    },
+    filled: true,
+    getFillColor: [240, 248, 255, 100],
+    pickable: false
   }));
 
   if (provinces) {
