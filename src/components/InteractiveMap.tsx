@@ -68,21 +68,28 @@ export default function InteractiveMap() {
     setViewState(info.viewState);
   }, []);
 
+  const animateElevation = (name: string) => {
+    let current = 10000;
+    const target = 30000;
+    const step = 500;
+    const interval = setInterval(() => {
+      current += step;
+      if (current >= target) {
+        clearInterval(interval);
+        current = target;
+      }
+      setElevationMap(prev => ({
+        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: 10000 }), {}),
+        [name]: current
+      }));
+    }, 16);
+  };
+
   const onClickProvince = useCallback((info: any) => {
     if (info.object && info.object.properties) {
       const name = info.object.properties.name_en || info.object.properties.name;
       setSelectedProvince(name);
-
-      setElevationMap(prev => {
-        const updatedMap: Record<string, number> = {};
-        for (const key in prev) {
-          updatedMap[key] = 10000;
-        }
-        return {
-          ...updatedMap,
-          [name]: 30000
-        };
-      });
+      animateElevation(name);
 
       const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
       setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 60, transitionDuration: 1000 }));
