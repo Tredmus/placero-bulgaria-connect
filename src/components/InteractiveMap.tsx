@@ -22,20 +22,17 @@ export default function InteractiveMap() {
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const [cityPoints, setCityPoints] = useState<any[]>([]);
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
+  const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    // load provinces GeoJSON
     fetch(GEOJSON_URL)
       .then(res => res.json())
       .then(data => setProvinces(data));
   }, []);
 
-  // derive city and location layers based on selection and zoom
   useEffect(() => {
     if (selectedProvince) {
-      // filter locations in selected province
       const filtered = locations.filter(l => l.city === selectedProvince && l.latitude && l.longitude);
-      // group by city
       const cities: Record<string, any[]> = {};
       filtered.forEach(l => {
         const city = l.city || '';
@@ -75,7 +72,26 @@ export default function InteractiveMap() {
     if (info.object && info.object.properties) {
       const name = info.object.properties.name_en || info.object.properties.name;
       setSelectedProvince(name);
-      // fly to province centroid
+
+      let start = 10000;
+      const target = 30000;
+      const duration = 500;
+      const step = 16;
+      const increment = (target - start) / (duration / step);
+
+      let current = start;
+      const interval = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+          clearInterval(interval);
+          current = target;
+        }
+        setElevationMap(prev => ({
+          ...prev,
+          [name]: current
+        }));
+      }, step);
+
       const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
       setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 60, transitionDuration: 1000 }));
     }
@@ -96,19 +112,17 @@ export default function InteractiveMap() {
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
-        getElevation: f => (f.properties.name_en === selectedProvince || f.properties.name === selectedProvince) ? 30000 : 10000,
+        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000,
         getFillColor: f => (f.properties.name_en === selectedProvince || f.properties.name === selectedProvince) ? [34, 197, 94] : [16, 185, 129],
         onClick: onClickProvince,
         updateTriggers: {
-          getElevation: selectedProvince,
+          getElevation: elevationMap,
           getFillColor: selectedProvince
         }
       })
     );
   }
 
-
-  // show cities when zoomed in
   if (viewState.zoom >= 8 && cityPoints.length > 0) {
     layers.push(
       new ScatterplotLayer({
@@ -127,7 +141,6 @@ export default function InteractiveMap() {
     );
   }
 
-  // show locations when zoomed in further
   if (viewState.zoom >= 12 && locationPoints.length > 0) {
     layers.push(
       new ScatterplotLayer({
