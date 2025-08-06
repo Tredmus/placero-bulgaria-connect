@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer, TileLayer } from '@deck.gl/layers';
-import { Map } from 'react-map-gl';
+import { GeoJsonLayer, ScatterplotLayer, BitmapLayer } from '@deck.gl/layers';
 import * as turf from '@turf/turf';
 import { useLocations } from '@/hooks/useLocations';
 
@@ -103,23 +102,12 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  layers.push(new TileLayer({
-    id: 'basemap',
-    data: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    minZoom: 0,
-    maxZoom: 19,
-    tileSize: 256,
-    renderSubLayers: props => {
-      return props.tile && props.tile.bbox && selectedProvince
-        ? {
-            ...props,
-            bounds: props.tile.bbox,
-            zIndex: 10,
-            elevationScale: 1,
-            getElevation: () => 30000 // Raise satellite only when province is selected
-          }
-        : null;
-    }
+  layers.push(new BitmapLayer({
+    id: 'satellite-base',
+    bounds: [19.3, 41.2, 28.6, 44.2],
+    image: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/6/40/44',
+    desaturate: 0,
+    opacity: 1
   }));
 
   if (provinces) {
@@ -184,12 +172,7 @@ export default function InteractiveMap() {
         onViewStateChange={onViewStateChange}
         style={{ width: '100%', height: '100%' }}
         getTooltip={({ object }) => object?.properties?.name_en || object?.properties?.name || null}
-      >
-        <Map
-          mapStyle="mapbox://styles/mapbox/streets-v11"
-          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-        />
-      </DeckGL>
+      />
     </div>
   );
 }
