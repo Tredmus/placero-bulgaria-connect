@@ -1,0 +1,425 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": 1,
+      "properties": {
+        "name": "Бургас",
+        "name_en": "Burgas",
+        "area": 7748.1
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [27.4697, 42.2026], [27.9697, 42.5026], [27.9697, 42.8026], [27.4697, 42.8026], [27.4697, 42.2026]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 2,
+      "properties": {
+        "name": "Варна",
+        "name_en": "Varna",
+        "area": 3819.5
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [27.5, 43.0], [28.2, 43.0], [28.2, 43.6], [27.5, 43.6], [27.5, 43.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 3,
+      "properties": {
+        "name": "Велико Търново",
+        "name_en": "Veliko Tarnovo",
+        "area": 4662.1
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [25.0, 43.0], [26.0, 43.0], [26.0, 43.6], [25.0, 43.6], [25.0, 43.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature", 
+      "id": 4,
+      "properties": {
+        "name": "Видин",
+        "name_en": "Vidin",
+        "area": 3033.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [22.5, 43.8], [23.5, 43.8], [23.5, 44.2], [22.5, 44.2], [22.5, 43.8]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 5,
+      "properties": {
+        "name": "Враца",
+        "name_en": "Vratsa",
+        "area": 3620.6
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [23.0, 43.0], [24.0, 43.0], [24.0, 43.8], [23.0, 43.8], [23.0, 43.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 6,
+      "properties": {
+        "name": "Габрово",
+        "name_en": "Gabrovo",
+        "area": 2023.5
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [25.0, 42.7], [25.7, 42.7], [25.7, 43.0], [25.0, 43.0], [25.0, 42.7]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 7,
+      "properties": {
+        "name": "Добрич",
+        "name_en": "Dobrich", 
+        "area": 4719.8
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [27.5, 43.6], [28.6, 43.6], [28.6, 44.2], [27.5, 44.2], [27.5, 43.6]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 8,
+      "properties": {
+        "name": "Кърджали",
+        "name_en": "Kardzhali",
+        "area": 3209.1
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [25.2, 41.4], [26.2, 41.4], [26.2, 42.0], [25.2, 42.0], [25.2, 41.4]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 9,
+      "properties": {
+        "name": "Кюстендил",
+        "name_en": "Kyustendil",
+        "area": 3051.5
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [22.2, 42.0], [23.2, 42.0], [23.2, 42.7], [22.2, 42.7], [22.2, 42.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 10,
+      "properties": {
+        "name": "Ловеч",
+        "name_en": "Lovech",
+        "area": 4128.2
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [24.0, 42.7], [25.0, 42.7], [25.0, 43.5], [24.0, 43.5], [24.0, 42.7]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 11,
+      "properties": {
+        "name": "Монтана",
+        "name_en": "Montana",
+        "area": 3635.5
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [22.8, 43.4], [23.8, 43.4], [23.8, 44.0], [22.8, 44.0], [22.8, 43.4]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 12,
+      "properties": {
+        "name": "Пазарджик", 
+        "name_en": "Pazardzhik",
+        "area": 4456.9
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [23.8, 42.0], [24.8, 42.0], [24.8, 42.7], [23.8, 42.7], [23.8, 42.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 13,
+      "properties": {
+        "name": "Перник",
+        "name_en": "Pernik",
+        "area": 2394.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [22.8, 42.4], [23.4, 42.4], [23.4, 42.8], [22.8, 42.8], [22.8, 42.4]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 14,
+      "properties": {
+        "name": "Плевен",
+        "name_en": "Pleven",
+        "area": 4333.5
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [24.0, 43.0], [25.0, 43.0], [25.0, 43.8], [24.0, 43.8], [24.0, 43.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 15,
+      "properties": {
+        "name": "Пловдив",
+        "name_en": "Plovdiv",
+        "area": 5972.9
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [24.5, 41.8], [25.5, 41.8], [25.5, 42.5], [24.5, 42.5], [24.5, 41.8]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 16,
+      "properties": {
+        "name": "Разград",
+        "name_en": "Razgrad",
+        "area": 2639.4
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [26.0, 43.3], [27.0, 43.3], [27.0, 43.8], [26.0, 43.8], [26.0, 43.3]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 17,
+      "properties": {
+        "name": "Русе",
+        "name_en": "Ruse",
+        "area": 2803.4
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [25.5, 43.5], [26.5, 43.5], [26.5, 44.2], [25.5, 44.2], [25.5, 43.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 18,
+      "properties": {
+        "name": "Силистра",
+        "name_en": "Silistra",
+        "area": 2846.2
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [26.5, 43.8], [27.5, 43.8], [27.5, 44.2], [26.5, 44.2], [26.5, 43.8]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 19,
+      "properties": {
+        "name": "Сливен",
+        "name_en": "Sliven",
+        "area": 3544.1
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [25.8, 42.2], [26.8, 42.2], [26.8, 42.8], [25.8, 42.8], [25.8, 42.2]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 20,
+      "properties": {
+        "name": "Смолян",
+        "name_en": "Smolyan",
+        "area": 3193.1
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [24.4, 41.4], [25.4, 41.4], [25.4, 42.0], [24.4, 42.0], [24.4, 41.4]
+        ]]
+      }
+    },
+    {
+      "type": "Feature", 
+      "id": 21,
+      "properties": {
+        "name": "София",
+        "name_en": "Sofia",
+        "area": 7059.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [22.8, 42.2], [24.2, 42.2], [24.2, 43.2], [22.8, 43.2], [22.8, 42.2]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 22,
+      "properties": {
+        "name": "Стара Загора",
+        "name_en": "Stara Zagora",
+        "area": 5151.1
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [25.2, 42.0], [26.2, 42.0], [26.2, 42.7], [25.2, 42.7], [25.2, 42.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 23,
+      "properties": {
+        "name": "Търговище",
+        "name_en": "Targovishte",
+        "area": 2710.3
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [26.2, 42.8], [27.2, 42.8], [27.2, 43.3], [26.2, 43.3], [26.2, 42.8]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 24,
+      "properties": {
+        "name": "Хасково",
+        "name_en": "Haskovo",
+        "area": 5533.3
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [25.8, 41.4], [26.8, 41.4], [26.8, 42.2], [25.8, 42.2], [25.8, 41.4]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 25,
+      "properties": {
+        "name": "Шумен",
+        "name_en": "Shumen",
+        "area": 3390.3
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [26.5, 43.0], [27.5, 43.0], [27.5, 43.6], [26.5, 43.6], [26.5, 43.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 26,
+      "properties": {
+        "name": "Ямбол",
+        "name_en": "Yambol",
+        "area": 3355.9
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [26.2, 42.2], [27.2, 42.2], [27.2, 42.8], [26.2, 42.8], [26.2, 42.2]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 27,
+      "properties": {
+        "name": "Благоевград",
+        "name_en": "Blagoevgrad",
+        "area": 6449.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [22.8, 41.4], [24.0, 41.4], [24.0, 42.4], [22.8, 42.4], [22.8, 41.4]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 28,
+      "properties": {
+        "name": "София-град",
+        "name_en": "Sofia City",
+        "area": 1344.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [23.2, 42.6], [23.5, 42.6], [23.5, 42.8], [23.2, 42.8], [23.2, 42.6]
+        ]]
+      }
+    }
+  ]
+}
