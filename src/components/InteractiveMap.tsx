@@ -1,9 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
 import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
-import { Map } from 'react-map-gl';
 import { useLocations } from '@/hooks/useLocations';
-import { supabase } from '@/integrations/supabase/client';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -16,27 +14,34 @@ const INITIAL_VIEW_STATE = {
   transitionDuration: 0
 };
 
+// Define proper types
+interface Location {
+  city?: string;
+  latitude?: string | number;
+  longitude?: string | number;
+  name?: string;
+}
+
+interface CityPoint {
+  position: [number, number];
+  count: number;
+  cityName: string;
+  pts: Location[];
+}
+
+interface LocationPoint {
+  position: [number, number];
+  data: Location;
+}
+
 export default function InteractiveMap() {
   const { locations } = useLocations();
-  const [provinces, setProvinces] = useState(null);
+  const [provinces, setProvinces] = useState<any>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
-  const [selectedProvince, setSelectedProvince] = useState(null);
-  const [cityPoints, setCityPoints] = useState([]);
-  const [locationPoints, setLocationPoints] = useState([]);
-  const [elevationMap, setElevationMap] = useState({});
-  const [mapboxToken, setMapboxToken] = useState(null);
-
-  useEffect(() => {
-    const fetchMapboxToken = async () => {
-      try {
-        const { data } = await supabase.functions.invoke('get-mapbox-token');
-        setMapboxToken(data?.token || 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw');
-      } catch {
-        setMapboxToken('pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw');
-      }
-    };
-    fetchMapboxToken();
-  }, []);
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
+  const [cityPoints, setCityPoints] = useState<CityPoint[]>([]);
+  const [locationPoints, setLocationPoints] = useState<LocationPoint[]>([]);
+  const [elevationMap, setElevationMap] = useState<{[key: string]: number}>({});
 
   useEffect(() => {
     fetch(GEOJSON_URL)
@@ -47,17 +52,19 @@ export default function InteractiveMap() {
   useEffect(() => {
     if (selectedProvince) {
       const filtered = locations.filter(l => l.city === selectedProvince && l.latitude && l.longitude);
-      const cities = {};
+      const cities: {[key: string]: Location[]} = {};
       filtered.forEach(l => {
         const city = l.city || '';
         if (!cities[city]) cities[city] = [];
         cities[city].push(l);
       });
       setCityPoints(
-        Object.entries(cities).map(([city, pts]) => {
-          const avg = pts.reduce((acc, p) => {
-            acc.longitude += +p.longitude;
-            acc.latitude += +p.latitude;
+        Object.entries(cities).map(([city, pts]): CityPoint => {
+          const avg = pts.reduce((acc: { longitude: number; latitude: number }, p) => {
+            const lng = typeof p.longitude === 'string' ? parseFloat(p.longitude) : (p.longitude || 0);
+            const lat = typeof p.latitude === 'string' ? parseFloat(p.latitude) : (p.latitude || 0);
+            acc.longitude += lng;
+            acc.latitude += lat;
             return acc;
           }, { longitude: 0, latitude: 0 });
           avg.longitude /= pts.length;
@@ -65,21 +72,25 @@ export default function InteractiveMap() {
           return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
         })
       );
-      setLocationPoints(filtered.map(l => ({ 
-        position: [+l.longitude, +l.latitude], 
-        data: l 
-      })));
+      setLocationPoints(filtered.map(l => {
+        const lng = typeof l.longitude === 'string' ? parseFloat(l.longitude) : (l.longitude || 0);
+        const lat = typeof l.latitude === 'string' ? parseFloat(l.latitude) : (l.latitude || 0);
+        return { 
+          position: [lng, lat] as [number, number], 
+          data: l 
+        };
+      }));
     } else {
       setCityPoints([]);
       setLocationPoints([]);
     }
   }, [selectedProvince, locations]);
 
-  const onViewStateChange = useCallback((info) => {
+  const onViewStateChange = useCallback((info: any) => {
     setViewState(info.viewState);
   }, []);
 
-  const animateElevation = (name) => {
+  const animateElevation = (name: string) => {
     let current = 10000;
     const target = 20000;
     const step = 500;
@@ -96,7 +107,7 @@ export default function InteractiveMap() {
     }, 16);
   };
 
-  const onClickProvince = useCallback((info) => {
+  const onClickProvince = useCallback((info: any) => {
     if (info.object && info.object.properties) {
       const name = info.object.properties.name_en || info.object.properties.name;
       setSelectedProvince(name);
@@ -119,8 +130,8 @@ export default function InteractiveMap() {
       getLineColor: [0, 0, 0, 255],
       getLineWidth: 1,
       lineWidthMinPixels: 1,
-      getElevation: f => (elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000) - 10000,
-      getFillColor: f => {
+      getElevation: (f: any) => (elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000) - 10000,
+      getFillColor: (f: any) => {
         const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
         return isSelected ? [34, 197, 94, 120] : [16, 185, 129, 80];
       },
@@ -137,10 +148,10 @@ export default function InteractiveMap() {
       id: 'cities',
       data: cityPoints,
       pickable: true,
-      getPosition: d => d.position,
-      getRadius: d => Math.sqrt(d.count) * 5000,
+      getPosition: (d: CityPoint) => d.position,
+      getRadius: (d: CityPoint) => Math.sqrt(d.count) * 5000,
       getFillColor: [255, 140, 0],
-      onClick: info => {
+      onClick: (info: any) => {
         if (info.object) {
           setViewState(prev => ({ ...prev, longitude: info.object.position[0], latitude: info.object.position[1], zoom: 12, transitionDuration: 1000 }));
         }
@@ -153,19 +164,11 @@ export default function InteractiveMap() {
       id: 'locations',
       data: locationPoints,
       pickable: true,
-      getPosition: d => d.position,
+      getPosition: (d: LocationPoint) => d.position,
       getRadius: 2000,
       getFillColor: [255, 0, 128],
-      onClick: info => info.object && alert(info.object.data.name)
+      onClick: (info: any) => info.object && alert(info.object.data.name)
     }));
-  }
-
-  if (!mapboxToken) {
-    return (
-      <div style={{ width: '100%', height: '600px' }} className="flex items-center justify-center bg-muted">
-        <p className="text-muted-foreground">Loading map...</p>
-      </div>
-    );
   }
 
   return (
@@ -175,19 +178,13 @@ export default function InteractiveMap() {
         controller={true}
         layers={layers}
         onViewStateChange={onViewStateChange}
-        getTooltip={({ object }) => {
+        getTooltip={({ object }: any) => {
           if (object && object.properties) {
             return object.properties.name_en || object.properties.name;
           }
           return null;
         }}
-      >
-        <Map
-          reuseMaps
-          mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
-          mapboxAccessToken={mapboxToken}
-        />
-      </DeckGL>
+      />
     </div>
   );
 }
