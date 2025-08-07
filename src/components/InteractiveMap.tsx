@@ -1,13 +1,14 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, ScatterplotLayer, BitmapLayer } from '@deck.gl/layers';
+import { TileLayer } from '@deck.gl/geo-layers';
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import union from '@turf/union';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
+const SATELLITE_BASE_ELEVATION = 5000;
+const PROVINCE_BASE_ELEVATION = 15000;
+const PROVINCE_SELECTED_ELEVATION = 25000;
 
 const INITIAL_VIEW_STATE = {
   longitude: 25.4858,
@@ -27,10 +28,8 @@ export default function InteractiveMap() {
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
   const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
 
-  // Fetch Mapbox token
+  // Fetch Mapbox token for satellite tiles
   useEffect(() => {
     const fetchMapboxToken = async () => {
       try {
@@ -38,155 +37,29 @@ export default function InteractiveMap() {
         
         if (data?.token) {
           setMapboxToken(data.token);
-          mapboxgl.accessToken = data.token;
         } else {
           // Fallback token
           const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
           setMapboxToken(token);
-          mapboxgl.accessToken = token;
         }
       } catch (error) {
         console.log('Edge function not available, using fallback token');
         const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         setMapboxToken(token);
-        mapboxgl.accessToken = token;
       }
     };
     
     fetchMapboxToken();
   }, []);
 
-  // Initialize Mapbox map
-  useEffect(() => {
-    if (!mapContainerRef.current || !mapboxToken || !provinces) return;
-
-    mapRef.current = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12',
-      center: [viewState.longitude, viewState.latitude],
-      zoom: viewState.zoom,
-      pitch: viewState.pitch,
-      bearing: viewState.bearing,
-      interactive: false // DeckGL will handle interactions
-    });
-
-    mapRef.current.on('load', () => {
-      if (!mapRef.current || !provinces) return;
-
-      // Add all provinces as a source for potential masking
-      mapRef.current.addSource('all-provinces', {
-        type: 'geojson',
-        data: provinces
-      });
-
-      // Add world mask source (starts with full coverage to hide everything)
-      mapRef.current.addSource('world-mask', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'Polygon',
-            coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
-          }
-        }
-      });
-
-      // Add mask layer that covers everything outside selected province
-      mapRef.current.addLayer({
-        id: 'world-mask-layer',
-        type: 'fill',
-        source: 'world-mask',
-        paint: {
-          'fill-color': '#1a1a2e',
-          'fill-opacity': 1
-        }
-      });
-
-      // Set satellite layer elevation to appear below 3D provinces
-      const layers = mapRef.current.getStyle().layers;
-      const satelliteLayer = layers?.find(layer => layer.type === 'raster');
-      
-      if (satelliteLayer) {
-        // Add custom properties to position satellite layer below provinces
-        mapRef.current.setPaintProperty(satelliteLayer.id, 'raster-opacity', 0.8);
-      }
-    });
-
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
-  }, [mapboxToken, provinces]);
-
-  // Update mask when selected province changes
-  useEffect(() => {
-    if (!mapRef.current || !provinces) return;
-
-    if (!selectedProvince) {
-      // Hide all satellite imagery when no province is selected
-      if (mapRef.current.getSource('world-mask')) {
-        const fullMask = {
-          type: 'Feature' as const,
-          properties: {},
-          geometry: {
-            type: 'Polygon' as const,
-            coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
-          }
-        };
-
-        (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(fullMask);
-      }
-      return;
-    }
-
-    // Find the selected province feature
-    const selectedFeature = provinces.features.find(
-      (feature: any) => 
-        feature.properties.name_en === selectedProvince || 
-        feature.properties.name === selectedProvince
-    );
-
-    if (!selectedFeature) return;
-
-    // Create world bounds with selected province cut out
-    const worldBounds = [
-      [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]
-    ];
-
-    const maskWithHole = {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'Polygon' as const,
-        coordinates: [worldBounds[0], ...selectedFeature.geometry.coordinates]
-      }
-    };
-
-    // Update the mask to show only the selected province
-    (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(maskWithHole);
-  }, [selectedProvince, provinces]);
-
-  // Sync Mapbox map with DeckGL viewState
-  useEffect(() => {
-    if (mapRef.current && viewState) {
-      mapRef.current.jumpTo({
-        center: [viewState.longitude, viewState.latitude],
-        zoom: viewState.zoom,
-        pitch: viewState.pitch,
-        bearing: viewState.bearing
-      });
-    }
-  }, [viewState]);
-
+  // Load provinces GeoJSON
   useEffect(() => {
     fetch(GEOJSON_URL)
       .then(res => res.json())
       .then(data => setProvinces(data));
   }, []);
 
+  // Process location data based on selected province
   useEffect(() => {
     if (selectedProvince) {
       const filtered = locations.filter(l => l.city === selectedProvince && l.latitude && l.longitude);
@@ -226,8 +99,8 @@ export default function InteractiveMap() {
   }, []);
 
   const animateElevation = (name: string) => {
-    let current = 10000;
-    const target = 20000;
+    let current = PROVINCE_BASE_ELEVATION;
+    const target = PROVINCE_SELECTED_ELEVATION;
     const step = 500;
     const interval = setInterval(() => {
       current += step;
@@ -236,7 +109,7 @@ export default function InteractiveMap() {
         current = target;
       }
       setElevationMap(prev => ({
-        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: 10000 }), {}),
+        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: PROVINCE_BASE_ELEVATION }), {}),
         [name]: current
       }));
     }, 16);
@@ -249,12 +122,47 @@ export default function InteractiveMap() {
       animateElevation(name);
 
       const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
-      setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 45, transitionDuration: 1000 }));
+      setViewState(prev => ({ 
+        ...prev, 
+        longitude: coordinates[0], 
+        latitude: coordinates[1], 
+        zoom: 8, 
+        pitch: 45, 
+        transitionDuration: 1000 
+      }));
     }
   }, []);
 
   const layers = [];
 
+  // Add satellite tile layer as base
+  if (mapboxToken) {
+    layers.push(
+      new TileLayer({
+        id: 'satellite-layer',
+        data: `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${mapboxToken}`,
+        minZoom: 0,
+        maxZoom: 19,
+        tileSize: 512,
+        renderSubLayers: (props: any) => {
+          const {
+            bbox: { west, south, east, north }
+          } = props.tile;
+
+          return new BitmapLayer({
+            ...props,
+            image: props.data,
+            bounds: [west, south, east, north],
+            // Set the satellite imagery at base elevation
+            coordinateOrigin: [west, south, SATELLITE_BASE_ELEVATION],
+            coordinateSystem: 1, // COORDINATE_SYSTEM.CARTESIAN
+          });
+        }
+      })
+    );
+  }
+
+  // Add province polygons above satellite layer
   if (provinces) {
     layers.push(
       new GeoJsonLayer({
@@ -268,7 +176,7 @@ export default function InteractiveMap() {
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
-        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000,
+        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || PROVINCE_BASE_ELEVATION,
         getFillColor: f => {
           const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
           return isSelected ? [34, 197, 94, 120] : [16, 185, 129, 80];
@@ -282,6 +190,7 @@ export default function InteractiveMap() {
     );
   }
 
+  // Add city markers when zoomed in
   if (viewState.zoom >= 8 && cityPoints.length > 0) {
     layers.push(
       new ScatterplotLayer({
@@ -293,13 +202,20 @@ export default function InteractiveMap() {
         getFillColor: [255, 140, 0],
         onClick: info => {
           if (info.object) {
-            setViewState(prev => ({ ...prev, longitude: info.object.position[0], latitude: info.object.position[1], zoom: 12, transitionDuration: 1000 }));
+            setViewState(prev => ({ 
+              ...prev, 
+              longitude: info.object.position[0], 
+              latitude: info.object.position[1], 
+              zoom: 12, 
+              transitionDuration: 1000 
+            }));
           }
         }
       })
     );
   }
 
+  // Add location markers when zoomed in further
   if (viewState.zoom >= 12 && locationPoints.length > 0) {
     layers.push(
       new ScatterplotLayer({
@@ -324,17 +240,6 @@ export default function InteractiveMap() {
 
   return (
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
-      <div 
-        ref={mapContainerRef} 
-        style={{ 
-          width: '100%', 
-          height: '100%', 
-          position: 'absolute',
-          top: '0',
-          left: '0',
-          zIndex: 0
-        }}
-      />
       <DeckGL
         viewState={viewState}
         controller={true}
@@ -342,11 +247,7 @@ export default function InteractiveMap() {
         onViewStateChange={onViewStateChange}
         style={{ 
           width: '100%', 
-          height: '100%',
-          position: 'absolute',
-          top: '0',
-          left: '0',
-          zIndex: '1'
+          height: '100%'
         }}
         getTooltip={({ object }) => {
           if (object && object.properties) {
