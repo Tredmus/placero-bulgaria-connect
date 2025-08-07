@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer, BitmapLayer } from '@deck.gl/layers';
-import { TileLayer } from '@deck.gl/geo-layers';
+import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -21,6 +22,10 @@ const INITIAL_VIEW_STATE = {
 
 export default function InteractiveMap() {
   const { locations } = useLocations();
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const deckRef = useRef<any>(null);
+  
   const [provinces, setProvinces] = useState<any>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
@@ -29,7 +34,7 @@ export default function InteractiveMap() {
   const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
 
-  // Fetch Mapbox token for satellite tiles
+  // Fetch Mapbox token
   useEffect(() => {
     const fetchMapboxToken = async () => {
       try {
@@ -38,7 +43,6 @@ export default function InteractiveMap() {
         if (data?.token) {
           setMapboxToken(data.token);
         } else {
-          // Fallback token
           const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
           setMapboxToken(token);
         }
@@ -51,6 +55,47 @@ export default function InteractiveMap() {
     
     fetchMapboxToken();
   }, []);
+
+  // Initialize Mapbox base map
+  useEffect(() => {
+    if (!mapContainer.current || !mapboxToken) return;
+
+    mapboxgl.accessToken = mapboxToken;
+    
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/satellite-v9', // Use satellite as base
+      center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
+      zoom: INITIAL_VIEW_STATE.zoom,
+      pitch: INITIAL_VIEW_STATE.pitch,
+      bearing: INITIAL_VIEW_STATE.bearing,
+      maxBounds: [[22.0, 40.9], [29.0, 44.5]], // Bulgaria bounds
+    });
+
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    // Sync viewState when Mapbox camera changes
+    map.current.on('move', () => {
+      if (!map.current) return;
+      const center = map.current.getCenter();
+      const zoom = map.current.getZoom();
+      const pitch = map.current.getPitch();
+      const bearing = map.current.getBearing();
+      
+      setViewState({
+        longitude: center.lng,
+        latitude: center.lat,
+        zoom,
+        pitch,
+        bearing,
+        transitionDuration: 0
+      });
+    });
+
+    return () => {
+      map.current?.remove();
+    };
+  }, [mapboxToken]);
 
   // Load provinces GeoJSON
   useEffect(() => {
@@ -104,10 +149,6 @@ export default function InteractiveMap() {
     }
   }, [selectedProvince, locations]);
 
-  const onViewStateChange = useCallback((info: any) => {
-    setViewState(info.viewState);
-  }, []);
-
   const animateElevation = (name: string) => {
     let current = PROVINCE_BASE_ELEVATION;
     const target = PROVINCE_SELECTED_ELEVATION;
@@ -132,14 +173,16 @@ export default function InteractiveMap() {
       animateElevation(name);
 
       const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
-      setViewState(prev => ({ 
-        ...prev, 
-        longitude: coordinates[0], 
-        latitude: coordinates[1], 
-        zoom: 8, 
-        pitch: 45, 
-        transitionDuration: 1000 
-      }));
+      
+      // Fly Mapbox to the selected province
+      if (map.current) {
+        map.current.flyTo({
+          center: [coordinates[0], coordinates[1]],
+          zoom: 8,
+          pitch: 45,
+          duration: 1000
+        });
+      }
     }
   }, []);
 
@@ -223,22 +266,30 @@ export default function InteractiveMap() {
 
   return (
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
-      <DeckGL
-        viewState={viewState}
-        controller={true}
-        layers={layers}
-        onViewStateChange={onViewStateChange}
-        style={{ 
-          width: '100%', 
-          height: '100%'
-        }}
-        getTooltip={({ object }) => {
-          if (object && object.properties) {
-            return object.properties.name_en || object.properties.name;
-          }
-          return null;
-        }}
-      />
+      {/* Mapbox base map */}
+      <div ref={mapContainer} style={{ width: '100%', height: '100%', position: 'absolute' }} />
+      
+      {/* DeckGL overlay for 3D provinces */}
+      {mapboxToken && (
+        <DeckGL
+          ref={deckRef}
+          viewState={viewState}
+          controller={false} // Let Mapbox handle camera
+          layers={layers}
+          style={{ 
+            width: '100%', 
+            height: '100%',
+            position: 'absolute',
+            pointerEvents: 'auto' // Enable interactions for clickable layers
+          }}
+          getTooltip={({ object }) => {
+            if (object && object.properties) {
+              return object.properties.name_en || object.properties.name;
+            }
+            return null;
+          }}
+        />
+      )}
     </div>
   );
 }
