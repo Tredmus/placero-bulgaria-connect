@@ -35,10 +35,11 @@ function geoJsonToMesh(feature, isSelected) {
 
 function ProvinceMesh({ feature, isSelected, onClick }) {
   const meshRef = useRef();
-  const [geometry, setGeometry] = useState();
+  const [geometry, setGeometry] = useState<THREE.ExtrudeGeometry | null>(null);
 
   useEffect(() => {
-    setGeometry(geoJsonToMesh(feature, isSelected));
+    const newGeometry = geoJsonToMesh(feature, isSelected);
+    setGeometry(newGeometry);
   }, [feature, isSelected]);
 
   return (
@@ -78,7 +79,7 @@ function CameraSetup() {
   const { camera } = useThree();
   useEffect(() => {
     camera.position.set(25, -35, 70);
-    camera.lookAt(25, 42);
+    camera.lookAt(25, 42, 0);
   }, [camera]);
   return null;
 }
