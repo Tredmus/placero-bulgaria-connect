@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 
-import { Building2 } from 'lucide-react';
+import { Building2, Sparkles, Mail, Lock, User as UserIcon } from 'lucide-react';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -83,114 +83,162 @@ const Auth = () => {
   };
 
   return (
-    <div className="flex items-center justify-center px-4 py-16">
+    <div className="min-h-screen flex items-center justify-center px-4 py-16 bg-gradient-to-br from-background via-muted/20 to-accent/10">
       <div className="w-full max-w-md">
           {/* Logo */}
-          <div className="flex items-center justify-center space-x-2 mb-8">
-            <Building2 className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold text-foreground">Placero</span>
+          <div className="flex items-center justify-center space-x-3 mb-8 placero-fade-in">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary/60 rounded-xl blur-lg opacity-30"></div>
+              <Building2 className="h-10 w-10 text-primary relative z-10" />
+            </div>
+            <span className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
+              Placero
+            </span>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Welcome</CardTitle>
-              <CardDescription>
-                Sign in to your account or create a new one
+          <Card className="placero-card-elevated placero-scale-in border-border/50">
+            <CardHeader className="text-center pb-2">
+              <CardTitle className="text-2xl bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
+                Добре дошли
+              </CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Влезте в профила си или създайте нов акаунт
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue={tab} className="space-y-4">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="signin">Sign In</TabsTrigger>
-                  <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <Tabs defaultValue={tab} className="space-y-6">
+                <TabsList className="grid w-full grid-cols-2 placero-glass">
+                  <TabsTrigger value="signin" className="font-medium">Вход</TabsTrigger>
+                  <TabsTrigger value="signup" className="font-medium">Регистрация</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="signin">
-                  <form onSubmit={handleSignIn} className="space-y-4">
+                  <form onSubmit={handleSignIn} className="space-y-5">
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email" className="flex items-center font-medium">
+                        <Mail className="h-4 w-4 mr-2 text-primary" />
+                        Имейл
+                      </Label>
                       <Input
                         id="email"
                         type="email"
-                        placeholder="Enter your email"
+                        placeholder="Въведете вашия имейл"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        className="placero-glass border-border/50 focus:border-primary/50 transition-all"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
+                      <Label htmlFor="password" className="flex items-center font-medium">
+                        <Lock className="h-4 w-4 mr-2 text-primary" />
+                        Парола
+                      </Label>
                       <Input
                         id="password"
                         type="password"
-                        placeholder="Enter your password"
+                        placeholder="Въведете вашата парола"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        className="placero-glass border-border/50 focus:border-primary/50 transition-all"
                         required
                       />
                     </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? 'Signing In...' : 'Sign In'}
+                    <Button type="submit" className="w-full placero-button-primary" disabled={loading}>
+                      {loading ? (
+                        <div className="flex items-center">
+                          <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+                          Влизане...
+                        </div>
+                      ) : (
+                        'Влизане'
+                      )}
                     </Button>
                   </form>
                 </TabsContent>
                 
                 <TabsContent value="signup">
-                  <form onSubmit={handleSignUp} className="space-y-4">
+                  <form onSubmit={handleSignUp} className="space-y-5">
                     <div className="space-y-2">
-                      <Label htmlFor="username">Username</Label>
+                      <Label htmlFor="username" className="flex items-center font-medium">
+                        <UserIcon className="h-4 w-4 mr-2 text-primary" />
+                        Потребителско име
+                      </Label>
                       <Input
                         id="username"
                         type="text"
-                        placeholder="Choose a username"
+                        placeholder="Изберете потребителско име"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
+                        className="placero-glass border-border/50 focus:border-primary/50 transition-all"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="signup-email">Email</Label>
+                      <Label htmlFor="signup-email" className="flex items-center font-medium">
+                        <Mail className="h-4 w-4 mr-2 text-primary" />
+                        Имейл
+                      </Label>
                       <Input
                         id="signup-email"
                         type="email"
-                        placeholder="Enter your email"
+                        placeholder="Въведете вашия имейл"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        className="placero-glass border-border/50 focus:border-primary/50 transition-all"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="signup-password">Password</Label>
+                      <Label htmlFor="signup-password" className="flex items-center font-medium">
+                        <Lock className="h-4 w-4 mr-2 text-primary" />
+                        Парола
+                      </Label>
                       <Input
                         id="signup-password"
                         type="password"
-                        placeholder="Create a password (min 6 characters)"
+                        placeholder="Създайте парола (мин. 6 символа)"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        className="placero-glass border-border/50 focus:border-primary/50 transition-all"
                         required
                         minLength={6}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="confirm-password">Confirm Password</Label>
+                      <Label htmlFor="confirm-password" className="flex items-center font-medium">
+                        <Lock className="h-4 w-4 mr-2 text-primary" />
+                        Потвърдете паролата
+                      </Label>
                       <Input
                         id="confirm-password"
                         type="password"
-                        placeholder="Confirm your password"
+                        placeholder="Потвърдете вашата парола"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="placero-glass border-border/50 focus:border-primary/50 transition-all"
                         required
                         minLength={6}
                       />
                       {password !== confirmPassword && confirmPassword && (
-                        <p className="text-sm text-destructive">Passwords do not match</p>
+                        <p className="text-sm text-destructive flex items-center mt-2">
+                          <span className="w-1 h-1 bg-destructive rounded-full mr-2"></span>
+                          Паролите не съвпадат
+                        </p>
                       )}
                     </div>
                     <Button 
                       type="submit" 
-                      className="w-full" 
+                      className="w-full placero-button-primary" 
                       disabled={loading || password !== confirmPassword || password.length < 6}
                     >
-                      {loading ? 'Creating Account...' : 'Create Account'}
+                      {loading ? (
+                        <div className="flex items-center">
+                          <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+                          Създаване на акаунт...
+                        </div>
+                      ) : (
+                        'Създаване на акаунт'
+                      )}
                     </Button>
                   </form>
                 </TabsContent>
