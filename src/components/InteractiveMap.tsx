@@ -1,83 +1,49 @@
 // ThreeJS version of your map with extruded provinces and selectable elevation
-// Dependencies: three, @react-three/fiber, @react-three/drei, turf
+// Fixed projection, flat view, and locked rotation for realistic map behavior
+// Dependencies: three, @react-three/fiber, @react-three/drei, d3-geo
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrthographicCamera, MapControls } from '@react-three/drei';
 import * as THREE from 'three';
-import * as turf from '@turf/turf';
+import * as d3 from 'd3-geo';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
-// Utility to parse GeoJSON and convert to ThreeJS shapes
+function projectCoord([lng, lat]) {
+  const projection = d3.geoMercator().scale(2000).center([25, 42.7]).translate([0, 0]);
+  return projection([lng, lat]);
+}
+
 function geoJsonToMesh(feature, isSelected) {
-  const geometry = feature.geometry;
+  const coords = feature.geometry.coordinates;
   const shapes = [];
-  
-  // Handle different geometry types
-  if (geometry.type === 'Polygon') {
-    // Single polygon
-    geometry.coordinates.forEach((ring) => {
-      if (Array.isArray(ring) && ring.length > 0 && Array.isArray(ring[0])) {
-        const shape = new THREE.Shape();
-        ring.forEach(([lng, lat], i) => {
-          if (typeof lng === 'number' && typeof lat === 'number') {
-            const x = lng;
-            const y = lat;
-            if (i === 0) shape.moveTo(x, y);
-            else shape.lineTo(x, y);
-          }
-        });
-        shapes.push(shape);
-      }
-    });
-  } else if (geometry.type === 'MultiPolygon') {
-    // Multiple polygons
-    geometry.coordinates.forEach((poly) => {
-      if (Array.isArray(poly)) {
-        poly.forEach((ring) => {
-          if (Array.isArray(ring) && ring.length > 0 && Array.isArray(ring[0])) {
-            const shape = new THREE.Shape();
-            ring.forEach(([lng, lat], i) => {
-              if (typeof lng === 'number' && typeof lat === 'number') {
-                const x = lng;
-                const y = lat;
-                if (i === 0) shape.moveTo(x, y);
-                else shape.lineTo(x, y);
-              }
-            });
-            shapes.push(shape);
-          }
-        });
-      }
-    });
-  }
 
-  if (shapes.length === 0) {
-    // Fallback: create a simple box if no valid shapes found
-    const shape = new THREE.Shape();
-    shape.moveTo(-1, -1);
-    shape.lineTo(1, -1);
-    shape.lineTo(1, 1);
-    shape.lineTo(-1, 1);
-    shape.lineTo(-1, -1);
-    shapes.push(shape);
-  }
+  coords.forEach((poly) => {
+    poly.forEach((ring) => {
+      const shape = new THREE.Shape();
+      ring.forEach(([lng, lat], i) => {
+        const [x, y] = projectCoord([lng, lat]);
+        if (i === 0) shape.moveTo(x, -y);
+        else shape.lineTo(x, -y);
+      });
+      shapes.push(shape);
+    });
+  });
 
-  const extrudeGeometry = new THREE.ExtrudeGeometry(shapes, {
+  const geometry = new THREE.ExtrudeGeometry(shapes, {
     depth: isSelected ? 10 : 2,
     bevelEnabled: false
   });
-  return extrudeGeometry;
+  return geometry;
 }
 
 function ProvinceMesh({ feature, isSelected, onClick }) {
   const meshRef = useRef();
-  const [geometry, setGeometry] = useState<THREE.ExtrudeGeometry | null>(null);
+  const [geometry, setGeometry] = useState();
 
   useEffect(() => {
-    const newGeometry = geoJsonToMesh(feature, isSelected);
-    setGeometry(newGeometry);
+    setGeometry(geoJsonToMesh(feature, isSelected));
   }, [feature, isSelected]);
 
   return (
@@ -90,7 +56,7 @@ function ProvinceMesh({ feature, isSelected, onClick }) {
       <meshStandardMaterial
         color={isSelected ? '#22c55e' : '#10b981'}
         transparent
-        opacity={0.8}
+        opacity={0.9}
       />
     </mesh>
   );
@@ -113,15 +79,6 @@ function Provinces({ provinces, selected, setSelected }) {
   );
 }
 
-function CameraSetup() {
-  const { camera } = useThree();
-  useEffect(() => {
-    camera.position.set(25, -35, 70);
-    camera.lookAt(25, 42, 0);
-  }, [camera]);
-  return null;
-}
-
 export default function ThreeMap() {
   const [provinces, setProvinces] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -134,11 +91,10 @@ export default function ThreeMap() {
 
   return (
     <div style={{ width: '100%', height: '100vh' }}>
-      <Canvas shadows camera={{ position: [0, 0, 50], fov: 45 }}>
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[10, 10, 10]} intensity={1} />
-        <OrbitControls />
-        <CameraSetup />
+      <Canvas orthographic camera={{ zoom: 5, position: [0, 0, 500], near: 0.1, far: 1000 }}>
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[0, 0, 100]} intensity={0.6} />
+        <MapControls enableRotate={false} />
         {provinces && (
           <Provinces provinces={provinces} selected={selected} setSelected={setSelected} />
         )}
