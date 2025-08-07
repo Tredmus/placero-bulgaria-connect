@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+mport React, { useEffect, useState, useCallback, useRef } from 'react';
 import DeckGL from '@deck.gl/react';
 import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import union from '@turf/union';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -17,7 +18,7 @@ const INITIAL_VIEW_STATE = {
   transitionDuration: 0
 };
 
-export default function InteractiveMap2() {
+export default function InteractiveMap() {
   const { locations } = useLocations();
   const [provinces, setProvinces] = useState<any>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
@@ -34,12 +35,21 @@ export default function InteractiveMap2() {
     const fetchMapboxToken = async () => {
       try {
         const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-        if (error) throw error;
-        setMapboxToken(data.token);
+        
+        if (data?.token) {
+          setMapboxToken(data.token);
+          mapboxgl.accessToken = data.token;
+        } else {
+          // Fallback token
+          const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+          setMapboxToken(token);
+          mapboxgl.accessToken = token;
+        }
       } catch (error) {
-        console.error('Failed to fetch Mapbox token:', error);
-        // Fallback token - replace with your actual token or handle gracefully
-        setMapboxToken('pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw');
+        console.log('Edge function not available, using fallback token');
+        const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+        setMapboxToken(token);
+        mapboxgl.accessToken = token;
       }
     };
     
@@ -48,53 +58,66 @@ export default function InteractiveMap2() {
 
   // Initialize Mapbox map
   useEffect(() => {
-    if (!mapboxToken || !mapContainerRef.current || mapRef.current) return;
+    if (!mapContainerRef.current || !mapboxToken || !provinces) return;
 
-    mapboxgl.accessToken = mapboxToken;
-    
-    const map = new mapboxgl.Map({
+    mapRef.current = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
-      zoom: INITIAL_VIEW_STATE.zoom,
-      pitch: INITIAL_VIEW_STATE.pitch,
-      bearing: INITIAL_VIEW_STATE.bearing,
-      antialias: true
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      center: [viewState.longitude, viewState.latitude],
+      zoom: viewState.zoom,
+      pitch: viewState.pitch,
+      bearing: viewState.bearing,
+      interactive: false // DeckGL will handle interactions
     });
 
-    map.on('load', () => {
-      // Add the world mask source
-      map.addSource('world-mask', {
+    mapRef.current.on('load', () => {
+      if (!mapRef.current || !provinces) return;
+
+      // Add Mapbox DEM source for 3D terrain
+      mapRef.current.addSource('mapbox-dem', {
+        type: 'raster-dem',
+        url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+        tileSize: 512,
+        maxzoom: 14
+      });
+
+      // Enable 3D terrain
+      mapRef.current.setTerrain({ 
+        'source': 'mapbox-dem', 
+        'exaggeration': 1.5 
+      });
+
+      // Add all provinces as a source for potential masking
+      mapRef.current.addSource('all-provinces', {
+        type: 'geojson',
+        data: provinces
+      });
+
+      // Add world mask source (starts with full coverage to hide everything)
+      mapRef.current.addSource('world-mask', {
         type: 'geojson',
         data: {
           type: 'Feature',
+          properties: {},
           geometry: {
             type: 'Polygon',
-            coordinates: [[
-              [-180, -90],
-              [-180, 90],
-              [180, 90],
-              [180, -90],
-              [-180, -90]
-            ]]
-          },
-          properties: {}
+            coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
+          }
         }
       });
 
-      // Add the world mask layer
-      map.addLayer({
+      // Add 3D mask layer that covers everything outside selected province
+      mapRef.current.addLayer({
         id: 'world-mask-layer',
-        type: 'fill',
+        type: 'fill-extrusion',
         source: 'world-mask',
         paint: {
-          'fill-color': '#000000',
-          'fill-opacity': 0.8
+          'fill-extrusion-color': '#1a1a2e',
+          'fill-extrusion-height': 100000,
+          'fill-extrusion-opacity': 1
         }
-      }, 'water');
+      });
     });
-
-    mapRef.current = map;
 
     return () => {
       if (mapRef.current) {
@@ -102,88 +125,66 @@ export default function InteractiveMap2() {
         mapRef.current = null;
       }
     };
-  }, [mapboxToken]);
+  }, [mapboxToken, provinces]);
 
-  // Update world mask based on selected province
+  // Update mask when selected province changes
   useEffect(() => {
     if (!mapRef.current || !provinces) return;
 
-    const map = mapRef.current;
-    
-    if (selectedProvince) {
-      // Find the selected province feature
-      const selectedFeature = provinces.features.find((f: any) => 
-        f.properties.name_en === selectedProvince || f.properties.name === selectedProvince
-      );
-      
-      if (selectedFeature) {
-        // Create holes in the world mask for the selected province
-        const worldGeometry = {
-          type: 'Polygon' as const,
-          coordinates: [[
-            [-180, -90],
-            [-180, 90],
-            [180, 90],
-            [180, -90],
-            [-180, -90]
-          ]]
-        };
-
-        // Add the selected province's coordinates as holes
-        if (selectedFeature.geometry.type === 'Polygon') {
-          worldGeometry.coordinates.push(...selectedFeature.geometry.coordinates);
-        } else if (selectedFeature.geometry.type === 'MultiPolygon') {
-          selectedFeature.geometry.coordinates.forEach((polygon: any) => {
-            worldGeometry.coordinates.push(...polygon);
-          });
-        }
-
-        const maskData = {
+    if (!selectedProvince) {
+      // Hide all satellite imagery when no province is selected
+      if (mapRef.current.getSource('world-mask')) {
+        const fullMask = {
           type: 'Feature' as const,
-          geometry: worldGeometry,
-          properties: {}
+          properties: {},
+          geometry: {
+            type: 'Polygon' as const,
+            coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
+          }
         };
 
-        const source = map.getSource('world-mask') as mapboxgl.GeoJSONSource;
-        if (source) {
-          source.setData(maskData);
-        }
+        (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(fullMask);
       }
-    } else {
-      // Show the full world mask
-      const maskData = {
-        type: 'Feature' as const,
-        geometry: {
-          type: 'Polygon' as const,
-          coordinates: [[
-            [-180, -90],
-            [-180, 90],
-            [180, 90],
-            [180, -90],
-            [-180, -90]
-          ]]
-        },
-        properties: {}
-      };
-
-      const source = map.getSource('world-mask') as mapboxgl.GeoJSONSource;
-      if (source) {
-        source.setData(maskData);
-      }
+      return;
     }
+
+    // Find the selected province feature
+    const selectedFeature = provinces.features.find(
+      (feature: any) => 
+        feature.properties.name_en === selectedProvince || 
+        feature.properties.name === selectedProvince
+    );
+
+    if (!selectedFeature) return;
+
+    // Create world bounds with selected province cut out
+    const worldBounds = [
+      [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]
+    ];
+
+    const maskWithHole = {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'Polygon' as const,
+        coordinates: [worldBounds[0], ...selectedFeature.geometry.coordinates]
+      }
+    };
+
+    // Update the mask to show only the selected province
+    (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(maskWithHole);
   }, [selectedProvince, provinces]);
 
-  // Sync view state with Mapbox map
+  // Sync Mapbox map with DeckGL viewState
   useEffect(() => {
-    if (!mapRef.current) return;
-
-    const map = mapRef.current;
-    map.jumpTo({
-      center: [viewState.longitude, viewState.latitude],
-      zoom: viewState.zoom,
-      pitch: viewState.pitch,
-      bearing: viewState.bearing
-    });
+    if (mapRef.current && viewState) {
+      mapRef.current.jumpTo({
+        center: [viewState.longitude, viewState.latitude],
+        zoom: viewState.zoom,
+        pitch: viewState.pitch,
+        bearing: viewState.bearing
+      });
+    }
   }, [viewState]);
 
   useEffect(() => {
@@ -201,42 +202,25 @@ export default function InteractiveMap2() {
         if (!cities[city]) cities[city] = [];
         cities[city].push(l);
       });
-      
-      // Convert coordinates safely with type checking
-      const convertedCities = Object.entries(cities).map(([city, pts]) => {
-        const coords = pts.map(p => ({
-          longitude: typeof p.longitude === 'string' ? parseFloat(p.longitude) : (p.longitude || 0),
-          latitude: typeof p.latitude === 'string' ? parseFloat(p.latitude) : (p.latitude || 0)
-        })).filter(coord => !isNaN(coord.longitude) && !isNaN(coord.latitude));
-        
-        if (coords.length === 0) return null;
-        
-        const avg = coords.reduce((acc, coord) => ({
-          longitude: acc.longitude + coord.longitude,
-          latitude: acc.latitude + coord.latitude
-        }), { longitude: 0, latitude: 0 });
-        
-        avg.longitude /= coords.length;
-        avg.latitude /= coords.length;
-        
-        return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
-      }).filter(Boolean);
-      
-      setCityPoints(convertedCities);
-      
-      const convertedLocations = filtered.map(l => {
-        const longitude = typeof l.longitude === 'string' ? parseFloat(l.longitude) : (l.longitude || 0);
-        const latitude = typeof l.latitude === 'string' ? parseFloat(l.latitude) : (l.latitude || 0);
-        
-        if (isNaN(longitude) || isNaN(latitude)) return null;
-        
-        return { 
-          position: [longitude, latitude], 
-          data: l 
-        };
-      }).filter(Boolean);
-      
-      setLocationPoints(convertedLocations);
+      setCityPoints(
+        Object.entries(cities).map(([city, pts]) => {
+          const avg = pts.reduce((acc, p) => {
+            acc.longitude += typeof p.longitude === 'string' ? parseFloat(p.longitude) : p.longitude;
+            acc.latitude += typeof p.latitude === 'string' ? parseFloat(p.latitude) : p.latitude;
+            return acc;
+          }, { longitude: 0, latitude: 0 });
+          avg.longitude /= pts.length;
+          avg.latitude /= pts.length;
+          return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
+        })
+      );
+      setLocationPoints(filtered.map(l => ({ 
+        position: [
+          typeof l.longitude === 'string' ? parseFloat(l.longitude) : l.longitude, 
+          typeof l.latitude === 'string' ? parseFloat(l.latitude) : l.latitude
+        ], 
+        data: l 
+      })));
     } else {
       setCityPoints([]);
       setLocationPoints([]);
@@ -257,12 +241,10 @@ export default function InteractiveMap2() {
         clearInterval(interval);
         current = target;
       }
-      const newElevationMap: Record<string, number> = {};
-      Object.keys(elevationMap).forEach(key => {
-        newElevationMap[key] = 10000;
-      });
-      newElevationMap[name] = current;
-      setElevationMap(newElevationMap);
+      setElevationMap(prev => ({
+        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: 10000 }), {}),
+        [name]: current
+      }));
     }, 16);
   };
 
@@ -275,7 +257,7 @@ export default function InteractiveMap2() {
       const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
       setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 45, transitionDuration: 1000 }));
     }
-  }, [elevationMap]);
+  }, []);
 
   const layers = [];
 
@@ -340,11 +322,8 @@ export default function InteractiveMap2() {
 
   if (!mapboxToken) {
     return (
-      <div className="flex items-center justify-center h-[600px] bg-muted rounded-lg">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading map...</p>
-        </div>
+      <div style={{ width: '100%', height: '600px', position: 'relative' }} className="flex items-center justify-center bg-muted">
+        <p className="text-muted-foreground">Loading map...</p>
       </div>
     );
   }
@@ -355,12 +334,12 @@ export default function InteractiveMap2() {
         ref={mapContainerRef} 
         style={{ 
           width: '100%', 
-          height: '100%',
+          height: '100%', 
           position: 'absolute',
           top: '0',
           left: '0',
-          zIndex: '0'
-        }} 
+          zIndex: 0
+        }}
       />
       <DeckGL
         viewState={viewState}
