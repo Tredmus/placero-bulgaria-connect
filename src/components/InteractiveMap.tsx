@@ -152,10 +152,7 @@ export default function InteractiveMap() {
           return new BitmapLayer({
             ...props,
             image: props.data,
-            bounds: [west, south, east, north],
-            // Set the satellite imagery at base elevation
-            coordinateOrigin: [west, south, SATELLITE_BASE_ELEVATION],
-            coordinateSystem: 1, // COORDINATE_SYSTEM.CARTESIAN
+            bounds: [west, south, east, north]
           });
         }
       })
