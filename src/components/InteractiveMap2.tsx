@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer, BitmapLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
 import mapboxgl from 'mapbox-gl';
@@ -248,45 +248,6 @@ export default function InteractiveMap() {
     }, 16);
   };
 
-  // Helper function to get province bounds for BitmapLayer
-  const getProvinceBounds = (geometry: any): [[number, number], [number, number], [number, number], [number, number]] => {
-    let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
-    
-    const processCoordinates = (coords: any[]) => {
-      coords.forEach(coord => {
-        if (Array.isArray(coord[0])) {
-          processCoordinates(coord);
-        } else {
-          minLng = Math.min(minLng, coord[0]);
-          maxLng = Math.max(maxLng, coord[0]);
-          minLat = Math.min(minLat, coord[1]);
-          maxLat = Math.max(maxLat, coord[1]);
-        }
-      });
-    };
-    
-    processCoordinates(geometry.coordinates);
-    // Return bounds in the format expected by BitmapLayer: [bottomLeft, bottomRight, topRight, topLeft]
-    return [
-      [minLng, minLat], // bottom left
-      [maxLng, minLat], // bottom right  
-      [maxLng, maxLat], // top right
-      [minLng, maxLat]  // top left
-    ];
-  };
-
-  // Helper function to get satellite image URL for the province
-  const getSatelliteImageUrl = (bounds: [[number, number], [number, number], [number, number], [number, number]], token: string) => {
-    const minLng = Math.min(bounds[0][0], bounds[1][0], bounds[2][0], bounds[3][0]);
-    const maxLng = Math.max(bounds[0][0], bounds[1][0], bounds[2][0], bounds[3][0]);
-    const minLat = Math.min(bounds[0][1], bounds[1][1], bounds[2][1], bounds[3][1]);
-    const maxLat = Math.max(bounds[0][1], bounds[1][1], bounds[2][1], bounds[3][1]);
-    const width = 1024;
-    const height = 1024;
-    
-    return `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/[${minLng},${minLat},${maxLng},${maxLat}]/${width}x${height}@2x?access_token=${token}`;
-  };
-
   const onClickProvince = useCallback((info: any) => {
     if (info.object && info.object.properties) {
       const name = info.object.properties.name_en || info.object.properties.name;
@@ -301,45 +262,6 @@ export default function InteractiveMap() {
   const layers = [];
 
   if (provinces) {
-    // Add satellite imagery layer for selected province at elevated height
-    if (selectedProvince && mapboxToken) {
-      const selectedFeature = provinces.features.find(
-        (feature: any) => 
-          feature.properties.name_en === selectedProvince || 
-          feature.properties.name === selectedProvince
-      );
-      
-      if (selectedFeature) {
-        const bounds = getProvinceBounds(selectedFeature.geometry);
-        const satelliteUrl = getSatelliteImageUrl(bounds, mapboxToken);
-        const elevation = elevationMap[selectedFeature.properties.name_en] || elevationMap[selectedFeature.properties.name] || 20000;
-        
-        layers.push(
-          new BitmapLayer({
-            id: 'satellite-imagery',
-            bounds: bounds,
-            image: satelliteUrl,
-            elevationData: elevation,
-            elevationScale: 1,
-            elevationOffset: elevation,
-            coordinateOrigin: [bounds[0][0], bounds[0][1], elevation],
-            coordinateSystem: 1,
-            modelMatrix: [
-              1, 0, 0, 0,
-              0, 1, 0, 0,
-              0, 0, 1, elevation,
-              0, 0, 0, 1
-            ],
-            updateTriggers: {
-              image: satelliteUrl,
-              bounds: bounds,
-              modelMatrix: elevation
-            }
-          })
-        );
-      }
-    }
-
     layers.push(
       new GeoJsonLayer({
         id: 'provinces',
@@ -355,7 +277,7 @@ export default function InteractiveMap() {
         getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000,
         getFillColor: f => {
           const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
-          return isSelected ? [34, 197, 94, 20] : [16, 185, 129, 80]; // Very transparent for selected to show texture
+          return isSelected ? [34, 197, 94, 120] : [16, 185, 129, 80];
         },
         onClick: onClickProvince,
         updateTriggers: {
