@@ -190,20 +190,8 @@ export default function InteractiveMap() {
   }, []);
 
   const animateElevation = (name) => {
-    let current = 10000;
-    const target = 20000;
-    const step = 500;
-    const interval = setInterval(() => {
-      current += step;
-      if (current >= target) {
-        clearInterval(interval);
-        current = target;
-      }
-      setElevationMap(prev => ({
-        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: 10000 }), {}),
-        [name]: current
-      }));
-    }, 16);
+    // Reset all provinces to base elevation first
+    setElevationMap({ [name]: 20000 });
   };
 
   const onClickProvince = useCallback((info) => {
