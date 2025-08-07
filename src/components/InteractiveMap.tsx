@@ -18,6 +18,9 @@ const INITIAL_VIEW_STATE = {
   transitionDuration: 0
 };
 
+const defaultElevation = 10000;
+const selectedElevation = 20000;
+
 export default function InteractiveMap() {
   const { locations } = useLocations();
   const [provinces, setProvinces] = useState<any>(null);
@@ -226,8 +229,8 @@ export default function InteractiveMap() {
   }, []);
 
   const animateElevation = (name: string) => {
-    let current = 10000;
-    const target = 20000;
+    let current = defaultElevation;
+    const target = selectedElevation;
     const step = 500;
     const interval = setInterval(() => {
       current += step;
@@ -236,7 +239,7 @@ export default function InteractiveMap() {
         current = target;
       }
       setElevationMap(prev => ({
-        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: 10000 }), {}),
+        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: defaultElevation }), {}),
         [name]: current
       }));
     }, 16);
@@ -268,7 +271,7 @@ export default function InteractiveMap() {
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
-        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000,
+        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || defaultElevation,
         getFillColor: f => {
           const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
           return isSelected ? [34, 197, 94, 120] : [16, 185, 129, 80];
