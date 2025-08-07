@@ -167,17 +167,18 @@ export default function InteractiveMap() {
       });
       setCityPoints(
         Object.entries(cities).map(([city, pts]) => {
-          const avg = pts.reduce((acc, p) => {
+          const ptsArray = pts as any[];
+          const avg = ptsArray.reduce((acc, p) => {
             acc.longitude += parseFloat(p.longitude);
             acc.latitude += parseFloat(p.latitude);
             return acc;
           }, { longitude: 0, latitude: 0 });
-          avg.longitude /= pts.length;
-          avg.latitude /= pts.length;
-          return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
+          avg.longitude /= ptsArray.length;
+          avg.latitude /= ptsArray.length;
+          return { position: [avg.longitude, avg.latitude], count: ptsArray.length, cityName: city, pts: ptsArray };
         })
       );
-      setLocationPoints(filtered.map(l => ({ position: [parseFloat(l.longitude), parseFloat(l.latitude)], data: l })));
+      setLocationPoints(filtered.map(l => ({ position: [parseFloat(String(l.longitude || '0')), parseFloat(String(l.latitude || '0'))], data: l })));
     } else {
       setCityPoints([]);
       setLocationPoints([]);
@@ -211,7 +212,7 @@ export default function InteractiveMap() {
       setSelectedProvince(name);
       animateElevation(name);
       const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
-      setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 45, transitionDuration: 1000 }));
+      setViewState(prev => ({ ...prev, longitude: Number(coordinates[0]), latitude: Number(coordinates[1]), zoom: 8, pitch: 45, transitionDuration: 1000 }));
     }
   }, []);
 
@@ -310,7 +311,7 @@ export default function InteractiveMap() {
         controller={true}
         layers={layers}
         onViewStateChange={onViewStateChange}
-        style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}
+        style={{ width: '100%', height: '100%', position: 'absolute', top: '0px', left: '0px', zIndex: '1' }}
         getTooltip={({ object }) => object?.properties?.name_en || object?.properties?.name || null}
       />
     </div>
