@@ -42,10 +42,11 @@ function geoJsonToMesh(feature, isSelected) {
 
 function ProvinceMesh({ feature, isSelected, onClick }) {
   const meshRef = useRef();
-  const [geometry, setGeometry] = useState();
+  const [geometry, setGeometry] = useState<THREE.ExtrudeGeometry | null>(null);
 
   useEffect(() => {
-    setGeometry(geoJsonToMesh(feature, isSelected));
+    const newGeometry = geoJsonToMesh(feature, isSelected);
+    setGeometry(newGeometry);
   }, [feature, isSelected]);
 
   return (
