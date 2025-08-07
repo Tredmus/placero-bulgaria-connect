@@ -30,7 +30,7 @@ export default function InteractiveMap() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
 
-  // Fetch Mapbox token
+  // Fetch Mapbox token and initialize map
   useEffect(() => {
     const fetchMapboxToken = async () => {
       try {
@@ -55,6 +55,28 @@ export default function InteractiveMap() {
     
     fetchMapboxToken();
   }, []);
+
+  // Initialize Mapbox map
+  useEffect(() => {
+    if (!mapboxToken || !mapContainerRef.current || mapRef.current) return;
+
+    mapRef.current = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
+      zoom: INITIAL_VIEW_STATE.zoom,
+      pitch: INITIAL_VIEW_STATE.pitch,
+      bearing: INITIAL_VIEW_STATE.bearing,
+      interactive: false
+    });
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [mapboxToken]);
 
   // Calculate bounds for selected province
   const getProvinceBounds = useCallback((feature: any) => {
@@ -172,7 +194,6 @@ export default function InteractiveMap() {
             id: 'satellite-imagery',
             bounds: [bounds.minLng, bounds.minLat, bounds.maxLng, bounds.maxLat],
             image: imageUrl,
-            // Project the image at the same elevation as the selected province
             coordinateSystem: 0, // COORDINATE_SYSTEM.LNGLAT
             pickable: false
           })
@@ -195,8 +216,7 @@ export default function InteractiveMap() {
         getElevation: f => {
           const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
           const baseElevation = elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000;
-          // If this province is selected and has satellite imagery, elevate it slightly above the image
-          return isSelected && mapboxToken ? baseElevation + 1000 : baseElevation;
+          return baseElevation;
         },
         getFillColor: f => {
           const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
@@ -253,7 +273,7 @@ export default function InteractiveMap() {
   }
 
   return (
-    <div style={{ width: '100%', height: '600px', position: 'relative', backgroundColor: '#0a0a0a' }}>
+    <div style={{ width: '100%', height: '600px', position: 'relative' }}>
       <DeckGL
         viewState={viewState}
         controller={true}
@@ -269,7 +289,19 @@ export default function InteractiveMap() {
           }
           return null;
         }}
-      />
+      >
+        <div 
+          ref={mapContainerRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: -1
+          }}
+        />
+      </DeckGL>
     </div>
   );
 }
