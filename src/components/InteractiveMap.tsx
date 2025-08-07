@@ -34,7 +34,7 @@ interface LocationPoint {
   data: Location;
 }
 
-export default function InteractiveMap() {
+function InteractiveMap() {
   const { locations } = useLocations();
   const [provinces, setProvinces] = useState<any>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
@@ -100,10 +100,12 @@ export default function InteractiveMap() {
         clearInterval(interval);
         current = target;
       }
-      setElevationMap(prev => ({
-        ...Object.fromEntries(Object.keys(prev).map(k => [k, 10000])),
-        [name]: current
-      }));
+      setElevationMap(prev => {
+        const newMap: {[key: string]: number} = {};
+        Object.keys(prev).forEach(k => newMap[k] = 10000);
+        newMap[name] = current;
+        return newMap;
+      });
     }, 16);
   };
 
@@ -188,3 +190,5 @@ export default function InteractiveMap() {
     </div>
   );
 }
+
+export default InteractiveMap;
