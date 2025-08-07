@@ -135,31 +135,19 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  // Add satellite tile layer as base
-  if (mapboxToken) {
-    console.log('Adding satellite layer with token:', mapboxToken ? 'present' : 'missing');
-    layers.push(
-      new TileLayer({
-        id: 'satellite-layer',
-        data: `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`,
-        minZoom: 0,
-        maxZoom: 19,
-        tileSize: 256,
-        renderSubLayers: (props: any) => {
-          console.log('Rendering satellite tile:', props.tile);
-          const {
-            bbox: { west, south, east, north }
-          } = props.tile;
-
-          return new BitmapLayer({
-            ...props,
-            image: props.data,
-            bounds: [west, south, east, north]
-          });
-        }
-      })
-    );
-  }
+  // Add OpenStreetMap tile layer as base (simplified approach)
+  layers.push(
+    new TileLayer({
+      id: 'osm-layer',
+      data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      minZoom: 0,
+      maxZoom: 19,
+      tileSize: 256,
+      onTileError: (error: any) => {
+        console.warn('Tile loading error:', error);
+      }
+    })
+  );
 
   // Add province polygons above satellite layer
   if (provinces) {
@@ -229,13 +217,6 @@ export default function InteractiveMap() {
     );
   }
 
-  if (!mapboxToken) {
-    return (
-      <div style={{ width: '100%', height: '600px', position: 'relative' }} className="flex items-center justify-center bg-muted">
-        <p className="text-muted-foreground">Loading map...</p>
-      </div>
-    );
-  }
 
   return (
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
