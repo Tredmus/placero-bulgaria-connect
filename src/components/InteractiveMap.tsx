@@ -39,12 +39,24 @@ function geoJsonToMesh(feature, isSelected) {
 }
 
 function ProvinceMesh({ feature, isSelected, onClick }) {
-  const meshRef = useRef();
-  const [geometry, setGeometry] = useState();
+  const meshRef = useRef<THREE.Mesh>();
+  const [geometry, setGeometry] = useState<THREE.ExtrudeGeometry | null>(null);
 
   useEffect(() => {
-    setGeometry(geoJsonToMesh(feature, isSelected));
+    const newGeometry = geoJsonToMesh(feature, isSelected);
+    setGeometry(newGeometry);
+    
+    return () => {
+      // Cleanup previous geometry
+      if (geometry) {
+        geometry.dispose();
+      }
+    };
   }, [feature, isSelected]);
+
+  if (!geometry) {
+    return null;
+  }
 
   return (
     <mesh
