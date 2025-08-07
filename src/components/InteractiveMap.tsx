@@ -135,19 +135,7 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  // Add OpenStreetMap tile layer as base (simplified approach)
-  layers.push(
-    new TileLayer({
-      id: 'osm-layer',
-      data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      minZoom: 0,
-      maxZoom: 19,
-      tileSize: 256,
-      onTileError: (error: any) => {
-        console.warn('Tile loading error:', error);
-      }
-    })
-  );
+  // Remove problematic TileLayer - just use extruded provinces on dark background
 
   // Add province polygons above satellite layer
   if (provinces) {
