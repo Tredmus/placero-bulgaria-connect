@@ -137,14 +137,16 @@ export default function InteractiveMap() {
 
   // Add satellite tile layer as base
   if (mapboxToken) {
+    console.log('Adding satellite layer with token:', mapboxToken ? 'present' : 'missing');
     layers.push(
       new TileLayer({
         id: 'satellite-layer',
-        data: `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${mapboxToken}`,
+        data: `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`,
         minZoom: 0,
         maxZoom: 19,
-        tileSize: 512,
+        tileSize: 256,
         renderSubLayers: (props: any) => {
+          console.log('Rendering satellite tile:', props.tile);
           const {
             bbox: { west, south, east, north }
           } = props.tile;
