@@ -11,26 +11,64 @@ const GEOJSON_URL = '/data/bg_provinces.geojson';
 
 // Utility to parse GeoJSON and convert to ThreeJS shapes
 function geoJsonToMesh(feature, isSelected) {
-  const coords = feature.geometry.coordinates;
+  const geometry = feature.geometry;
   const shapes = [];
-  coords.forEach((poly) => {
-    poly.forEach((ring) => {
-      const shape = new THREE.Shape();
-      ring.forEach(([lng, lat], i) => {
-        const x = lng;
-        const y = lat;
-        if (i === 0) shape.moveTo(x, y);
-        else shape.lineTo(x, y);
-      });
-      shapes.push(shape);
+  
+  // Handle different geometry types
+  if (geometry.type === 'Polygon') {
+    // Single polygon
+    geometry.coordinates.forEach((ring) => {
+      if (Array.isArray(ring) && ring.length > 0 && Array.isArray(ring[0])) {
+        const shape = new THREE.Shape();
+        ring.forEach(([lng, lat], i) => {
+          if (typeof lng === 'number' && typeof lat === 'number') {
+            const x = lng;
+            const y = lat;
+            if (i === 0) shape.moveTo(x, y);
+            else shape.lineTo(x, y);
+          }
+        });
+        shapes.push(shape);
+      }
     });
-  });
+  } else if (geometry.type === 'MultiPolygon') {
+    // Multiple polygons
+    geometry.coordinates.forEach((poly) => {
+      if (Array.isArray(poly)) {
+        poly.forEach((ring) => {
+          if (Array.isArray(ring) && ring.length > 0 && Array.isArray(ring[0])) {
+            const shape = new THREE.Shape();
+            ring.forEach(([lng, lat], i) => {
+              if (typeof lng === 'number' && typeof lat === 'number') {
+                const x = lng;
+                const y = lat;
+                if (i === 0) shape.moveTo(x, y);
+                else shape.lineTo(x, y);
+              }
+            });
+            shapes.push(shape);
+          }
+        });
+      }
+    });
+  }
 
-  const geometry = new THREE.ExtrudeGeometry(shapes, {
+  if (shapes.length === 0) {
+    // Fallback: create a simple box if no valid shapes found
+    const shape = new THREE.Shape();
+    shape.moveTo(-1, -1);
+    shape.lineTo(1, -1);
+    shape.lineTo(1, 1);
+    shape.lineTo(-1, 1);
+    shape.lineTo(-1, -1);
+    shapes.push(shape);
+  }
+
+  const extrudeGeometry = new THREE.ExtrudeGeometry(shapes, {
     depth: isSelected ? 10 : 2,
     bevelEnabled: false
   });
-  return geometry;
+  return extrudeGeometry;
 }
 
 function ProvinceMesh({ feature, isSelected, onClick }) {
