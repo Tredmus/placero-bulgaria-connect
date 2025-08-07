@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer, BitmapLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -23,6 +25,166 @@ export default function InteractiveMap3() {
   const [cityPoints, setCityPoints] = useState<any[]>([]);
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
   const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+
+  // Fetch Mapbox token
+  useEffect(() => {
+    const fetchMapboxToken = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        if (error) throw error;
+        setMapboxToken(data.token);
+      } catch (error) {
+        console.error('Failed to fetch Mapbox token:', error);
+        // Fallback token - replace with your actual token or handle gracefully
+        setMapboxToken('pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw');
+      }
+    };
+    
+    fetchMapboxToken();
+  }, []);
+
+  // Initialize Mapbox map
+  useEffect(() => {
+    if (!mapboxToken || !mapContainerRef.current || mapRef.current) return;
+
+    mapboxgl.accessToken = mapboxToken;
+    
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
+      zoom: INITIAL_VIEW_STATE.zoom,
+      pitch: INITIAL_VIEW_STATE.pitch,
+      bearing: INITIAL_VIEW_STATE.bearing,
+      antialias: true
+    });
+
+    map.on('load', () => {
+      // Add the world mask source
+      map.addSource('world-mask', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [-180, -90],
+              [-180, 90],
+              [180, 90],
+              [180, -90],
+              [-180, -90]
+            ]]
+          },
+          properties: {}
+        }
+      });
+
+      // Add the world mask layer
+      map.addLayer({
+        id: 'world-mask-layer',
+        type: 'fill',
+        source: 'world-mask',
+        paint: {
+          'fill-color': '#000000',
+          'fill-opacity': 0.8
+        }
+      }, 'water');
+    });
+
+    mapRef.current = map;
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [mapboxToken]);
+
+  // Update world mask based on selected province
+  useEffect(() => {
+    if (!mapRef.current || !provinces) return;
+
+    const map = mapRef.current;
+    
+    if (selectedProvince) {
+      // Find the selected province feature
+      const selectedFeature = provinces.features.find((f: any) => 
+        f.properties.name_en === selectedProvince || f.properties.name === selectedProvince
+      );
+      
+      if (selectedFeature) {
+        // Create holes in the world mask for the selected province
+        const worldGeometry = {
+          type: 'Polygon' as const,
+          coordinates: [[
+            [-180, -90],
+            [-180, 90],
+            [180, 90],
+            [180, -90],
+            [-180, -90]
+          ]]
+        };
+
+        // Add the selected province's coordinates as holes
+        if (selectedFeature.geometry.type === 'Polygon') {
+          worldGeometry.coordinates.push(...selectedFeature.geometry.coordinates);
+        } else if (selectedFeature.geometry.type === 'MultiPolygon') {
+          selectedFeature.geometry.coordinates.forEach((polygon: any) => {
+            worldGeometry.coordinates.push(...polygon);
+          });
+        }
+
+        const maskData = {
+          type: 'Feature' as const,
+          geometry: worldGeometry,
+          properties: {}
+        };
+
+        const source = map.getSource('world-mask') as mapboxgl.GeoJSONSource;
+        if (source) {
+          source.setData(maskData);
+        }
+      }
+    } else {
+      // Show the full world mask
+      const maskData = {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[
+            [-180, -90],
+            [-180, 90],
+            [180, 90],
+            [180, -90],
+            [-180, -90]
+          ]]
+        },
+        properties: {}
+      };
+
+      const source = map.getSource('world-mask') as mapboxgl.GeoJSONSource;
+      if (source) {
+        source.setData(maskData);
+      }
+    }
+  }, [selectedProvince, provinces]);
+
+  // Sync view state with Mapbox map
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const map = mapRef.current;
+    map.jumpTo({
+      center: [viewState.longitude, viewState.latitude],
+      zoom: viewState.zoom,
+      pitch: viewState.pitch,
+      bearing: viewState.bearing
+    });
+  }, [viewState]);
 
   useEffect(() => {
     fetch(GEOJSON_URL)
@@ -117,16 +279,6 @@ export default function InteractiveMap3() {
 
   const layers = [];
 
-  // Add a simple terrain-like background
-  layers.push(
-    new BitmapLayer({
-      id: 'terrain-background',
-      bounds: [20, 40, 30, 45], // Rough bounds for Bulgaria
-      image: createTerrainTexture(),
-      opacity: 0.3
-    })
-  );
-
   if (provinces) {
     layers.push(
       new GeoJsonLayer({
@@ -186,8 +338,30 @@ export default function InteractiveMap3() {
     );
   }
 
+  if (!mapboxToken) {
+    return (
+      <div className="flex items-center justify-center h-[600px] bg-muted rounded-lg">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading map...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
+      <div 
+        ref={mapContainerRef} 
+        style={{ 
+          width: '100%', 
+          height: '100%',
+          position: 'absolute',
+          top: '0',
+          left: '0',
+          zIndex: '0'
+        }} 
+      />
       <DeckGL
         viewState={viewState}
         controller={true}
@@ -210,38 +384,4 @@ export default function InteractiveMap3() {
       />
     </div>
   );
-}
-
-function createTerrainTexture(): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 512;
-  const ctx = canvas.getContext('2d');
-  
-  if (ctx) {
-    // Create a simple terrain-like gradient
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, '#8B7355'); // Brown
-    gradient.addColorStop(0.3, '#A0956B'); // Light brown
-    gradient.addColorStop(0.6, '#7A8471'); // Green
-    gradient.addColorStop(1, '#5A6B4F'); // Dark green
-    
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Add some texture noise
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-    
-    for (let i = 0; i < data.length; i += 4) {
-      const noise = (Math.random() - 0.5) * 30;
-      data[i] = Math.max(0, Math.min(255, data[i] + noise));     // R
-      data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + noise)); // G
-      data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + noise)); // B
-    }
-    
-    ctx.putImageData(imageData, 0, 0);
-  }
-  
-  return canvas;
 }
