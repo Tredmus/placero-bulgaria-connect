@@ -1,5 +1,6 @@
 // ThreeJS version of your map with extruded provinces and selectable elevation
-// Fixed projection, flat view, and locked rotation for realistic map behavior
+// Integrated satellite background using Mapbox raster tiles (as texture)
+// Fixed projection, flat view, locked rotation, elevation on click
 // Dependencies: three, @react-three/fiber, @react-three/drei, d3-geo
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -9,6 +10,7 @@ import * as THREE from 'three';
 import * as d3 from 'd3-geo';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
+const MAPBOX_TILE = 'https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/0/0/0?access_token=pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
 
 function projectCoord([lng, lat]) {
   const projection = d3.geoMercator().scale(2000).center([25, 42.7]).translate([0, 0]);
@@ -39,24 +41,12 @@ function geoJsonToMesh(feature, isSelected) {
 }
 
 function ProvinceMesh({ feature, isSelected, onClick }) {
-  const meshRef = useRef<THREE.Mesh>();
-  const [geometry, setGeometry] = useState<THREE.ExtrudeGeometry | null>(null);
+  const meshRef = useRef();
+  const [geometry, setGeometry] = useState();
 
   useEffect(() => {
-    const newGeometry = geoJsonToMesh(feature, isSelected);
-    setGeometry(newGeometry);
-    
-    return () => {
-      // Cleanup previous geometry
-      if (geometry) {
-        geometry.dispose();
-      }
-    };
+    setGeometry(geoJsonToMesh(feature, isSelected));
   }, [feature, isSelected]);
-
-  if (!geometry) {
-    return null;
-  }
 
   return (
     <mesh
@@ -70,6 +60,27 @@ function ProvinceMesh({ feature, isSelected, onClick }) {
         transparent
         opacity={0.9}
       />
+    </mesh>
+  );
+}
+
+function BackgroundMap() {
+  const textureRef = useRef();
+  const [texture, setTexture] = useState(null);
+
+  useEffect(() => {
+    new THREE.TextureLoader().load(MAPBOX_TILE, (tex) => {
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+      setTexture(tex);
+    });
+  }, []);
+
+  if (!texture) return null;
+
+  return (
+    <mesh position={[0, 0, -1]}>
+      <planeGeometry args={[1000, 1000]} />
+      <meshBasicMaterial map={texture} />
     </mesh>
   );
 }
@@ -103,11 +114,11 @@ export default function ThreeMap() {
 
   return (
     <div style={{ width: '100%', height: '100vh' }}>
-      <Canvas>
-        <OrthographicCamera makeDefault zoom={5} position={[0, 0, 500]} near={0.1} far={1000} />
+      <Canvas orthographic camera={{ zoom: 5, position: [0, 0, 500], near: 0.1, far: 1000 }}>
         <ambientLight intensity={0.5} />
         <directionalLight position={[0, 0, 100]} intensity={0.6} />
         <MapControls enableRotate={false} />
+        <BackgroundMap />
         {provinces && (
           <Provinces provinces={provinces} selected={selected} setSelected={setSelected} />
         )}
