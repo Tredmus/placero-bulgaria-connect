@@ -54,9 +54,19 @@ export default function InteractiveMap() {
 
   // Load provinces GeoJSON
   useEffect(() => {
+    console.log('Loading GeoJSON from:', GEOJSON_URL);
     fetch(GEOJSON_URL)
-      .then(res => res.json())
-      .then(data => setProvinces(data));
+      .then(res => {
+        console.log('GeoJSON fetch response:', res.status);
+        return res.json();
+      })
+      .then(data => {
+        console.log('GeoJSON loaded:', data);
+        setProvinces(data);
+      })
+      .catch(error => {
+        console.error('Error loading GeoJSON:', error);
+      });
   }, []);
 
   // Process location data based on selected province
@@ -139,6 +149,7 @@ export default function InteractiveMap() {
 
   // Add province polygons above satellite layer
   if (provinces) {
+    console.log('Adding provinces layer with', provinces.features?.length, 'features');
     layers.push(
       new GeoJsonLayer({
         id: 'provinces',
@@ -163,7 +174,11 @@ export default function InteractiveMap() {
         }
       })
     );
+  } else {
+    console.log('No provinces data available');
   }
+  
+  console.log('Total layers:', layers.length);
 
   // Add city markers when zoomed in
   if (viewState.zoom >= 8 && cityPoints.length > 0) {
