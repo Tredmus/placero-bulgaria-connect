@@ -104,15 +104,9 @@ export default function InteractiveMap() {
     }
   }, []);
 
-  // Generate satellite tile URL for texture mapping
-  const getSatelliteTileUrl = (z: number, x: number, y: number) => {
-    const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
-    return `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/${z}/${x}/${y}@2x?access_token=${token}`;
-  };
-
   const layers = [];
 
-  // Add satellite texture layer first (base layer)
+  // Add terrain texture layer using solid colors that simulate terrain
   const bulgariaBounds: [[number, number], [number, number], [number, number], [number, number]] = [
     [22.3, 41.2], // bottom-left
     [28.6, 41.2], // bottom-right  
@@ -120,12 +114,32 @@ export default function InteractiveMap() {
     [22.3, 44.2]  // top-left
   ];
   
+  // Create a simple terrain-colored canvas as texture
+  const createTerrainTexture = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      // Create gradient that looks like terrain
+      const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+      gradient.addColorStop(0, '#8B7355'); // mountain brown
+      gradient.addColorStop(0.3, '#6B8E23'); // olive green
+      gradient.addColorStop(0.6, '#228B22'); // forest green
+      gradient.addColorStop(1, '#2F4F4F'); // dark slate gray
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 512, 512);
+    }
+    return canvas.toDataURL();
+  };
+
   layers.push(
     new BitmapLayer({
-      id: 'satellite-base',
+      id: 'terrain-base',
       bounds: bulgariaBounds,
-      image: getSatelliteTileUrl(8, 140, 95),
-      opacity: 1.0
+      image: createTerrainTexture(),
+      opacity: 0.8
     })
   );
 
