@@ -112,7 +112,7 @@ export default function InteractiveMap() {
 
   const layers = [];
 
-  // Add satellite background as bitmap layer
+  // Add satellite texture layer first (base layer)
   const bulgariaBounds: [[number, number], [number, number], [number, number], [number, number]] = [
     [22.3, 41.2], // bottom-left
     [28.6, 41.2], // bottom-right  
@@ -122,10 +122,10 @@ export default function InteractiveMap() {
   
   layers.push(
     new BitmapLayer({
-      id: 'satellite-background',
+      id: 'satellite-base',
       bounds: bulgariaBounds,
-      image: getSatelliteTileUrl(8, 140, 95), // Central Bulgaria tile
-      opacity: 0.6
+      image: getSatelliteTileUrl(8, 140, 95),
+      opacity: 1.0
     })
   );
 
@@ -139,25 +139,25 @@ export default function InteractiveMap() {
         stroked: true,
         wireframe: false,
         extruded: true,
-        getLineColor: [255, 255, 255, 200],
-        getLineWidth: () => 2,
+        getLineColor: [255, 255, 255, 100],
+        getLineWidth: () => 1,
         lineWidthMinPixels: 1,
-        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 5000,
+        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 3000,
         getFillColor: f => {
           const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
           if (isSelected) {
-            // Bright green with satellite texture blend
-            return [34, 197, 94, 180];
+            // Transparent with bright outline for selected
+            return [34, 197, 94, 60];
           } else {
-            // Semi-transparent to show satellite texture underneath
-            return [100, 150, 100, 120];
+            // Very transparent to show satellite through
+            return [255, 255, 255, 30];
           }
         },
         material: {
-          ambient: 0.6,
-          diffuse: 0.8,
-          shininess: 10,
-          specularColor: [255, 255, 255]
+          ambient: 0.8,
+          diffuse: 0.6,
+          shininess: 5,
+          specularColor: [200, 200, 200]
         },
         onClick: onClickProvince,
         updateTriggers: {
