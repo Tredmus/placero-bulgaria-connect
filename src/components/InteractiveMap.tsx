@@ -103,7 +103,8 @@ export default function ThreeMap() {
 
   return (
     <div style={{ width: '100%', height: '100vh' }}>
-      <Canvas orthographic camera={{ zoom: 5, position: [0, 0, 500], near: 0.1, far: 1000 }}>
+      <Canvas>
+        <OrthographicCamera makeDefault zoom={5} position={[0, 0, 500]} near={0.1} far={1000} />
         <ambientLight intensity={0.5} />
         <directionalLight position={[0, 0, 100]} intensity={0.6} />
         <MapControls enableRotate={false} />
