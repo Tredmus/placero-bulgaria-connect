@@ -152,39 +152,7 @@ export default function InteractiveMap() {
         });
       }
     });
-
-    if (!mapRef.current || !provinces) return;
-
-  const worldRing: [number, number][] = [
-    [-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]
-  ];
-
-  // Collect all province rings (supports Polygon and MultiPolygon)
-  const holes: number[][][] = [];
-  for (const f of provinces.features) {
-    const g = f.geometry;
-    if (!g) continue;
-    if (g.type === 'Polygon') {
-      // Each ring becomes a hole in the world polygon
-      for (const ring of g.coordinates) holes.push(ring);
-    } else if (g.type === 'MultiPolygon') {
-      for (const poly of g.coordinates) {
-        for (const ring of poly) holes.push(ring);
-      }
-    }
-  }
-
-  const maskWithAllProvinces = {
-    type: 'Feature' as const,
-    properties: {},
-    geometry: {
-      type: 'Polygon' as const,
-      // Outer ring = whole world, inner rings = ALL provinces (revealed)
-      coordinates: [worldRing, ...holes]
-    }
-  };
-
-  (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource)?.setData(maskWithAllProvinces);
+    
 
     return () => {
       mapRef.current?.remove();
