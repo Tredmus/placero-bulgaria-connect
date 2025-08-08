@@ -77,7 +77,7 @@ function dissolve(features: any[]) {
   if (!features.length) return null;
   let acc = features[0];
   for (let i = 1; i < features.length; i++) {
-    try { acc = union(acc, features[i]) as any; } catch { /* skip bad pair */ }
+    try { acc = union(acc, features[i]) as any; } catch {}
   }
   try { acc = rewind(cleanCoords(acc, { mutate: false }) as any, { reverse: false, mutate: false }); } catch {}
   return acc;
@@ -94,13 +94,11 @@ function outerRings(geom: any): Ring[] {
   return out;
 }
 
-// ---- NEW: build a single-hole mask for a selected province ----
+// build mask once (Bulgaria hole) or per-province (single hole)
 function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
-  // big outer ring
   const worldRing: Ring = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
 
   if (!rawName) {
-    // no selection -> default to Bulgaria-wide hole (union of all provinces)
     const dissolvedAll = dissolve(provincesFC.features);
     const holes = outerRings(dissolvedAll?.geometry);
     let mask: any = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [worldRing, ...holes] } };
@@ -108,7 +106,6 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
     return mask;
   }
 
-  // merge only the province parts with matching name or name_en
   const parts = provincesFC.features.filter((f: any) => {
     const nm = f.properties?.name ?? f.properties?.name_en;
     return nm === rawName;
@@ -174,24 +171,23 @@ export default function InteractiveMap() {
     (async () => {
       try {
         const { data } = await supabase.functions.invoke('get-mapbox-token');
-        const t = data?.token || 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+        const t = data?.token || 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         mapboxgl.accessToken = t; setToken(t);
       } catch {
-        const t = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+        const t = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         mapboxgl.accessToken = t; setToken(t);
       }
     })();
   }, []);
 
-  // load provinces once
+  // load provinces + build initial mask once
   useEffect(() => {
     (async () => {
       const raw = await fetch(GEOJSON_URL).then((r) => r.json());
       const normalized = normalizeFC(raw);
       setProvincesGeo(normalized);
 
-      // initial mask = Bulgaria-wide hole
-      const initialMask = buildProvinceDonutMask(normalized, null);
+      const initialMask = buildProvinceDonutMask(normalized, null); // Bulgaria-wide hole
       setWorldMask(initialMask);
     })();
   }, []);
@@ -209,7 +205,7 @@ export default function InteractiveMap() {
     }
   }, [selectedRawName, provincesGeo]);
 
-  // markers helpers (unchanged)
+  // helpers for markers
   const clearMarkers = () => { markers.current.forEach((m) => m.remove()); markers.current = []; markerById.current = {}; };
   const styleMarker = (bubble: HTMLDivElement, isSelected: boolean) => {
     bubble.style.width = '28px'; bubble.style.height = '28px'; bubble.style.borderRadius = '50%';
@@ -303,9 +299,9 @@ export default function InteractiveMap() {
     map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
   };
 
-  // init map
+  // ---- init map (NO dependency on worldMask) ----
   useEffect(() => {
-    if (!mapEl.current || !token || !provincesGeo || !worldMask) return;
+    if (!mapEl.current || !token || !provincesGeo) return;
 
     map.current = new mapboxgl.Map({
       container: mapEl.current,
@@ -369,14 +365,21 @@ export default function InteractiveMap() {
         paint: { 'line-color': '#ffffff', 'line-width': 2 },
       });
 
-      // world mask (inserted *below* provinces-fill so it can't hide them)
-      map.current!.addSource('world-mask', { type: 'geojson', data: worldMask });
+      // world mask source with a safe placeholder immediately
+      const worldRing: Ring = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
+      const placeholder = {
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'Polygon', coordinates: [worldRing] }, // solid mask; will be replaced by real donut
+      } as any;
+
+      map.current!.addSource('world-mask', { type: 'geojson', data: placeholder });
       map.current!.addLayer({
         id: 'world-mask-layer',
         type: 'fill',
         source: 'world-mask',
         paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
-      }, 'provinces-fill'); // <- put mask under provinces
+      }, 'provinces-fill'); // put mask under provinces
 
       map.current!.on('mouseenter', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = 'pointer'));
       map.current!.on('mouseleave', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = ''));
@@ -423,6 +426,11 @@ export default function InteractiveMap() {
         const c = centroid(feat as any).geometry.coordinates as [number, number];
         handleProvinceSelect(displayName, c, 9);
       });
+
+      // if we already have a real mask, apply it now
+      if (worldMask) {
+        (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
+      }
     });
 
     return () => {
@@ -431,9 +439,9 @@ export default function InteractiveMap() {
       markers.current = []; markerById.current = {};
       map.current?.remove(); map.current = null;
     };
-  }, [token, provincesGeo, worldMask, handleProvinceSelect]);
+  }, [token, provincesGeo]); // <-- removed worldMask dep
 
-  // sync selected province paint
+  // keep provinces paint in sync
   useEffect(() => {
     if (!map.current?.getLayer('provinces-fill')) return;
     map.current.setPaintProperty('provinces-fill', 'fill-color', [
@@ -452,13 +460,20 @@ export default function InteractiveMap() {
     ]);
   }, [selectedRawName]);
 
+  // when worldMask changes, update the existing source (no re-init)
+  useEffect(() => {
+    if (!map.current || !worldMask) return;
+    const src = map.current.getSource('world-mask') as mapboxgl.GeoJSONSource | undefined;
+    if (src) src.setData(worldMask as any);
+  }, [worldMask]);
+
   // grammar helpers
   const pluralize = (n: number, one: string, many: string) => (n === 1 ? one : many);
   const needsVav = (city: string | null) => {
     if (!city) return false;
     const ch = city.trim().charAt(0).toLowerCase();
     return ch === 'в' || ch === 'ф';
-    };
+  };
 
   if (!token) {
     return (
