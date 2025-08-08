@@ -65,13 +65,13 @@ export default function InteractiveMap() {
   const hoveredFeatureId = useRef<number | string | null>(null);
 
   // Selection state + refs
-  const [selectedProvince, setSelectedProvince] = useState<string | null>(null); // UI label (BG)
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(null); // BG display label
   const selectedProvinceRef = useRef<string | null>(null);
   useEffect(() => {
     selectedProvinceRef.current = selectedProvince;
   }, [selectedProvince]);
 
-  // NEW: store raw feature name used for matching in Mapbox paint (exact value of name/name_en)
+  // Raw feature name (exact name/name_en) used for paint matching
   const [selectedRawName, setSelectedRawName] = useState<string | null>(null);
   const selectedRawNameRef = useRef<string | null>(null);
   useEffect(() => {
@@ -140,16 +140,44 @@ export default function InteractiveMap() {
     clearMarkers();
     locs.forEach((l) => {
       if (!l.latitude || !l.longitude) return;
-      const el = document.createElement('div');
-      el.style.cssText = `
-        width:28px;height:28px;background:#10b981;border:2px solid #fff;border-radius:50%;
-        cursor:pointer;box-shadow:0 2px 8px rgba(16,185,129,.35);transition:transform .15s ease;
-      `;
-      el.onmouseenter = () => (el.style.transform = 'scale(1.18)');
-      el.onmouseleave = () => (el.style.transform = 'scale(1)');
-      el.onclick = () => setSelectedLocation(l);
 
-      const mk = new mapboxgl.Marker({ element: el, anchor: 'center' })
+      // Root element: NO transform transitions (prevents “lag while panning”)
+      const root = document.createElement('div');
+      root.style.cssText = `
+        position: relative;
+        width: 0; height: 0;
+        pointer-events: auto;
+        z-index: 2;
+      `;
+
+      // Visual bubble lives in an inner node so scaling doesn't fight Mapbox transforms
+      const bubble = document.createElement('div');
+      bubble.style.cssText = `
+        width:28px; height:28px; border-radius:50%;
+        background:#10b981; border:2px solid #fff;
+        box-shadow:0 2px 8px rgba(16,185,129,.35);
+        cursor:pointer;
+        transition: transform .12s ease;  /* safe: only inner scales */
+        transform-origin: center;
+      `;
+      root.appendChild(bubble);
+
+      // Hover effects + hide province tooltip so it doesn't “stick” at top-left
+      root.onmouseenter = () => {
+        if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
+        bubble.style.transform = 'scale(1.15)';
+      };
+      root.onmouseleave = () => {
+        bubble.style.transform = 'scale(1)';
+      };
+
+      // Click: stop bubbling so province layer doesn't steal it
+      root.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setSelectedLocation(l);
+      });
+
+      const mk = new mapboxgl.Marker({ element: root, anchor: 'center' })
         .setLngLat([Number(l.longitude), Number(l.latitude)])
         .addTo(map.current!);
       markers.current.push(mk);
@@ -168,7 +196,7 @@ export default function InteractiveMap() {
         return rec.searchTerms.some((t) => c.includes(t) || t.includes(c));
       });
 
-      setSelectedProvince(rec.name); // keep BG for UI
+      setSelectedProvince(rec.name); // BG for UI
       setSelectedCity(null);
       setSelectedLocation(null);
       setProvinceLocations(locs);
@@ -210,7 +238,7 @@ export default function InteractiveMap() {
 
   const resetView = () => {
     setSelectedProvince(null);
-    setSelectedRawName(null); // reset raw key too
+    setSelectedRawName(null);
     setSelectedCity(null);
     setSelectedLocation(null);
     setProvinceCities({});
@@ -278,7 +306,7 @@ export default function InteractiveMap() {
         paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
       });
 
-      // 2) Provinces source + layers (generateId for feature-state hover)
+      // 2) Provinces source + layers
       if (!map.current!.getSource('provinces')) {
         map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
       }
@@ -288,7 +316,7 @@ export default function InteractiveMap() {
         type: 'fill',
         source: 'provinces',
         paint: {
-          // Selected province fully transparent (compare to raw property from the feature)
+          // Selected province fully transparent (compare to RAW feature name)
           'fill-color': [
             'case',
             ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedRawNameRef.current ?? '___none___'],
@@ -349,22 +377,20 @@ export default function InteractiveMap() {
         if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
       });
 
-      // Click: store BOTH UI name (BG) and raw property for exact match
+      // Click province (stores both display + raw names)
       map.current!.on('click', 'provinces-fill', (e) => {
         const feat = e.features?.[0];
         if (!feat) return;
 
-        const rawName = (feat.properties as any).name || (feat.properties as any).name_en; // exact value in data
+        const rawName = (feat.properties as any).name || (feat.properties as any).name_en;
         const displayName =
           PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName;
 
-        // If already selected → reset
         if (selectedRawNameRef.current && selectedRawNameRef.current === rawName) {
           resetView();
           return;
         }
 
-        // Save for UI + for paint expression matching
         setSelectedProvince(displayName);
         setSelectedRawName(rawName);
 
@@ -386,7 +412,7 @@ export default function InteractiveMap() {
     };
   }, [token, provincesGeo]);
 
-  // Keep selection transparency in sync when selection changes
+  // Sync paint when selection changes
   useEffect(() => {
     if (!map.current?.getLayer('provinces-fill')) return;
     map.current.setPaintProperty('provinces-fill', 'fill-color', [
