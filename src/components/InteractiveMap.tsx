@@ -19,7 +19,8 @@ const GEOJSON_URL = '/data/bg_provinces.geojson';
  * - searchTerms: strings we match against location.city (lowercased, cleaned).
  */
 const PROVINCES = [
-  { name: 'София', nameEn: 'Sofia', searchTerms: ['софия', 'sofia'] },
+  { name: 'София Град', nameEn: 'Sofia Grad', searchTerms: ['софия', 'sofia'] },
+  { name: 'София Област', nameEn: 'Sofia Oblast', searchTerms: ['софия', 'sofia'] },
   { name: 'Пловдив', nameEn: 'Plovdiv', searchTerms: ['пловдив', 'plovdiv'] },
   { name: 'Варна', nameEn: 'Varna', searchTerms: ['варна', 'varna', 'белослав', 'beloslav', 'девня', 'devnya'] },
   { name: 'Бургас', nameEn: 'Burgas', searchTerms: ['бургас', 'burgas'] },
