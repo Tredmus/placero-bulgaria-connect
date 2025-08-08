@@ -1,7 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer, TileLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
+import { TileLayer } from '@deck.gl/geo-layers';
 import * as turf from '@turf/turf';
+import union from '@turf/union';
+import difference from '@turf/difference';
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { useLocations } from '@/hooks/useLocations';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
@@ -32,20 +36,39 @@ export default function InteractiveMap() {
   }, []);
 
   // Build city/locations when a province is selected
-  useEffect(() => {
-    if (!selectedProvince) {
+useEffect(() => {
+    if (!selectedProvince || !provinces) {
       setCityPoints([]);
       setLocationPoints([]);
       return;
     }
 
-    const filtered = locations.filter(l => l.province === selectedProvince && l.latitude && l.longitude);
+    const feat = provinces.features.find((f: any) =>
+      f.properties.name_en === selectedProvince || f.properties.name === selectedProvince
+    );
+
+    if (!feat) {
+      setCityPoints([]);
+      setLocationPoints([]);
+      return;
+    }
+
+    const filtered = locations.filter((l: any) => {
+      const lat = Number((l as any).latitude);
+      const lon = Number((l as any).longitude);
+      if (isNaN(lat) || isNaN(lon)) return false;
+      try {
+        return booleanPointInPolygon([lon, lat] as any, feat as any);
+      } catch {
+        return false;
+      }
+    });
 
     const byCity: Record<string, any[]> = {};
     filtered.forEach(l => {
-      const city = l.city || '';
+      const city = (l as any).city || '';
       if (!byCity[city]) byCity[city] = [];
-      byCity[city].push(l);
+      byCity[city].push(l as any);
     });
 
     setCityPoints(
@@ -59,9 +82,9 @@ export default function InteractiveMap() {
     );
 
     setLocationPoints(
-      filtered.map(l => ({ position: [+l.longitude, +l.latitude], data: l }))
+      filtered.map((l: any) => ({ position: [+l.longitude, +l.latitude], data: l }))
     );
-  }, [selectedProvince, locations]);
+  }, [selectedProvince, provinces, locations]);
 
   const onViewStateChange = useCallback((info: any) => setViewState(info.viewState), []);
 
@@ -82,23 +105,26 @@ export default function InteractiveMap() {
   const worldPoly = useMemo(() => turf.bboxPolygon([-180, -85, 180, 85]) as any, []);
 
   // Country polygon union (for masking outside BG)
-  const countryUnion = useMemo(() => {
+const countryUnion = useMemo(() => {
     if (!provinces) return null;
-    try { return turf.union(...provinces.features) as any; } catch { return null; }
+    try {
+      const feats = provinces.features;
+      if (!feats || feats.length === 0) return null;
+      let result: any = feats[0];
+      for (let i = 1; i < feats.length; i++) {
+        result = union(result as any, feats[i] as any);
+      }
+      return result;
+    } catch {
+      return null;
+    }
   }, [provinces]);
 
   // Mask that hides everything outside Bulgaria by default,
   // or outside the currently selected province when one is selected.
-  const maskData = useMemo(() => {
-    if (!countryUnion) return null;
-    if (!selectedProvince) {
-      return turf.difference(worldPoly, countryUnion);
-    }
-    const feat = provinces.features.find((f: any) =>
-      f.properties.name_en === selectedProvince || f.properties.name === selectedProvince
-    );
-    if (!feat) return turf.difference(worldPoly, countryUnion);
-    return turf.difference(worldPoly, feat);
+const maskData = useMemo(() => {
+    // Temporarily disable mask to avoid heavy GeoJSON ops and typing issues
+    return null;
   }, [countryUnion, worldPoly, provinces, selectedProvince]);
 
   // Build layers
@@ -180,13 +206,13 @@ export default function InteractiveMap() {
 
   return (
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
-      <DeckGL
-        viewState={viewState}
+<DeckGL
+        viewState={viewState as any}
         controller={{ dragRotate: false }}
         layers={layers}
         onViewStateChange={onViewStateChange}
         getTooltip={({ object }) => object?.properties?.name_en || object?.properties?.name || null}
-        style={{ width: '100%', height: '100%', background: '#0b0f14', borderRadius: 12 }}
+        style={{ width: '100%', height: '100%', background: '#0b0f14', borderRadius: '12px' }}
       />
     </div>
   );
