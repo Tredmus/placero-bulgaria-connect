@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
-import * as turf from '@turf/turf';
+import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import union from '@turf/union';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -13,298 +13,248 @@ const INITIAL_VIEW_STATE = {
   longitude: 25.4858,
   latitude: 42.7339,
   zoom: 6.5,
-  pitch: 0, // no tilt
+  pitch: 30,
   bearing: 0,
   transitionDuration: 0
 };
 
-type CityPoint = {
-  position: [number, number];
-  count: number;
-  cityName: string;
-  pts: any[];
-};
-
-type LocationPoint = {
-  position: [number, number];
-  data: any;
-};
-
 export default function InteractiveMap() {
   const { locations } = useLocations();
-
   const [provinces, setProvinces] = useState<any>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
-
-  const [cityPoints, setCityPoints] = useState<CityPoint[]>([]);
-  const [locationPoints, setLocationPoints] = useState<LocationPoint[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
-
-  // mapbox
+  const [cityPoints, setCityPoints] = useState<any[]>([]);
+  const [locationPoints, setLocationPoints] = useState<any[]>([]);
+  const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
 
-  // ---------------------------
-  // Helpers
-  // ---------------------------
-  const provinceMatch = (loc: any, provName: string) => {
-    const val = `${loc.province || loc.region || ''}`.toLowerCase();
-    return (
-      val.includes(provName.toLowerCase()) ||
-      provName.toLowerCase().includes(val)
-    );
-  };
+  // Fetch Mapbox token
+  useEffect(() => {
+    const fetchMapboxToken = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        
+        if (data?.token) {
+          setMapboxToken(data.token);
+          mapboxgl.accessToken = data.token;
+        } else {
+          // Fallback token
+          const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+          setMapboxToken(token);
+          mapboxgl.accessToken = token;
+        }
+      } catch (error) {
+        console.log('Edge function not available, using fallback token');
+        const token = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+        setMapboxToken(token);
+        mapboxgl.accessToken = token;
+      }
+    };
+    
+    fetchMapboxToken();
+  }, []);
 
-  const avgLngLat = (pts: any[]) => {
-    const sum = pts.reduce(
-      (acc, p) => {
-        const lng = typeof p.longitude === 'string' ? parseFloat(p.longitude) : p.longitude;
-        const lat = typeof p.latitude === 'string' ? parseFloat(p.latitude) : p.latitude;
-        return { lng: acc.lng + lng, lat: acc.lat + lat, n: acc.n + 1 };
-      },
-      { lng: 0, lat: 0, n: 0 }
-    );
-    return sum.n ? [sum.lng / sum.n, sum.lat / sum.n] as [number, number] : null;
-  };
+  // Initialize Mapbox map
+  useEffect(() => {
+    if (!mapContainerRef.current || !mapboxToken || !provinces) return;
 
-  // ---------------------------
-  // Boot
-  // ---------------------------
+    mapRef.current = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      center: [viewState.longitude, viewState.latitude],
+      zoom: viewState.zoom,
+      pitch: viewState.pitch,
+      bearing: viewState.bearing,
+      interactive: false // DeckGL will handle interactions
+    });
+
+    mapRef.current.on('load', () => {
+      if (!mapRef.current || !provinces) return;
+
+      // Add all provinces as a source for potential masking
+      mapRef.current.addSource('all-provinces', {
+        type: 'geojson',
+        data: provinces
+      });
+
+      // Add world mask source (starts with full coverage to hide everything)
+      mapRef.current.addSource('world-mask', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
+          }
+        }
+      });
+
+      // Add mask layer that covers everything outside selected province
+      mapRef.current.addLayer({
+        id: 'world-mask-layer',
+        type: 'fill',
+        source: 'world-mask',
+        paint: {
+          'fill-color': '#1a1a2e',
+          'fill-opacity': 1
+        }
+      });
+
+      // Set satellite layer elevation to appear below 3D provinces
+      const layers = mapRef.current.getStyle().layers;
+      const satelliteLayer = layers?.find(layer => layer.type === 'raster');
+      
+      if (satelliteLayer) {
+        // Add custom properties to position satellite layer below provinces
+        mapRef.current.setPaintProperty(satelliteLayer.id, 'raster-opacity', 0.8);
+      }
+    });
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [mapboxToken, provinces]);
+
+  // Update mask when selected province changes
+  useEffect(() => {
+    if (!mapRef.current || !provinces) return;
+
+    if (!selectedProvince) {
+      // Hide all satellite imagery when no province is selected
+      if (mapRef.current.getSource('world-mask')) {
+        const fullMask = {
+          type: 'Feature' as const,
+          properties: {},
+          geometry: {
+            type: 'Polygon' as const,
+            coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
+          }
+        };
+
+        (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(fullMask);
+      }
+      return;
+    }
+
+    // Find the selected province feature
+    const selectedFeature = provinces.features.find(
+      (feature: any) => 
+        feature.properties.name_en === selectedProvince || 
+        feature.properties.name === selectedProvince
+    );
+
+    if (!selectedFeature) return;
+
+    // Create world bounds with selected province cut out
+    const worldBounds = [
+      [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]
+    ];
+
+    const maskWithHole = {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'Polygon' as const,
+        coordinates: [worldBounds[0], ...selectedFeature.geometry.coordinates]
+      }
+    };
+
+    // Update the mask to show only the selected province
+    (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(maskWithHole);
+  }, [selectedProvince, provinces]);
+
+  // Sync Mapbox map with DeckGL viewState
+  useEffect(() => {
+    if (mapRef.current && viewState) {
+      mapRef.current.jumpTo({
+        center: [viewState.longitude, viewState.latitude],
+        zoom: viewState.zoom,
+        pitch: viewState.pitch,
+        bearing: viewState.bearing
+      });
+    }
+  }, [viewState]);
+
   useEffect(() => {
     fetch(GEOJSON_URL)
       .then(res => res.json())
       .then(data => setProvinces(data));
   }, []);
 
-  // Fetch Mapbox token
   useEffect(() => {
-    const fetchMapboxToken = async () => {
-      try {
-        const { data } = await supabase.functions.invoke('get-mapbox-token');
-        const tok =
-          data?.token ??
-          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
-        setMapboxToken(tok);
-        mapboxgl.accessToken = tok;
-      } catch {
-        const tok =
-          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG16bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
-        setMapboxToken(tok);
-        mapboxgl.accessToken = tok;
-      }
-    };
-    fetchMapboxToken();
-  }, []);
-
-  // Initialize Mapbox map (as a background raster)
-  useEffect(() => {
-    if (!mapContainerRef.current || !mapboxToken || !provinces) return;
-
-    mapRef.current = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [viewState.longitude, viewState.latitude],
-      zoom: viewState.zoom,
-      pitch: 0, // enforce flat
-      bearing: viewState.bearing,
-      interactive: false
-    });
-
-    mapRef.current.on('load', () => {
-      if (!mapRef.current || !provinces) return;
-
-      // 1) Add provinces source (not used for drawing by Mapbox, just in case)
-      if (!mapRef.current.getSource('all-provinces')) {
-        mapRef.current.addSource('all-provinces', {
-          type: 'geojson',
-          data: provinces
-        });
-      }
-
-      // 2) Add world mask source
-      if (!mapRef.current.getSource('world-mask')) {
-        mapRef.current.addSource('world-mask', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: {},
-            geometry: {
-              type: 'Polygon',
-              coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
-            }
-          }
-        });
-      }
-
-      // 3) Add mask layer (outside: dark, inside (hole): map is visible)
-      if (!mapRef.current.getLayer('world-mask-layer')) {
-        mapRef.current.addLayer({
-          id: 'world-mask-layer',
-          type: 'fill',
-          source: 'world-mask',
-          paint: {
-            'fill-color': '#0b0f14',
-            'fill-opacity': 1
-          }
-        });
-      }
-    });
-
-    return () => {
-      mapRef.current?.remove();
-      mapRef.current = null;
-    };
-  }, [mapboxToken, provinces]);
-
-  // Update mask when province changes
-  useEffect(() => {
-    if (!mapRef.current || !provinces) return;
-
-    const fullMask = {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'Polygon' as const,
-        coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
-      }
-    };
-
-    if (!selectedProvince) {
-      (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource)?.setData(fullMask);
-      return;
-    }
-
-    const selectedFeature = provinces.features.find(
-      (f: any) =>
-        f.properties.name_en === selectedProvince ||
-        f.properties.name === selectedProvince
-    );
-
-    if (!selectedFeature) {
-      (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource)?.setData(fullMask);
-      return;
-    }
-
-    // world polygon with province hole
-    const maskWithHole = {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'Polygon' as const,
-        coordinates: [
-          fullMask.geometry.coordinates[0],
-          ...selectedFeature.geometry.coordinates // holes
-        ]
-      }
-    };
-
-    (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource)?.setData(maskWithHole);
-  }, [selectedProvince, provinces]);
-
-  // Sync Mapbox camera
-  useEffect(() => {
-    if (!mapRef.current) return;
-    mapRef.current.jumpTo({
-      center: [viewState.longitude, viewState.latitude],
-      zoom: viewState.zoom,
-      pitch: 0,
-      bearing: viewState.bearing
-    });
-  }, [viewState]);
-
-  // Recompute cities/locations when province toggles
-  useEffect(() => {
-    if (!selectedProvince) {
+    if (selectedProvince) {
+      const filtered = locations.filter(l => l.city === selectedProvince && l.latitude && l.longitude);
+      const cities: Record<string, any[]> = {};
+      filtered.forEach(l => {
+        const city = l.city || '';
+        if (!cities[city]) cities[city] = [];
+        cities[city].push(l);
+      });
+      setCityPoints(
+        Object.entries(cities).map(([city, pts]) => {
+          const avg = pts.reduce((acc, p) => {
+            acc.longitude += typeof p.longitude === 'string' ? parseFloat(p.longitude) : p.longitude;
+            acc.latitude += typeof p.latitude === 'string' ? parseFloat(p.latitude) : p.latitude;
+            return acc;
+          }, { longitude: 0, latitude: 0 });
+          avg.longitude /= pts.length;
+          avg.latitude /= pts.length;
+          return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
+        })
+      );
+      setLocationPoints(filtered.map(l => ({ 
+        position: [
+          typeof l.longitude === 'string' ? parseFloat(l.longitude) : l.longitude, 
+          typeof l.latitude === 'string' ? parseFloat(l.latitude) : l.latitude
+        ], 
+        data: l 
+      })));
+    } else {
       setCityPoints([]);
       setLocationPoints([]);
-      setSelectedLocation(null);
-      return;
     }
-
-    const filtered = locations.filter(
-      (l: any) => l.latitude && l.longitude && provinceMatch(l, selectedProvince)
-    );
-
-    // group by city
-    const byCity: Record<string, any[]> = {};
-    filtered.forEach(l => {
-      const key = `${l.city || ''}`.trim() || '—';
-      if (!byCity[key]) byCity[key] = [];
-      byCity[key].push(l);
-    });
-
-    const cities: CityPoint[] = Object.entries(byCity).map(([city, pts]) => {
-      const avg = avgLngLat(pts)!;
-      return { position: avg, count: pts.length, cityName: city, pts };
-    });
-
-    setCityPoints(cities);
-    setLocationPoints(
-      filtered.map((l: any) => ({
-        position: [
-          typeof l.longitude === 'string' ? parseFloat(l.longitude) : l.longitude,
-          typeof l.latitude === 'string' ? parseFloat(l.latitude) : l.latitude
-        ],
-        data: l
-      }))
-    );
   }, [selectedProvince, locations]);
 
-  // interactions
   const onViewStateChange = useCallback((info: any) => {
-    setViewState(v => ({ ...v, ...info.viewState, pitch: 0 })); // keep flat
+    setViewState(info.viewState);
   }, []);
 
-  const flyToProvince = (feature: any) => {
-    const center = turf.centroid(feature).geometry.coordinates as [number, number];
-    setViewState(v => ({
-      ...v,
-      longitude: center[0],
-      latitude: center[1],
-      zoom: 8, // comfortable province zoom
-      pitch: 0,
-      transitionDuration: 1000
-    }));
+  const animateElevation = (name: string) => {
+    let current = 10000;
+    const target = 20000;
+    const step = 500;
+    const interval = setInterval(() => {
+      current += step;
+      if (current >= target) {
+        clearInterval(interval);
+        current = target;
+      }
+      setElevationMap(prev => ({
+        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: 10000 }), {}),
+        [name]: current
+      }));
+    }, 16);
   };
 
   const onClickProvince = useCallback((info: any) => {
-    const f = info?.object;
-    if (!f?.properties) return;
+    if (info.object && info.object.properties) {
+      const name = info.object.properties.name_en || info.object.properties.name;
+      setSelectedProvince(name);
+      animateElevation(name);
 
-    const name = f.properties.name_en || f.properties.name;
-    setSelectedProvince(name);
-    flyToProvince(f);
+      const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
+      setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 45, transitionDuration: 1000 }));
+    }
   }, []);
 
-  // city click -> zoom in
-  const onClickCity = useCallback((info: any) => {
-    const obj = info?.object as CityPoint | undefined;
-    if (!obj) return;
-    setViewState(v => ({
-      ...v,
-      longitude: obj.position[0],
-      latitude: obj.position[1],
-      zoom: 11,
-      pitch: 0,
-      transitionDuration: 800
-    }));
-  }, []);
+  const layers = [];
 
-  // location click -> popup
-  const onClickLocation = useCallback((info: any) => {
-    const obj = info?.object as LocationPoint | undefined;
-    if (!obj) return;
-    setSelectedLocation(obj.data);
-  }, []);
-
-  // ---------------------------
-  // Layers
-  // ---------------------------
-  const layers: any[] = [];
-
-  // Provinces (flat, dark teal; selected becomes transparent)
   if (provinces) {
     layers.push(
       new GeoJsonLayer({
@@ -313,170 +263,98 @@ export default function InteractiveMap() {
         pickable: true,
         filled: true,
         stroked: true,
-        wireframe: false,
-        extruded: false,
-        getFillColor: (f: any) => {
-          const isSelected =
-            f.properties.name_en === selectedProvince ||
-            f.properties.name === selectedProvince;
-          // selected: transparent to reveal map; unselected: solid green with 0.9 opacity
-          return isSelected ? [0, 0, 0, 0] : [34, 139, 34, 230];
+        wireframe: true,
+        extruded: true,
+        getLineColor: [0, 0, 0, 255],
+        getLineWidth: () => 1,
+        lineWidthMinPixels: 1,
+        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000,
+        getFillColor: f => {
+          const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
+          return isSelected ? [34, 197, 94, 120] : [16, 185, 129, 80];
         },
-        getLineColor: [60, 60, 60, 255], // dark gray borders
-        getLineWidth: 2,
         onClick: onClickProvince,
-        updateTriggers: { getFillColor: [selectedProvince] }
+        updateTriggers: {
+          getElevation: elevationMap,
+          getFillColor: selectedProvince
+        }
       })
     );
   }
 
-  // City markers (only when province selected & zoom >= 8)
-  if (selectedProvince && viewState.zoom >= 8 && cityPoints.length > 0) {
-    // dot
+  if (viewState.zoom >= 8 && cityPoints.length > 0) {
     layers.push(
       new ScatterplotLayer({
-        id: 'cities-dots',
+        id: 'cities',
         data: cityPoints,
         pickable: true,
-        getPosition: (d: CityPoint) => d.position,
-        getRadius: (d: CityPoint) => Math.max(900, Math.sqrt(d.count) * 1200),
-        radiusMinPixels: 6,
-        radiusMaxPixels: 22,
-        getFillColor: [230, 245, 240, 255], // light
-        getLineColor: [16, 120, 110, 255], // teal ring
-        lineWidthMinPixels: 2,
-        onClick: onClickCity
-      })
-    );
-
-    // count label
-    layers.push(
-      new TextLayer({
-        id: 'cities-labels',
-        data: cityPoints,
-        getPosition: (d: CityPoint) => d.position,
-        getText: (d: CityPoint) => `${d.cityName} • ${d.count}`,
-        getSize: 12,
-        getColor: [220, 235, 230, 255],
-        getTextAnchor: 'middle',
-        getAlignmentBaseline: 'top',
-        getPixelOffset: [0, 12]
+        getPosition: d => d.position,
+        getRadius: d => Math.sqrt(d.count) * 5000,
+        getFillColor: [255, 140, 0],
+        onClick: info => {
+          if (info.object) {
+            setViewState(prev => ({ ...prev, longitude: info.object.position[0], latitude: info.object.position[1], zoom: 12, transitionDuration: 1000 }));
+          }
+        }
       })
     );
   }
 
-  // Location markers (zoom >= 11)
-  if (selectedProvince && viewState.zoom >= 11 && locationPoints.length > 0) {
+  if (viewState.zoom >= 12 && locationPoints.length > 0) {
     layers.push(
       new ScatterplotLayer({
         id: 'locations',
         data: locationPoints,
         pickable: true,
-        getPosition: (d: LocationPoint) => d.position,
-        getRadius: 180,
-        radiusMinPixels: 4,
-        radiusMaxPixels: 10,
-        getFillColor: [255, 255, 255, 255],
-        getLineColor: [16, 120, 110, 255],
-        lineWidthMinPixels: 1.5,
-        onClick: onClickLocation
+        getPosition: d => d.position,
+        getRadius: 2000,
+        getFillColor: [255, 0, 128],
+        onClick: info => info.object && alert(info.object.data.name)
       })
     );
   }
 
-  // ---------------------------
-  // UI
-  // ---------------------------
   if (!mapboxToken) {
     return (
-      <div className="flex items-center justify-center bg-muted" style={{ width: '100%', height: '600px' }}>
-        <p className="text-muted-foreground">Loading map…</p>
+      <div style={{ width: '100%', height: '600px', position: 'relative' }} className="flex items-center justify-center bg-muted">
+        <p className="text-muted-foreground">Loading map...</p>
       </div>
     );
   }
 
   return (
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
-      {/* Mapbox background */}
-      <div
-        ref={mapContainerRef}
-        style={{
-          width: '100%',
-          height: '100%',
+      <div 
+        ref={mapContainerRef} 
+        style={{ 
+          width: '100%', 
+          height: '100%', 
           position: 'absolute',
-          inset: 0,
+          top: '0',
+          left: '0',
           zIndex: 0
         }}
       />
-
-      {/* Deck.gl overlay */}
       <DeckGL
         viewState={viewState}
-        controller={{ dragRotate: false }} // disable tilt
+        controller={true}
         layers={layers}
         onViewStateChange={onViewStateChange}
-        style={{ width: '100%', height: '100%', position: 'absolute', inset: '0', zIndex: '1' }}
-        getTooltip={({ object }: any) => {
-          if (object?.properties?.name_en || object?.properties?.name) {
+        style={{ 
+          width: '100%', 
+          height: '100%',
+          position: 'absolute',
+          top: '0',
+          left: '0',
+          zIndex: '1'
+        }}
+        getTooltip={({ object }) => {
+          if (object && object.properties) {
             return object.properties.name_en || object.properties.name;
           }
           return null;
         }}
       />
-
-      {/* Location popup */}
-      {selectedLocation && (
-        <div
-          style={{
-            position: 'absolute',
-            right: 16,
-            top: 16,
-            width: 320,
-            zIndex: 3,
-            borderRadius: 12,
-            background: 'rgba(13,18,23,0.9)',
-            border: '1px solid rgba(36,66,64,0.6)',
-            overflow: 'hidden',
-            boxShadow: '0 12px 30px rgba(0,0,0,0.35)'
-          }}
-        >
-          {selectedLocation.image && (
-            <img
-              src={selectedLocation.image}
-              alt={selectedLocation.name}
-              style={{ width: '100%', height: 140, objectFit: 'cover' }}
-            />
-          )}
-          <div style={{ padding: 12 }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>{selectedLocation.name}</div>
-            {selectedLocation.address && (
-              <div style={{ opacity: 0.8, fontSize: 12, marginBottom: 8 }}>
-                {selectedLocation.address}
-              </div>
-            )}
-            {selectedLocation.description && (
-              <div style={{ opacity: 0.8, fontSize: 13, lineHeight: 1.4 }}>
-                {selectedLocation.description}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button
-                onClick={() => setSelectedLocation(null)}
-                style={{
-                  border: '1px solid rgba(60,90,85,0.8)',
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  background: 'transparent',
-                  color: '#cfe7df',
-                  cursor: 'pointer'
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
