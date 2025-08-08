@@ -157,7 +157,7 @@ export default function InteractiveMap() {
         background:#10b981; border:2px solid #fff;
         box-shadow:0 2px 8px rgba(16,185,129,.35);
         cursor:pointer;
-        transition: transform .12s ease;  /* safe: only inner scales */
+        transition: transform .12s ease;
         transform-origin: center;
       `;
       root.appendChild(bubble);
@@ -431,6 +431,15 @@ export default function InteractiveMap() {
     ]);
   }, [selectedRawName]);
 
+  // --- helpers for Bulgarian grammar ---
+  const pluralize = (n: number, one: string, many: string) => (n === 1 ? one : many);
+  const needsVav = (city: string | null) => {
+    if (!city) return false;
+    const ch = city.trim().charAt(0).toLowerCase();
+    // use 'във' before words starting with 'в' or 'ф' (covers both cases)
+    return ch === 'в' || ch === 'ф';
+  };
+
   // --- UI ---
   if (!token) {
     return (
@@ -474,19 +483,102 @@ export default function InteractiveMap() {
                     )}
                   </div>
                 </div>
+
+                {/* counts: град/града; помещение/помещения */}
                 <Badge variant="secondary">
                   {selectedCity
-                    ? `${cityLocations.length} офиса`
-                    : `${Object.keys(provinceCities).length} града, ${provinceLocations.length} офиса`}
+                    ? `${cityLocations.length} ${pluralize(cityLocations.length, 'помещение', 'помещения')}`
+                    : `${Object.keys(provinceCities).length} ${pluralize(Object.keys(provinceCities).length, 'град', 'града')}, ${provinceLocations.length} ${pluralize(provinceLocations.length, 'помещение', 'помещения')}`}
                 </Badge>
               </CardContent>
             </Card>
           </div>
         )}
+      </div>
 
-        {/* Selected location details (right) */}
-        {selectedLocation && (
-          <div className="absolute top-4 right-4 z-20 w-80">
+      {/* Province list (bottom) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-6">
+        {PROVINCES.map((p) => {
+          const data = provinceData[p.name];
+          if (!data || data.locations.length === 0) return null;
+          const isSelected = selectedProvince === p.name;
+          return (
+            <div
+              key={p.name}
+              onClick={() => (isSelected ? resetView() : handleProvinceSelect(p.name, data.coordinates))}
+              className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 hover:scale-105 ${
+                isSelected ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : ''
+              }`}
+            >
+              <div className="text-center">
+                <h4 className="font-semibold text-sm">{p.name}</h4>
+                <p className="text-xs text-muted-foreground">
+                  {data.locations.length} {pluralize(data.locations.length, 'помещение', 'помещения')}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Cities */}
+      {selectedProvince && !selectedCity && Object.keys(provinceCities).length > 0 && (
+        <div className="mt-6">
+          <h4 className="text-lg font-semibold mb-4">Градове в област {selectedProvince}</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {Object.entries(provinceCities).map(([city, locs]) => (
+              <div
+                key={city}
+                onClick={() => handleCitySelect(city, locs)}
+                className="p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-secondary hover:bg-secondary/5 hover:scale-105"
+              >
+                <div className="text-center">
+                  <h5 className="font-semibold text-sm">{city}</h5>
+                  <p className="text-xs text-muted-foreground">
+                    {locs.length} {pluralize(locs.length, 'помещение', 'помещения')}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Locations */}
+      {selectedCity && cityLocations.length > 0 && (
+        <div className="mt-6">
+          <h4 className="text-lg font-semibold mb-4">
+            {`Помещения ${needsVav(selectedCity) ? 'във' : 'в'} ${selectedCity}`}
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cityLocations.map((l) => (
+              <Card key={l.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setSelectedLocation(l)}>
+                <CardContent className="p-4">
+                  <h5 className="font-semibold mb-2">{l.name}</h5>
+                  <div className="flex items-center text-sm text-muted-foreground mb-2">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    <span>{l.address}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    {l.price_day && <Badge variant="outline">{l.price_day} лв./ден</Badge>}
+                    {l.rating && (
+                      <Badge variant="outline" className="flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        {l.rating}
+                      </Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Selected location details (right) */}
+      {selectedLocation && (
+        <div className="mt-6">
+          <div className="w-80 ml-auto">
             <Card className="shadow-xl">
               <div className="relative">
                 {selectedLocation.image && (
@@ -547,79 +639,6 @@ export default function InteractiveMap() {
                 </div>
               </CardContent>
             </Card>
-          </div>
-        )}
-      </div>
-
-      {/* Province list (bottom) */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-6">
-        {PROVINCES.map((p) => {
-          const data = provinceData[p.name];
-          if (!data || data.locations.length === 0) return null;
-          const isSelected = selectedProvince === p.name;
-          return (
-            <div
-              key={p.name}
-              onClick={() => (isSelected ? resetView() : handleProvinceSelect(p.name, data.coordinates))}
-              className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 hover:scale-105 ${
-                isSelected ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : ''
-              }`}
-            >
-              <div className="text-center">
-                <h4 className="font-semibold text-sm">{p.name}</h4>
-                <p className="text-xs text-muted-foreground">{data.locations.length} офиса</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Cities */}
-      {selectedProvince && !selectedCity && Object.keys(provinceCities).length > 0 && (
-        <div className="mt-6">
-          <h4 className="text-lg font-semibold mb-4">Градове в {selectedProvince}</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {Object.entries(provinceCities).map(([city, locs]) => (
-              <div
-                key={city}
-                onClick={() => handleCitySelect(city, locs)}
-                className="p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-secondary hover:bg-secondary/5 hover:scale-105"
-              >
-                <div className="text-center">
-                  <h5 className="font-semibold text-sm">{city}</h5>
-                  <p className="text-xs text-muted-foreground">{locs.length} офиса</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Locations */}
-      {selectedCity && cityLocations.length > 0 && (
-        <div className="mt-6">
-          <h4 className="text-lg font-semibold mb-4">Офиси в {selectedCity}</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {cityLocations.map((l) => (
-              <Card key={l.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setSelectedLocation(l)}>
-                <CardContent className="p-4">
-                  <h5 className="font-semibold mb-2">{l.name}</h5>
-                  <div className="flex items-center text-sm text-muted-foreground mb-2">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    <span>{l.address}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    {l.price_day && <Badge variant="outline">{l.price_day} лв./ден</Badge>}
-                    {l.rating && (
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        {l.rating}
-                      </Badge>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
           </div>
         </div>
       )}
