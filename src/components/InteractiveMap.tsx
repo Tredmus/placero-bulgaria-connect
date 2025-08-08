@@ -72,7 +72,7 @@ function normalizeFC(raw: any) {
   return { type: 'FeatureCollection', features };
 }
 
-// simple dissolve via union-reduce
+// union-reduce (dissolve) helper
 function dissolve(features: any[]) {
   if (!features.length) return null;
   let acc = features[0];
@@ -94,30 +94,10 @@ function outerRings(geom: any): Ring[] {
   return out;
 }
 
-// ---- NEW: build a single-hole mask for a selected province ----
-function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
-  // big outer ring
+function buildMaskFromGeometry(geom: any) {
   const worldRing: Ring = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
-
-  if (!rawName) {
-    // no selection -> default to Bulgaria-wide hole (union of all provinces)
-    const dissolvedAll = dissolve(provincesFC.features);
-    const holes = outerRings(dissolvedAll?.geometry);
-    let mask: any = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [worldRing, ...holes] } };
-    try { mask = rewind(cleanCoords(mask, { mutate: false }) as any, { reverse: false, mutate: false }); } catch {}
-    return mask;
-  }
-
-  // merge only the province parts with matching name or name_en
-  const parts = provincesFC.features.filter((f: any) => {
-    const nm = f.properties?.name ?? f.properties?.name_en;
-    return nm === rawName;
-  });
-  const merged = dissolve(parts);
-  if (!merged) return null;
-
-  const holes = outerRings(merged.geometry);
-  let mask: any = { type: 'Feature', properties: { province: rawName }, geometry: { type: 'Polygon', coordinates: [worldRing, ...holes] } };
+  const holes = outerRings(geom);
+  let mask: any = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [worldRing, ...holes] } };
   try { mask = rewind(cleanCoords(mask, { mutate: false }) as any, { reverse: false, mutate: false }); } catch {}
   return mask;
 }
@@ -150,8 +130,54 @@ export default function InteractiveMap() {
 
   const [token, setToken] = useState<string>('');
   const [provincesGeo, setProvincesGeo] = useState<any>(null);
-  const [worldMask, setWorldMask] = useState<any>(null); // current mask geojson feature (donut)
 
+  // token
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke('get-mapbox-token');
+        const t = data?.token || 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+        mapboxgl.accessToken = t; setToken(t);
+      } catch {
+        const t = 'pk.eyJ1IjoidHJлZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+        mapboxgl.accessToken = t; setToken(t);
+      }
+    })();
+  }, []);
+
+  // load provinces once
+  useEffect(() => {
+    (async () => {
+      const raw = await fetch(GEOJSON_URL).then((r) => r.json());
+      const normalized = normalizeFC(raw);
+      setProvincesGeo(normalized);
+    })();
+  }, []);
+
+  // precompute merged geometries: Bulgaria-all + per province name
+  const mergedGeoms = useMemo(() => {
+    if (!provincesGeo) return null;
+
+    // merge all
+    const allMerged = dissolve(provincesGeo.features);
+
+    // merge per name / name_en
+    const groups: Record<string, any[]> = {};
+    for (const f of provincesGeo.features) {
+      const key = f.properties?.name ?? f.properties?.name_en;
+      if (!key) continue;
+      (groups[key] ||= []).push(f);
+    }
+    const byName: Record<string, any> = {};
+    for (const [key, feats] of Object.entries(groups)) {
+      const merged = dissolve(feats);
+      if (merged) byName[key] = merged;
+    }
+
+    return { all: allMerged, byName };
+  }, [provincesGeo]);
+
+  // province cards summary
   const provinceData = useMemo(() => {
     const map: Record<string, { locations: any[]; coordinates: [number, number] }> = {};
     PROVINCES.forEach((p) => {
@@ -168,46 +194,6 @@ export default function InteractiveMap() {
     });
     return map;
   }, [locations]);
-
-  // token
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await supabase.functions.invoke('get-mapbox-token');
-        const t = data?.token || 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
-        mapboxgl.accessToken = t; setToken(t);
-      } catch {
-        const t = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
-        mapboxgl.accessToken = t; setToken(t);
-      }
-    })();
-  }, []);
-
-  // load provinces once
-  useEffect(() => {
-    (async () => {
-      const raw = await fetch(GEOJSON_URL).then((r) => r.json());
-      const normalized = normalizeFC(raw);
-      setProvincesGeo(normalized);
-
-      // initial mask = Bulgaria-wide hole
-      const initialMask = buildProvinceDonutMask(normalized, null);
-      setWorldMask(initialMask);
-    })();
-  }, []);
-
-  // recompute mask when selection changes (single-hole per selected province)
-  useEffect(() => {
-    if (!provincesGeo) return;
-    const newMask = buildProvinceDonutMask(provincesGeo, selectedRawName);
-    if (!newMask) return;
-    setWorldMask(newMask);
-
-    // live-update source if map already loaded
-    if (map.current?.getSource('world-mask')) {
-      (map.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(newMask as any);
-    }
-  }, [selectedRawName, provincesGeo]);
 
   // markers helpers (unchanged)
   const clearMarkers = () => { markers.current.forEach((m) => m.remove()); markers.current = []; markerById.current = {}; };
@@ -303,9 +289,9 @@ export default function InteractiveMap() {
     map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
   };
 
-  // init map
+  // ---- INIT MAP ONCE (no dependency on mask) ----
   useEffect(() => {
-    if (!mapEl.current || !token || !provincesGeo || !worldMask) return;
+    if (!mapEl.current || !token || !provincesGeo || !mergedGeoms) return;
 
     map.current = new mapboxgl.Map({
       container: mapEl.current,
@@ -335,10 +321,9 @@ export default function InteractiveMap() {
     mapEl.current.appendChild(tooltip);
 
     map.current.on('load', () => {
-      // provinces source (for interaction/hover)
+      // provinces
       map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
 
-      // visible provinces (on top of mask)
       map.current!.addLayer({
         id: 'provinces-fill',
         type: 'fill',
@@ -369,14 +354,15 @@ export default function InteractiveMap() {
         paint: { 'line-color': '#ffffff', 'line-width': 2 },
       });
 
-      // world mask (inserted *below* provinces-fill so it can't hide them)
-      map.current!.addSource('world-mask', { type: 'geojson', data: worldMask });
+      // world-mask source + layer (under provinces)
+      const initialMask = buildMaskFromGeometry(mergedGeoms.all);
+      map.current!.addSource('world-mask', { type: 'geojson', data: initialMask });
       map.current!.addLayer({
         id: 'world-mask-layer',
         type: 'fill',
         source: 'world-mask',
         paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
-      }, 'provinces-fill'); // <- put mask under provinces
+      }, 'provinces-fill');
 
       map.current!.on('mouseenter', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = 'pointer'));
       map.current!.on('mouseleave', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = ''));
@@ -416,7 +402,8 @@ export default function InteractiveMap() {
         const displayName =
           PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName;
         if (selectedRawNameRef.current && selectedRawNameRef.current === rawName) {
-          resetView(); return;
+          resetView(); // will also update mask effect below
+          return;
         }
         setSelectedProvince(displayName);
         setSelectedRawName(rawName);
@@ -431,9 +418,9 @@ export default function InteractiveMap() {
       markers.current = []; markerById.current = {};
       map.current?.remove(); map.current = null;
     };
-  }, [token, provincesGeo, worldMask, handleProvinceSelect]);
+  }, [token, provincesGeo, mergedGeoms, handleProvinceSelect]); // <-- no worldMask dep
 
-  // sync selected province paint
+  // update provinces paint when selection changes
   useEffect(() => {
     if (!map.current?.getLayer('provinces-fill')) return;
     map.current.setPaintProperty('provinces-fill', 'fill-color', [
@@ -452,13 +439,23 @@ export default function InteractiveMap() {
     ]);
   }, [selectedRawName]);
 
+  // ---- update mask only (no map refresh) ----
+  useEffect(() => {
+    if (!map.current || !mergedGeoms) return;
+    const geom = selectedRawName ? mergedGeoms.byName[selectedRawName] : mergedGeoms.all;
+    if (!geom) return;
+    const mask = buildMaskFromGeometry(geom);
+    const src = map.current.getSource('world-mask') as mapboxgl.GeoJSONSource | undefined;
+    if (src) src.setData(mask as any);
+  }, [selectedRawName, mergedGeoms]);
+
   // grammar helpers
   const pluralize = (n: number, one: string, many: string) => (n === 1 ? one : many);
   const needsVav = (city: string | null) => {
     if (!city) return false;
     const ch = city.trim().charAt(0).toLowerCase();
     return ch === 'в' || ch === 'ф';
-    };
+  };
 
   if (!token) {
     return (
