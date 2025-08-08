@@ -341,7 +341,6 @@ export default function InteractiveMap() {
 
     map.current.on('load', () => {
       // WORLD MASK built from province holes
-      const worldRing: [number, number][] = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
       const holes: [number, number][][] = [];
       for (const f of provincesGeo.features) {
         const g = f.geometry;
