@@ -285,25 +285,23 @@ export default function InteractiveMap() {
         paint: {
           // Selected province fully transparent (map visible beneath)
           'fill-color': [
-  'case',
-  ['any',
-    ['==', ['get', 'name_en'], selectedProvinceRef.current || '___none___'],
-    ['==', ['get', 'name'], selectedProvinceRef.current || '___none___']
-  ],
-  'rgba(0,0,0,0)',
-  'rgba(16,185,129,1)'
-],
-'fill-opacity': [
-  'case',
-  ['any',
-    ['==', ['get', 'name_en'], selectedProvinceRef.current || '___none___'],
-    ['==', ['get', 'name'], selectedProvinceRef.current || '___none___']
-  ],
-  0,
-  ['boolean', ['feature-state', 'hover'], false],
-  0.4,
-  0.78
-],
+            'case',
+            ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvinceRef.current ?? '___none___'],
+            'rgba(0,0,0,0)',
+            'rgba(16,185,129,1)',
+          ],
+          // Hover/Selected opacity
+          'fill-opacity': [
+            'case',
+            // make selected fully transparent regardless of color
+            ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvinceRef.current ?? '___none___'],
+            0,
+            // Hover ~half when hovered
+            ['boolean', ['feature-state', 'hover'], false],
+            0.4,
+            // Default opacity
+            0.78,
+          ],
           'fill-outline-color': '#ffffff',
         },
       });
