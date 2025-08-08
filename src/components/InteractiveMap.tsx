@@ -446,7 +446,7 @@ export default function InteractiveMap() {
           position: 'absolute',
           top: '0',
           left: '0',
-          zIndex: 1
+          zIndex: '1'
         }}
         getTooltip={({ object }: any) => {
           // Province tooltip (from GeoJsonLayer)
