@@ -4,7 +4,7 @@ import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { TileLayer } from '@deck.gl/geo-layers';
 import * as turf from '@turf/turf';
 import union from '@turf/union';
-import difference from '@turf/difference';
+
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { useLocations } from '@/hooks/useLocations';
 
@@ -93,16 +93,24 @@ useEffect(() => {
     if (!f?.properties) return;
     const name = f.properties.name_en || f.properties.name;
     setSelectedProvince(name);
-    const [minX, minY, maxX, maxY] = turf.bbox(f);
-    const cx = (minX + maxX) / 2; const cy = (minY + maxY) / 2;
-    const size = Math.max(maxX - minX, maxY - minY);
-    const targetZoom = size > 5 ? 7.0 : size > 3 ? 7.6 : size > 2 ? 8.2 : 9.0;
-    setViewState(v => ({ ...v, longitude: cx, latitude: cy, zoom: targetZoom, transitionDuration: 800 }));
+    try {
+      const c = turf.centroid(f).geometry.coordinates;
+      setViewState(v => ({
+        ...v,
+        longitude: c[0],
+        latitude: c[1],
+        zoom: 8,
+        pitch: 45,
+        transitionDuration: 800
+      }));
+    } catch {
+      // fallback: no-op
+    }
   }, []);
 
   // ---- Basemap + masking (no react-map-gl) ----
-  // World bbox polygon (covers screen)
-  const worldPoly = useMemo(() => turf.bboxPolygon([-180, -85, 180, 85]) as any, []);
+  // Bulgaria bbox polygon (used for outside mask)
+  const bgBoundsPoly = useMemo(() => turf.bboxPolygon([19.3, 41.2, 28.6, 44.2]) as any, []);
 
   // Country polygon union (for masking outside BG)
 const countryUnion = useMemo(() => {
@@ -123,35 +131,45 @@ const countryUnion = useMemo(() => {
   // Mask that hides everything outside Bulgaria by default,
   // or outside the currently selected province when one is selected.
 const maskData = useMemo(() => {
-    // Temporarily disable mask to avoid heavy GeoJSON ops and typing issues
-    return null;
-  }, [countryUnion, worldPoly, provinces, selectedProvince]);
+    if (!countryUnion) return null;
+    try {
+      return (turf as any).difference(bgBoundsPoly as any, countryUnion as any) as any;
+    } catch {
+      return null;
+    }
+  }, [countryUnion, bgBoundsPoly]);
+
+  // Spotlight mask: dim rest of Bulgaria when a province is selected
+  const spotlightFeature = useMemo(() => {
+    if (!selectedProvince || !provinces || !countryUnion) return null;
+    const feat = provinces.features.find((f: any) =>
+      f.properties.name_en === selectedProvince || f.properties.name === selectedProvince
+    );
+    if (!feat) return null;
+    try {
+      return (turf as any).difference(countryUnion as any, feat as any) as any;
+    } catch {
+      return null;
+    }
+  }, [selectedProvince, provinces, countryUnion]);
 
   // Build layers
   const layers = useMemo(() => {
     const out: any[] = [];
 
-    // Basemap (OSM tiles)
+    const showBasemap = viewState.zoom >= 7.5 || !!selectedProvince;
+
+    // 1) Basemap (OSM tiles) at bottom
     out.push(new TileLayer({
       id: 'basemap',
       data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       minZoom: 0,
       maxZoom: 19,
       tileSize: 256,
-      opacity: 1
+      opacity: showBasemap ? 1 : 0
     }));
 
-    // Mask outside BG / outside selected province
-    if (maskData) {
-      out.push(new GeoJsonLayer({
-        id: 'mask',
-        data: maskData,
-        filled: true,
-        stroked: false,
-        getFillColor: [10, 12, 16, 255]
-      }));
-    }
-
+    // 2) Provinces
     if (provinces) {
       out.push(new GeoJsonLayer({
         id: 'provinces',
@@ -160,17 +178,20 @@ const maskData = useMemo(() => {
         filled: true,
         stroked: true,
         extruded: false,
+        wireframe: false,
+        opacity: 0.65,
         getLineColor: [40, 80, 80, 220],
         lineWidthMinPixels: 1,
         getFillColor: (f: any) =>
           (f.properties.name_en === selectedProvince || f.properties.name === selectedProvince)
-            ? [34, 197, 94, 140]
-            : [20, 120, 100, 90],
+            ? [34, 197, 94, 200]
+            : [20, 120, 100, 130],
         onClick: onClickProvince,
         updateTriggers: { getFillColor: selectedProvince }
       }));
     }
 
+    // 3) Cities (zoom >= 8)
     if (viewState.zoom >= 8 && cityPoints.length > 0) {
       out.push(new ScatterplotLayer({
         id: 'cities',
@@ -186,7 +207,8 @@ const maskData = useMemo(() => {
       }));
     }
 
-    if (viewState.zoom >= 11 && locationPoints.length > 0) {
+    // 4) Locations (zoom >= 12)
+    if (viewState.zoom >= 12 && locationPoints.length > 0) {
       out.push(new ScatterplotLayer({
         id: 'locations',
         data: locationPoints,
@@ -201,14 +223,36 @@ const maskData = useMemo(() => {
       }));
     }
 
+    // 5) Spotlight dim for rest of BG when a province is selected
+    if (selectedProvince && spotlightFeature) {
+      out.push(new GeoJsonLayer({
+        id: 'province-spotlight-mask',
+        data: spotlightFeature as any,
+        filled: true,
+        stroked: false,
+        getFillColor: [10, 12, 16, 120]
+      }));
+    }
+
+    // 6) Hard mask outside BG always on top
+    if (maskData) {
+      out.push(new GeoJsonLayer({
+        id: 'outside-mask',
+        data: maskData as any,
+        filled: true,
+        stroked: false,
+        getFillColor: [10, 12, 16, 255]
+      }));
+    }
+
     return out;
-  }, [maskData, provinces, selectedProvince, onClickProvince, viewState.zoom, cityPoints, locationPoints]);
+  }, [provinces, selectedProvince, onClickProvince, viewState.zoom, cityPoints, locationPoints, spotlightFeature, maskData]);
 
   return (
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
 <DeckGL
         viewState={viewState as any}
-        controller={{ dragRotate: false }}
+        controller={{ dragRotate: false, minZoom: 6, maxZoom: 14 }}
         layers={layers}
         onViewStateChange={onViewStateChange}
         getTooltip={({ object }) => object?.properties?.name_en || object?.properties?.name || null}
