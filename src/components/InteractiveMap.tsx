@@ -290,11 +290,16 @@ export default function InteractiveMap() {
             'rgba(0,0,0,0)',
             'rgba(16,185,129,1)',
           ],
-          // Hover opacity via feature-state: ~half when hovered
+          // Hover/Selected opacity
           'fill-opacity': [
             'case',
+            // make selected fully transparent regardless of color
+            ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvinceRef.current ?? '___none___'],
+            0,
+            // Hover ~half when hovered
             ['boolean', ['feature-state', 'hover'], false],
             0.4,
+            // Default opacity
             0.78,
           ],
           'fill-outline-color': '#ffffff',
@@ -382,6 +387,14 @@ export default function InteractiveMap() {
       ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvince ?? '___none___'],
       'rgba(0,0,0,0)',
       'rgba(16,185,129,1)',
+    ]);
+    map.current.setPaintProperty('provinces-fill', 'fill-opacity', [
+      'case',
+      ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvince ?? '___none___'],
+      0,
+      ['boolean', ['feature-state', 'hover'], false],
+      0.4,
+      0.78,
     ]);
   }, [selectedProvince]);
 
