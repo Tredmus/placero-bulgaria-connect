@@ -303,14 +303,12 @@ export default function InteractiveMap() {
           filled: true,
           stroked: true,
           extruded: false,
-          getLineColor: [...WHITE, 255],
+          getLineColor: [255, 255, 255, 255] as [number, number, number, number],
           getLineWidth: 2,
           lineWidthMinPixels: 2,
           getFillColor: (f: any) => {
-            const isSelected =
-              f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
-            // Unselected: dark green with 0.9 opacity; Selected: slightly more transparent to let basemap shine
-            return isSelected ? [...GREEN_DARK, 140] : [...GREEN_DARK, 230];
+            const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
+            return isSelected ? [12, 94, 64, 140] as [number, number, number, number] : [12, 94, 64, 230] as [number, number, number, number];
           },
           onClick: onClickProvince,
           updateTriggers: { getFillColor: selectedProvince },
@@ -332,9 +330,9 @@ export default function InteractiveMap() {
           getPosition: (d: any) => d.position,
           radiusUnits: 'pixels',
           getRadius: (d: any) => Math.min(24, 10 + Math.sqrt(d.count) * 2),
-          getFillColor: [...GREEN_MAIN, 220],
+          getFillColor: [16, 185, 129, 220] as [number, number, number, number],
           stroked: true,
-          getLineColor: [...WHITE, 240],
+          getLineColor: [255, 255, 255, 240] as [number, number, number, number],
           getLineWidth: 2,
           onClick: onClickCity,
           parameters: { depthTest: false },
@@ -368,9 +366,9 @@ export default function InteractiveMap() {
           getPosition: (d: any) => d.position,
           radiusUnits: 'pixels',
           getRadius: 7,
-          getFillColor: [255, 64, 128, 230],
+          getFillColor: [255, 64, 128, 230] as [number, number, number, number],
           stroked: true,
-          getLineColor: [...WHITE, 240],
+          getLineColor: [255, 255, 255, 240] as [number, number, number, number],
           getLineWidth: 2,
           onClick: onClickLocation,
           parameters: { depthTest: false },
@@ -406,7 +404,7 @@ export default function InteractiveMap() {
         controller={{ dragRotate: false }}
         layers={layers}
         onViewStateChange={onViewStateChange}
-        style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}
+        style={{ width: '100%', height: '100%', position: 'absolute', top: '0', left: '0', zIndex: '1' }}
         getTooltip={({ object }) => {
           if (!object) return null;
           if (object.properties) {
