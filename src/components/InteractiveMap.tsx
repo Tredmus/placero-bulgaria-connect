@@ -153,10 +153,7 @@ export default function InteractiveMap() {
       }
     });
 
-      // Update mask to reveal the basemap inside ALL provinces (Bulgaria),
-// not just the selected one.
-useEffect(() => {
-  if (!mapRef.current || !provinces) return;
+    if (!mapRef.current || !provinces) return;
 
   const worldRing: [number, number][] = [
     [-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]
@@ -187,6 +184,7 @@ useEffect(() => {
     }
   };
 
+  (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource)?.setData(maskWithAllProvinces);
 
     return () => {
       mapRef.current?.remove();
