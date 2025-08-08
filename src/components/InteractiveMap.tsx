@@ -91,7 +91,8 @@ export default function InteractiveMap() {
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
-        getFillColor: [16, 185, 129, 230], // All provinces visible with same opacity
+        // ↓ Make fills more transparent so the map is visible in all provinces
+        getFillColor: [16, 185, 129, 80],
         onClick: onClickProvince
       })
     );
