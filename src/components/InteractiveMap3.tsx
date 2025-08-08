@@ -59,7 +59,7 @@ export default function InteractiveMap() {
     if (!mapContainerRef.current || !mapboxToken || !provinces) return;
     mapRef.current = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      style: 'mapbox://styles/mapbox/dark-v11',
       center: [viewState.longitude, viewState.latitude],
       zoom: viewState.zoom,
       pitch: viewState.pitch,
