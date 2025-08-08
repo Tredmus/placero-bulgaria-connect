@@ -65,13 +65,13 @@ export default function InteractiveMap() {
   const hoveredFeatureId = useRef<number | string | null>(null);
 
   // Selection state + refs
-  const [selectedProvince, setSelectedProvince] = useState<string | null>(null); // BG display label
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(null); // BG label for UI
   const selectedProvinceRef = useRef<string | null>(null);
   useEffect(() => {
     selectedProvinceRef.current = selectedProvince;
   }, [selectedProvince]);
 
-  // Raw feature name used for Mapbox paint match
+  // Raw feature name used for paint matching (keeps selected province transparent)
   const [selectedRawName, setSelectedRawName] = useState<string | null>(null);
   const selectedRawNameRef = useRef<string | null>(null);
   useEffect(() => {
@@ -112,12 +112,12 @@ export default function InteractiveMap() {
         const { data } = await supabase.functions.invoke('get-mapbox-token');
         const t =
           data?.token ||
-          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         mapboxgl.accessToken = t;
         setToken(t);
       } catch {
         const t =
-          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         mapboxgl.accessToken = t;
         setToken(t);
       }
@@ -137,7 +137,6 @@ export default function InteractiveMap() {
   };
 
   const styleMarker = (bubble: HTMLDivElement, isSelected: boolean) => {
-    // Base bubble size + color
     bubble.style.width = '28px';
     bubble.style.height = '28px';
     bubble.style.borderRadius = '50%';
@@ -150,23 +149,52 @@ export default function InteractiveMap() {
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
 
+  const createLabeledMarkerRoot = (name: string) => {
+    const root = document.createElement('div');
+    root.style.cssText = `
+      position: relative;
+      width: 0; height: 0;
+      pointer-events: auto;
+      z-index: 2;
+    `;
+    // label
+    const label = document.createElement('div');
+    label.textContent = name || '';
+    label.style.cssText = `
+      position: absolute;
+      left: 50%; bottom: 36px;
+      transform: translateX(-50%);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 12px; font-weight: 700;
+      color: #fff;
+      background: rgba(0,0,0,.35);
+      backdrop-filter: blur(2px) saturate(130%);
+      white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+      pointer-events: none;
+      user-select: none;
+    `;
+    root.appendChild(label);
+
+    const bubble = document.createElement('div');
+    bubble.style.position = 'absolute';
+    bubble.style.left = '50%';
+    bubble.style.top = '50%';
+    bubble.style.transform = 'translate(-50%, -50%)';
+    root.appendChild(bubble);
+
+    return { root, bubble };
+  };
+
   const addLocationMarkers = (locs: any[]) => {
     if (!map.current) return;
     clearMarkers();
+
     locs.forEach((l) => {
       if (!l.latitude || !l.longitude) return;
 
-      // Root element: NO transform transitions (prevents pan-lag)
-      const root = document.createElement('div');
-      root.style.cssText = `
-        position: relative;
-        width: 0; height: 0;
-        pointer-events: auto;
-        z-index: 2;
-      `;
-
-      const bubble = document.createElement('div');
-      root.appendChild(bubble);
+      const { root, bubble } = createLabeledMarkerRoot(l.name || '');
 
       const isSel = selectedLocation && selectedLocation.id === l.id;
       styleMarker(bubble, !!isSel);
@@ -179,7 +207,7 @@ export default function InteractiveMap() {
         if (!isSel) bubble.style.transform = 'scale(1)';
       };
 
-      // Stop click from hitting province layer; mark selected
+      // Stop propagation so province layer doesn't eat the click
       root.addEventListener('click', (e) => {
         e.stopPropagation();
         setSelectedLocation(l);
@@ -196,9 +224,8 @@ export default function InteractiveMap() {
     });
   };
 
-  // Update marker visuals when selectedLocation changes
+  // Update marker visuals when selectedLocation changes (pins stay!)
   useEffect(() => {
-    // Style all bubbles based on whether they match selection
     Object.entries(markerById.current).forEach(([id, { bubble }]) => {
       const isSel = selectedLocation && String(selectedLocation.id) === id;
       styleMarker(bubble, isSel);
@@ -217,7 +244,7 @@ export default function InteractiveMap() {
         return rec.searchTerms.some((t) => c.includes(t) || t.includes(c));
       });
 
-      setSelectedProvince(rec.name); // BG for UI
+      setSelectedProvince(rec.name);
       setSelectedCity(null);
       setSelectedLocation(null);
       setProvinceLocations(locs);
@@ -239,7 +266,7 @@ export default function InteractiveMap() {
         map.current?.flyTo({ center: provinceData[rec.name].coordinates, zoom: targetZoom, pitch: 0, duration: 800 });
       }
     },
-    [locations, provinceData, selectedLocation]
+    [locations, provinceData]
   );
 
   const handleCitySelect = (city: string, locs: any[]) => {
@@ -309,7 +336,7 @@ export default function InteractiveMap() {
     mapEl.current.appendChild(tooltip);
 
     map.current.on('load', () => {
-      // WORLD MASK using province holes
+      // WORLD MASK built from province holes
       const worldRing: [number, number][] = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
       const holes: [number, number][][] = [];
       for (const f of provincesGeo.features) {
@@ -397,7 +424,7 @@ export default function InteractiveMap() {
         if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
       });
 
-      // Province click
+      // Province click (stores display + raw names)
       map.current!.on('click', 'provinces-fill', (e) => {
         const feat = e.features?.[0];
         if (!feat) return;
@@ -457,7 +484,7 @@ export default function InteractiveMap() {
   const needsVav = (city: string | null) => {
     if (!city) return false;
     const ch = city.trim().charAt(0).toLowerCase();
-    // 'във' before words starting with 'в' or 'ф'
+    // use 'във' before words starting with 'в' or 'ф'
     return ch === 'в' || ch === 'ф';
   };
 
