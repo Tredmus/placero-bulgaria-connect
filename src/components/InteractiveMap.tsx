@@ -54,6 +54,75 @@ const cleanCity = (s = '') =>
 
 const amenityIcons = { wifi: Wifi, coffee: Coffee, parking: Car, meeting: Users } as const;
 
+/** ---------- GeoJSON helpers (robust for multipolygons + enclaves) ---------- */
+type Ring = [number, number][];
+type Poly = Ring[];
+type MultiPoly = Poly[];
+
+function isRingValid(r: Ring | any): r is Ring {
+  return Array.isArray(r) && r.length >= 4 && r.every(pt => Array.isArray(pt) && pt.length === 2);
+}
+
+function extractOuterRings(feature: any): Ring[] {
+  const rings: Ring[] = [];
+  if (!feature?.geometry) return rings;
+  const g = feature.geometry;
+  if (g.type === 'Polygon') {
+    const outer = g.coordinates?.[0];
+    if (isRingValid(outer)) rings.push(outer);
+  } else if (g.type === 'MultiPolygon') {
+    const polys: MultiPoly = g.coordinates || [];
+    for (const poly of polys) {
+      const outer = poly?.[0];
+      if (isRingValid(outer)) rings.push(outer);
+    }
+  }
+  return rings;
+}
+
+function sanitizeProvincesFC(fc: any) {
+  // Keep only Feature{ Polygon | MultiPolygon }, drop stray FeatureCollections/LineStrings/etc.
+  if (!fc || fc.type !== 'FeatureCollection') return { type: 'FeatureCollection', features: [] as any[] };
+  const features = (fc.features || []).filter((f: any) => {
+    const t = f?.geometry?.type;
+    if (!t) return false;
+    // Drop umbrella/country pseudo features if present
+    const id = f?.properties?.id?.toString()?.toUpperCase?.() || '';
+    if (id === 'BLG' && (f?.properties?.name === 'Bulgaria' || f?.properties?.name === 'България')) return false;
+    return t === 'Polygon' || t === 'MultiPolygon';
+  });
+  return { type: 'FeatureCollection', features };
+}
+
+function buildWorldMaskFromProvinces(fc: any) {
+  // Invert a big world polygon with holes for each province outer ring.
+  const worldRing: Ring = [
+    [-180, -85],
+    [180, -85],
+    [180, 85],
+    [-180, 85],
+    [-180, -85],
+  ];
+  const holes: Ring[] = [];
+
+  for (const f of fc.features) {
+    for (const outer of extractOuterRings(f)) {
+      // Skip degenerate or tiny rings
+      if (!isRingValid(outer)) continue;
+      holes.push(outer);
+    }
+  }
+
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'Polygon',
+      coordinates: [worldRing, ...holes],
+    },
+  };
+}
+
 export default function InteractiveMap() {
   const { locations } = useLocations();
 
@@ -87,7 +156,9 @@ export default function InteractiveMap() {
 
   // Data
   const [token, setToken] = useState<string>('');
+  const [rawProvincesGeo, setRawProvincesGeo] = useState<any>(null);
   const [provincesGeo, setProvincesGeo] = useState<any>(null);
+  const [worldMask, setWorldMask] = useState<any>(null);
 
   const provinceData = useMemo(() => {
     const map: Record<string, { locations: any[]; coordinates: [number, number] }> = {};
@@ -125,10 +196,18 @@ export default function InteractiveMap() {
     })();
   }, []);
 
-  // Load provinces GeoJSON
+  // Load provinces GeoJSON (raw)
   useEffect(() => {
-    fetch(GEOJSON_URL).then((r) => r.json()).then(setProvincesGeo);
+    fetch(GEOJSON_URL).then((r) => r.json()).then(setRawProvincesGeo);
   }, []);
+
+  // Sanitize + build mask (handles multipolygons + enclaves; drops weird BLG)
+  useEffect(() => {
+    if (!rawProvincesGeo) return;
+    const cleanFC = sanitizeProvincesFC(rawProvincesGeo);
+    setProvincesGeo(cleanFC);
+    setWorldMask(buildWorldMaskFromProvinces(cleanFC));
+  }, [rawProvincesGeo]);
 
   // --- Selection helpers ---
   const clearMarkers = () => {
@@ -309,7 +388,7 @@ export default function InteractiveMap() {
 
   // --- Initialize Map ---
   useEffect(() => {
-    if (!mapEl.current || !token || !provincesGeo) return;
+    if (!mapEl.current || !token || !provincesGeo || !worldMask) return;
 
     map.current = new mapboxgl.Map({
       container: mapEl.current,
@@ -340,29 +419,23 @@ export default function InteractiveMap() {
     mapEl.current.appendChild(tooltip);
 
     map.current.on('load', () => {
-      // WORLD MASK built from province holes
-      const worldRing: [number, number][] = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
-      const holes: [number, number][][] = [];
-      for (const f of provincesGeo.features) {
-        const g = f.geometry;
-        if (!g) continue;
-        if (g.type === 'Polygon') holes.push(g.coordinates[0] as [number, number][]);
-        if (g.type === 'MultiPolygon') g.coordinates.forEach((poly: any) => holes.push(poly[0] as [number, number][]));
+      // WORLD MASK built from province outer rings (robust against enclaves/multipolygons)
+      if (!map.current!.getSource('world-mask')) {
+        map.current!.addSource('world-mask', { type: 'geojson', data: worldMask });
+        map.current!.addLayer({
+          id: 'world-mask-layer',
+          type: 'fill',
+          source: 'world-mask',
+          paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
+        });
       }
-      const mask = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [worldRing, ...holes] } };
-      map.current!.addSource('world-mask', { type: 'geojson', data: mask });
-      map.current!.addLayer({
-        id: 'world-mask-layer',
-        type: 'fill',
-        source: 'world-mask',
-        paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
-      });
 
-      // Provinces
+      // Provinces source (sanitized)
       if (!map.current!.getSource('provinces')) {
         map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
       }
 
+      // Province fill with transparent selection
       map.current!.addLayer({
         id: 'provinces-fill',
         type: 'fill',
@@ -462,7 +535,7 @@ export default function InteractiveMap() {
       map.current?.remove();
       map.current = null;
     };
-  }, [token, provincesGeo, handleProvinceSelect]);
+  }, [token, provincesGeo, worldMask, handleProvinceSelect]);
 
   // Keep province transparency in sync
   useEffect(() => {
