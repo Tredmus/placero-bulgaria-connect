@@ -138,6 +138,7 @@ export default function InteractiveMap() {
         });
       }
 
+
       // 3) Add mask layer (outside: dark, inside (hole): map is visible)
       if (!mapRef.current.getLayer('world-mask-layer')) {
         mapRef.current.addLayer({
@@ -151,6 +152,41 @@ export default function InteractiveMap() {
         });
       }
     });
+
+      // Update mask to reveal the basemap inside ALL provinces (Bulgaria),
+// not just the selected one.
+useEffect(() => {
+  if (!mapRef.current || !provinces) return;
+
+  const worldRing: [number, number][] = [
+    [-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]
+  ];
+
+  // Collect all province rings (supports Polygon and MultiPolygon)
+  const holes: number[][][] = [];
+  for (const f of provinces.features) {
+    const g = f.geometry;
+    if (!g) continue;
+    if (g.type === 'Polygon') {
+      // Each ring becomes a hole in the world polygon
+      for (const ring of g.coordinates) holes.push(ring);
+    } else if (g.type === 'MultiPolygon') {
+      for (const poly of g.coordinates) {
+        for (const ring of poly) holes.push(ring);
+      }
+    }
+  }
+
+  const maskWithAllProvinces = {
+    type: 'Feature' as const,
+    properties: {},
+    geometry: {
+      type: 'Polygon' as const,
+      // Outer ring = whole world, inner rings = ALL provinces (revealed)
+      coordinates: [worldRing, ...holes]
+    }
+  };
+
 
     return () => {
       mapRef.current?.remove();
@@ -322,7 +358,7 @@ export default function InteractiveMap() {
             f.properties.name_en === selectedProvince ||
             f.properties.name === selectedProvince;
           // default: rich teal (opaque); selected: fully transparent to reveal map
-          return isSelected ? [0, 0, 0, 0] : [14, 95, 85, 25];
+          return isSelected ? [0, 0, 0, 0] : [14, 95, 85, 255];
         },
         onClick: onClickProvince,
         updateTriggers: { getFillColor: [selectedProvince] }
