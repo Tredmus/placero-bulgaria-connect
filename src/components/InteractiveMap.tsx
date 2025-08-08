@@ -13,11 +13,6 @@ import { MapPin, Building2, RotateCcw, Star, Wifi, Coffee, Car, Users } from 'lu
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
-/**
- * NOTE on province names:
- * - In the GeoJSON we expect "name" (BG) and optionally "name_en".
- * - For UI we map to Bulgarian via PROVINCES below when needed.
- */
 const PROVINCES = [
   { name: 'София', nameEn: 'Sofia', searchTerms: ['софия', 'sofia'] },
   { name: 'Пловдив', nameEn: 'Plovdiv', searchTerms: ['пловдив', 'plovdiv'] },
@@ -62,18 +57,13 @@ export default function InteractiveMap() {
   const [token, setToken] = useState<string>('');
   const [provincesGeo, setProvincesGeo] = useState<any>(null);
 
-  // Selection state (province -> city -> location)
+  // selection state
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
   const [provinceCities, setProvinceCities] = useState<Record<string, any[]>>({});
   const [provinceLocations, setProvinceLocations] = useState<any[]>([]);
   const [cityLocations, setCityLocations] = useState<any[]>([]);
-
-  // --- HOVER state for provinces (Mapbox feature-state) ---
-  // We use generateId:true on the GeoJSON source so each feature has a numeric id.
-  const hoveredId = useRef<number | null>(null);
-  const hoverPopup = useRef<mapboxgl.Popup | null>(null);
 
   // province meta built from real locations (for bottom list + centering)
   const provinceData = useMemo(() => {
@@ -155,38 +145,23 @@ export default function InteractiveMap() {
       });
 
       // 2) Provinces fill + outline (colored, clickable)
-      //    We enable generateId so we can use feature-state for hover styling.
       if (!map.current!.getSource('provinces')) {
-        map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
+        map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo });
       }
-
-      // Base fill color is solid; we control visibility via fill-opacity w/ expressions
       map.current!.addLayer({
         id: 'provinces-fill',
         type: 'fill',
         source: 'provinces',
         paint: {
-          // Opaque fill color; opacity handled below
-          'fill-color': '#10b981',
-          // Opacity rules:
-          // - Selected province => 0 (fully transparent)
-          // - Hovered province  => 0.5
-          // - Default           => 0.78
-          'fill-opacity': [
+          'fill-color': [
             'case',
-            // selected province: compare BG or EN fallback against selectedProvince
             ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvince ?? '___none___'],
-            0,
-            // hovered via feature-state
-            ['boolean', ['feature-state', 'hover'], false],
-            0.5,
-            // default
-            0.78,
+            'rgba(0,0,0,0)', // selected = transparent
+            'rgba(16,185,129,0.78)', // green
           ],
           'fill-outline-color': '#ffffff',
         },
       });
-
       map.current!.addLayer({
         id: 'provinces-outline',
         type: 'line',
@@ -194,61 +169,11 @@ export default function InteractiveMap() {
         paint: { 'line-color': '#ffffff', 'line-width': 2 },
       });
 
-      // --- Hover interactions (cursor + feature-state + tooltip) ---
-      map.current!.on('mouseenter', 'provinces-fill', () => {
-        map.current!.getCanvas().style.cursor = 'pointer';
-      });
+      // hover cursor
+      map.current!.on('mouseenter', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = 'pointer'));
+      map.current!.on('mouseleave', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = ''));
 
-      map.current!.on('mousemove', 'provinces-fill', (e) => {
-        if (!e.features?.length) return;
-        const f = e.features[0];
-
-        // Clear previous hover state
-        if (hoveredId.current !== null) {
-          map.current!.setFeatureState({ source: 'provinces', id: hoveredId.current }, { hover: false });
-        }
-
-        // Set new hover state
-        hoveredId.current = f.id as number;
-        if (hoveredId.current !== null) {
-          map.current!.setFeatureState({ source: 'provinces', id: hoveredId.current }, { hover: true });
-        }
-
-        // Resolve Bulgarian label
-        const rawName = (f.properties as any).name || (f.properties as any).name_en;
-        const displayName =
-          PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName;
-
-        // Create/update a lightweight popup near cursor
-        if (!hoverPopup.current) {
-          hoverPopup.current = new mapboxgl.Popup({
-            closeButton: false,
-            closeOnClick: false,
-            offset: [0, -8],
-            className: 'province-tooltip', // optional: style via global CSS if desired
-          });
-        }
-        hoverPopup.current
-          .setLngLat(e.lngLat)
-          .setHTML(`<div style="font-weight:600;font-size:13px;">${displayName}</div>`)
-          .addTo(map.current!);
-      });
-
-      map.current!.on('mouseleave', 'provinces-fill', () => {
-        map.current!.getCanvas().style.cursor = '';
-        // Clear hover state
-        if (hoveredId.current !== null) {
-          map.current!.setFeatureState({ source: 'provinces', id: hoveredId.current }, { hover: false });
-          hoveredId.current = null;
-        }
-        // Remove tooltip
-        if (hoverPopup.current) {
-          hoverPopup.current.remove();
-          hoverPopup.current = null;
-        }
-      });
-
-      // --- Click -> select province ---
+      // click -> select province
       map.current!.on('click', 'provinces-fill', (e) => {
         const feat = e.features?.[0];
         if (!feat) return;
@@ -261,29 +186,22 @@ export default function InteractiveMap() {
     });
 
     return () => {
-      // Cleanup markers & map
       markers.current.forEach((m) => m.remove());
       markers.current = [];
-      if (hoverPopup.current) {
-        hoverPopup.current.remove();
-        hoverPopup.current = null;
-      }
       map.current?.remove();
       map.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, provincesGeo]);
 
-  // Keep province fill-opacity in sync with selection (selected => 0 opacity)
+  // keep province color in sync with selection
   useEffect(() => {
     if (!map.current?.getLayer('provinces-fill')) return;
-    map.current.setPaintProperty('provinces-fill', 'fill-opacity', [
+    map.current.setPaintProperty('provinces-fill', 'fill-color', [
       'case',
       ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvince ?? '___none___'],
-      0,
-      ['boolean', ['feature-state', 'hover'], false],
-      0.5,
-      0.78,
+      'rgba(0,0,0,0)',
+      'rgba(16,185,129,0.78)',
     ]);
   }, [selectedProvince]);
 
@@ -343,11 +261,11 @@ export default function InteractiveMap() {
 
       addLocationMarkers(locs);
 
-      // fly (zoom bumped from 8 -> 9 for a bit more detail)
+      // fly
       if (centerGuess) {
-        map.current?.flyTo({ center: centerGuess, zoom: 9, pitch: 0, duration: 800 });
+        map.current?.flyTo({ center: centerGuess, zoom: 8, pitch: 0, duration: 800 });
       } else if (provinceData[rec.name]) {
-        map.current?.flyTo({ center: provinceData[rec.name].coordinates, zoom: 9, pitch: 0, duration: 800 });
+        map.current?.flyTo({ center: provinceData[rec.name].coordinates, zoom: 8, pitch: 0, duration: 800 });
       }
     },
     [locations, provinceData]
@@ -437,4 +355,136 @@ export default function InteractiveMap() {
                   <img
                     src={selectedLocation.image}
                     alt={selectedLocation.name}
-                    className="w-full h-32 objec
+                    className="w-full h-32 object-cover rounded-t-lg"
+                  />
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2 bg-background/80 hover:bg-background"
+                  onClick={() => setSelectedLocation(null)}
+                >
+                  ×
+                </Button>
+              </div>
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="font-semibold text-lg">{selectedLocation.name}</h3>
+                    {selectedLocation.companies?.name && (
+                      <p className="text-sm text-muted-foreground">{selectedLocation.companies.name}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    <span>{selectedLocation.address}</span>
+                  </div>
+                  {selectedLocation.amenities?.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedLocation.amenities.slice(0, 4).map((a: string) => {
+                        const Icon = (amenityIcons as any)[a];
+                        return (
+                          <div key={a} className="flex items-center text-xs text-muted-foreground">
+                            {Icon && <Icon className="h-3 w-3 mr-1" />}
+                            <span className="capitalize">{a}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2">
+                    {selectedLocation.price_day && (
+                      <div>
+                        <span className="text-lg font-semibold">{selectedLocation.price_day}лв</span>
+                        <span className="text-sm text-muted-foreground">/ден</span>
+                      </div>
+                    )}
+                    {selectedLocation.rating && (
+                      <Badge variant="outline" className="flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        {selectedLocation.rating}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Province list (bottom) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-6">
+        {PROVINCES.map((p) => {
+          const data = provinceData[p.name];
+          if (!data || data.locations.length === 0) return null;
+          const isSelected = selectedProvince === p.name;
+          return (
+            <div
+              key={p.name}
+              onClick={() => (isSelected ? resetView() : handleProvinceSelect(p.name, data.coordinates))}
+              className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 hover:scale-105 ${
+                isSelected ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : ''
+              }`}
+            >
+              <div className="text-center">
+                <h4 className="font-semibold text-sm">{p.name}</h4>
+                <p className="text-xs text-muted-foreground">{data.locations.length} офиса</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Cities */}
+      {selectedProvince && !selectedCity && Object.keys(provinceCities).length > 0 && (
+        <div className="mt-6">
+          <h4 className="text-lg font-semibold mb-4">Градове в {selectedProvince}</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {Object.entries(provinceCities).map(([city, locs]) => (
+              <div
+                key={city}
+                onClick={() => handleCitySelect(city, locs)}
+                className="p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-secondary hover:bg-secondary/5 hover:scale-105"
+              >
+                <div className="text-center">
+                  <h5 className="font-semibold text-sm">{city}</h5>
+                  <p className="text-xs text-muted-foreground">{locs.length} офиса</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Locations */}
+      {selectedCity && cityLocations.length > 0 && (
+        <div className="mt-6">
+          <h4 className="text-lg font-semibold mb-4">Офиси в {selectedCity}</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cityLocations.map((l) => (
+              <Card key={l.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setSelectedLocation(l)}>
+                <CardContent className="p-4">
+                  <h5 className="font-semibold mb-2">{l.name}</h5>
+                  <div className="flex items-center text-sm text-muted-foreground mb-2">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    <span>{l.address}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    {l.price_day && <Badge variant="outline">{l.price_day} лв./ден</Badge>}
+                    {l.rating && (
+                      <Badge variant="outline" className="flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        {l.rating}
+                      </Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
