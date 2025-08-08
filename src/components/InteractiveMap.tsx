@@ -124,53 +124,24 @@ export default function InteractiveMap() {
     };
   }, [mapboxToken, provinces]);
 
-  // Update mask when selected province changes
+  // Remove satellite masking - show map for all provinces
   useEffect(() => {
     if (!mapRef.current || !provinces) return;
 
-    if (!selectedProvince) {
-      // Hide all satellite imagery when no province is selected
-      if (mapRef.current.getSource('world-mask')) {
-        const fullMask = {
-          type: 'Feature' as const,
-          properties: {},
-          geometry: {
-            type: 'Polygon' as const,
-            coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
-          }
-        };
+    // Remove the world mask to show satellite imagery everywhere
+    if (mapRef.current.getSource('world-mask')) {
+      const emptyMask = {
+        type: 'Feature' as const,
+        properties: {},
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: []
+        }
+      };
 
-        (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(fullMask);
-      }
-      return;
+      (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(emptyMask);
     }
-
-    // Find the selected province feature
-    const selectedFeature = provinces.features.find(
-      (feature: any) => 
-        feature.properties.name_en === selectedProvince || 
-        feature.properties.name === selectedProvince
-    );
-
-    if (!selectedFeature) return;
-
-    // Create world bounds with selected province cut out
-    const worldBounds = [
-      [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]
-    ];
-
-    const maskWithHole = {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'Polygon' as const,
-        coordinates: [worldBounds[0], ...selectedFeature.geometry.coordinates]
-      }
-    };
-
-    // Update the mask to show only the selected province
-    (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(maskWithHole);
-  }, [selectedProvince, provinces]);
+  }, [provinces]);
 
   // Sync Mapbox map with DeckGL viewState
   useEffect(() => {
@@ -304,7 +275,7 @@ export default function InteractiveMap() {
         lineWidthMinPixels: 1,
         getFillColor: f => {
           const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
-          return isSelected ? [34, 197, 94, 0] : [16, 185, 129, 230];
+          return isSelected ? [22, 101, 52, 0] : [22, 101, 52, 230]; // Dark green with proper opacity
         },
         onClick: onClickProvince,
         updateTriggers: {
@@ -314,38 +285,36 @@ export default function InteractiveMap() {
     );
   }
 
-  // City markers (when province is selected but no city is selected)
-  if ((selectedProvince && !selectedCity) || viewState.zoom >= 8) {
-    if (cityPoints.length > 0) {
-      layers.push(
-        new ScatterplotLayer({
-          id: 'cities',
-          data: cityPoints,
-          pickable: true,
-          getPosition: d => d.position,
-          getRadius: d => Math.max(8000, Math.sqrt(d.count) * 3000),
-          getFillColor: [59, 130, 246, 200],
-          getLineColor: [255, 255, 255, 255],
-          getLineWidth: 3,
-          stroked: true,
-          onClick: onClickCity
-        })
-      );
-    }
+  // City markers - only show when zoomed in enough (7.5-11) or province selected
+  if (cityPoints.length > 0 && viewState.zoom >= 7.5 && viewState.zoom < 11 && !selectedCity) {
+    layers.push(
+      new ScatterplotLayer({
+        id: 'cities',
+        data: cityPoints,
+        pickable: true,
+        getPosition: d => d.position,
+        getRadius: 1500, // Smaller, more reasonable size
+        getFillColor: [59, 130, 246, 200],
+        getLineColor: [255, 255, 255, 255],
+        getLineWidth: 1,
+        stroked: true,
+        onClick: onClickCity
+      })
+    );
   }
 
-  // Location markers (when city is selected or zoomed in enough)
-  if ((selectedCity || viewState.zoom >= 12) && locationPoints.length > 0) {
+  // Location markers - only show when zoomed in enough (11+) or city selected
+  if (locationPoints.length > 0 && (viewState.zoom >= 11 || selectedCity)) {
     layers.push(
       new ScatterplotLayer({
         id: 'locations',
         data: locationPoints,
         pickable: true,
         getPosition: d => d.position,
-        getRadius: 4000,
+        getRadius: 800, // Much smaller location markers
         getFillColor: [239, 68, 68, 220],
         getLineColor: [255, 255, 255, 255],
-        getLineWidth: 2,
+        getLineWidth: 1,
         stroked: true,
         onClick: onClickLocation
       })
