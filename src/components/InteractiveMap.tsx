@@ -57,28 +57,32 @@ const amenityIcons = { wifi: Wifi, coffee: Coffee, parking: Car, meeting: Users 
 export default function InteractiveMap() {
   const { locations } = useLocations();
 
-  // --- Refs for the Mapbox instance, container div, markers, and a hover tooltip ---
+  // Map/DOM refs
   const mapEl = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
-  const hoverTooltipRef = useRef<HTMLDivElement | null>(null); // DOM tooltip for province name on hover
-  const hoveredFeatureId = useRef<number | string | null>(null); // track hovered feature-state
+  const hoverTooltipRef = useRef<HTMLDivElement | null>(null);
+  const hoveredFeatureId = useRef<number | string | null>(null);
 
-  // --- Data & state ---
-  const [token, setToken] = useState<string>('');
-  const [provincesGeo, setProvincesGeo] = useState<any>(null);
-
+  // Selection state + ref mirror (so handlers inside init effect can read latest)
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
+  const selectedProvinceRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedProvinceRef.current = selectedProvince;
+  }, [selectedProvince]);
+
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
   const [provinceCities, setProvinceCities] = useState<Record<string, any[]>>({});
   const [provinceLocations, setProvinceLocations] = useState<any[]>([]);
   const [cityLocations, setCityLocations] = useState<any[]>([]);
 
+  // Data
+  const [token, setToken] = useState<string>('');
+  const [provincesGeo, setProvincesGeo] = useState<any>(null);
+
   /**
-   * provinceData:
-   * Build per-province location clusters (for list + centering the map).
-   * We compute a rough center from average lat/lng of valid locations.
+   * provinceData: clusters + rough centers for each province from your locations.
    */
   const provinceData = useMemo(() => {
     const map: Record<string, { locations: any[]; coordinates: [number, number] }> = {};
@@ -97,7 +101,7 @@ export default function InteractiveMap() {
     return map;
   }, [locations]);
 
-  // --- Token fetch (Mapbox Access Token from Supabase Function; fallback if needed) ---
+  // Mapbox token
   useEffect(() => {
     (async () => {
       try {
@@ -116,196 +120,12 @@ export default function InteractiveMap() {
     })();
   }, []);
 
-  // --- Load provinces GeoJSON ---
+  // Load provinces GeoJSON
   useEffect(() => {
     fetch(GEOJSON_URL).then((r) => r.json()).then(setProvincesGeo);
   }, []);
 
-  // --- Initialize Mapbox map once token + provinces are loaded ---
-  useEffect(() => {
-    if (!mapEl.current || !token || !provincesGeo) return;
-
-    map.current = new mapboxgl.Map({
-      container: mapEl.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [25.4858, 42.7339],
-      zoom: 6.5,
-      pitch: 0,
-      bearing: 0,
-      renderWorldCopies: false,
-      maxZoom: 18,
-      minZoom: 5.5,
-    });
-
-    // Zoom controls
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-    // Create a hover tooltip element (absolute, inside the map container)
-    const tooltip = document.createElement('div');
-    tooltip.className = 'map-province-tooltip';
-    tooltip.style.cssText = `
-      position:absolute;pointer-events:none;z-index:30;
-      background:rgba(0,0,0,.7);color:#fff;padding:6px 8px;
-      border-radius:6px;font-size:12px;transform:translate(-50%,-120%);
-      white-space:nowrap;opacity:0;transition:opacity .12s ease;
-      border:1px solid rgba(255,255,255,.15);
-      backdrop-filter:saturate(140%) blur(2px);
-    `;
-    hoverTooltipRef.current = tooltip;
-    mapEl.current.appendChild(tooltip);
-
-    map.current.on('load', () => {
-      /** 1) WORLD MASK with holes for all provinces (keeps the dark page background outside BG) */
-      const worldRing: [number, number][] = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
-      const holes: [number, number][][] = [];
-      for (const f of provincesGeo.features) {
-        const g = f.geometry;
-        if (!g) continue;
-        if (g.type === 'Polygon') holes.push(g.coordinates[0] as [number, number][]);
-        if (g.type === 'MultiPolygon') g.coordinates.forEach((poly: any) => holes.push(poly[0] as [number, number][]));
-      }
-      const mask = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [worldRing, ...holes] } };
-      map.current!.addSource('world-mask', { type: 'geojson', data: mask });
-      map.current!.addLayer({
-        id: 'world-mask-layer',
-        type: 'fill',
-        source: 'world-mask',
-        paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
-      });
-
-      /**
-       * 2) Provinces source + layers
-       * - generateId:true => Mapbox assigns a stable feature.id so we can use feature-state for hover.
-       */
-      if (!map.current!.getSource('provinces')) {
-        map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
-      }
-
-      // Fill: selected province is fully transparent via fill-color; others are green.
-      map.current!.addLayer({
-        id: 'provinces-fill',
-        type: 'fill',
-        source: 'provinces',
-        paint: {
-          // Keep selection transparent by color (as you already had)
-          'fill-color': [
-            'case',
-            ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvince ?? '___none___'],
-            'rgba(0,0,0,0)', // selected = transparent color
-            'rgba(16,185,129,1)', // green (we control opacity below)
-          ],
-          // Hover opacity using feature-state; default ~0.78, hover ~0.4 (≈ half)
-          'fill-opacity': [
-            'case',
-            ['boolean', ['feature-state', 'hover'], false],
-            0.4,
-            0.78,
-          ],
-          'fill-outline-color': '#ffffff',
-        },
-      });
-
-      // Outline stays solid white
-      map.current!.addLayer({
-        id: 'provinces-outline',
-        type: 'line',
-        source: 'provinces',
-        paint: { 'line-color': '#ffffff', 'line-width': 2 },
-      });
-
-      // Pointer cursor on hover
-      map.current!.on('mouseenter', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = 'pointer'));
-      map.current!.on('mouseleave', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = ''));
-
-      /**
-       * Hover handlers:
-       * - Set feature-state {hover:true} for the hovered feature id, clear previous.
-       * - Move and show the tooltip with the province name in Bulgarian.
-       */
-      map.current!.on('mousemove', 'provinces-fill', (e: mapboxgl.MapLayerMouseEvent) => {
-        const f = e.features?.[0];
-        if (!f) return;
-
-        // Manage feature-state hover flag
-        if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== f.id) {
-          map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
-        }
-        hoveredFeatureId.current = f.id as number | string;
-        map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: true });
-
-        // Resolve Bulgarian display name
-        const rawName = (f.properties as any).name || (f.properties as any).name_en;
-        const displayName =
-          PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
-
-        // Position + show tooltip near cursor
-        if (hoverTooltipRef.current) {
-          const { point } = e; // screen pixel coords
-          hoverTooltipRef.current.textContent = displayName;
-          hoverTooltipRef.current.style.left = `${point.x}px`;
-          hoverTooltipRef.current.style.top = `${point.y}px`;
-          hoverTooltipRef.current.style.opacity = '1';
-        }
-      });
-
-      // Clear hover state + hide tooltip on mouseleave
-      map.current!.on('mouseleave', 'provinces-fill', () => {
-        if (hoveredFeatureId.current !== null) {
-          map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
-        }
-        hoveredFeatureId.current = null;
-        if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-      });
-
-      /**
-       * Click => select/deselect province
-       * - Click same province again: reset view.
-       * - Otherwise select + fly closer (zoom bumped from 8 to 9).
-       */
-      map.current!.on('click', 'provinces-fill', (e) => {
-        const feat = e.features?.[0];
-        if (!feat) return;
-        const rawName = (feat.properties as any).name || (feat.properties as any).name_en;
-        const displayName =
-          PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName;
-        const c = centroid(feat as any).geometry.coordinates as [number, number];
-
-        // Toggle selection if clicking the same province
-        if (selectedProvince && selectedProvince === displayName) {
-          resetView();
-          return;
-        }
-        handleProvinceSelect(displayName, c, /*zoomOverride*/ 9);
-      });
-    });
-
-    // Cleanup on unmount
-    return () => {
-      if (hoverTooltipRef.current) {
-        hoverTooltipRef.current.remove();
-        hoverTooltipRef.current = null;
-      }
-      markers.current.forEach((m) => m.remove());
-      markers.current = [];
-      map.current?.remove();
-      map.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, provincesGeo, selectedProvince]);
-
-  // --- Keep selection styling in sync when selectedProvince changes ---
-  useEffect(() => {
-    if (!map.current?.getLayer('provinces-fill')) return;
-    // Update only the fill-color (selection transparency). Hover opacity stays driven by feature-state.
-    map.current.setPaintProperty('provinces-fill', 'fill-color', [
-      'case',
-      ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvince ?? '___none___'],
-      'rgba(0,0,0,0)',
-      'rgba(16,185,129,1)',
-    ]);
-  }, [selectedProvince]);
-
-  // --- Marker helpers ---
+  // --- Selection helpers ---
   const clearMarkers = () => {
     markers.current.forEach((m) => m.remove());
     markers.current = [];
@@ -317,7 +137,6 @@ export default function InteractiveMap() {
     locs.forEach((l) => {
       if (!l.latitude || !l.longitude) return;
       const el = document.createElement('div');
-      // NOTE: This was slightly broken in your paste; kept same design, fixed template literal.
       el.style.cssText = `
         width:28px;height:28px;background:#10b981;border:2px solid #fff;border-radius:50%;
         cursor:pointer;box-shadow:0 2px 8px rgba(16,185,129,.35);transition:transform .15s ease;
@@ -333,7 +152,6 @@ export default function InteractiveMap() {
     });
   };
 
-  // --- Selection flows ---
   const handleProvinceSelect = useCallback(
     (provinceName: string, centerGuess?: [number, number], zoomOverride?: number) => {
       const rec =
@@ -351,7 +169,6 @@ export default function InteractiveMap() {
       setSelectedLocation(null);
       setProvinceLocations(locs);
 
-      // Build city buckets
       const cityMap: Record<string, any[]> = {};
       locs.forEach((l) => {
         const c = cleanCity(l.city || '');
@@ -362,8 +179,7 @@ export default function InteractiveMap() {
 
       addLocationMarkers(locs);
 
-      // Fly closer; zoom bumped a bit (previously 8 -> now default 9 if not overridden)
-      const targetZoom = zoomOverride ?? 9;
+      const targetZoom = zoomOverride ?? 9; // bumped from 8 → 9
       if (centerGuess) {
         map.current?.flyTo({ center: centerGuess, zoom: targetZoom, pitch: 0, duration: 800 });
       } else if (provinceData[rec.name]) {
@@ -388,7 +204,6 @@ export default function InteractiveMap() {
     }
   };
 
-  // Reset whole view (used by button and when clicking the same province again)
   const resetView = () => {
     setSelectedProvince(null);
     setSelectedCity(null);
@@ -397,7 +212,6 @@ export default function InteractiveMap() {
     setProvinceLocations([]);
     setCityLocations([]);
 
-    // Clear hover state & tooltip too
     if (hoveredFeatureId.current !== null && map.current) {
       map.current.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
       hoveredFeatureId.current = null;
@@ -407,6 +221,169 @@ export default function InteractiveMap() {
     clearMarkers();
     map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
   };
+
+  // --- Initialize Map (no dependency on selectedProvince to avoid rebuild on click) ---
+  useEffect(() => {
+    if (!mapEl.current || !token || !provincesGeo) return;
+
+    map.current = new mapboxgl.Map({
+      container: mapEl.current,
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [25.4858, 42.7339],
+      zoom: 6.5,
+      pitch: 0,
+      bearing: 0,
+      renderWorldCopies: false,
+      maxZoom: 18,
+      minZoom: 5.5,
+    });
+
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    // Hover tooltip element inside the map container
+    const tooltip = document.createElement('div');
+    tooltip.className = 'map-province-tooltip';
+    tooltip.style.cssText = `
+      position:absolute;pointer-events:none;z-index:30;
+      background:rgba(0,0,0,.7);color:#fff;padding:6px 8px;
+      border-radius:6px;font-size:12px;transform:translate(-50%,-120%);
+      white-space:nowrap;opacity:0;transition:opacity .12s ease;
+      border:1px solid rgba(255,255,255,.15);
+      backdrop-filter:saturate(140%) blur(2px);
+    `;
+    hoverTooltipRef.current = tooltip;
+    mapEl.current.appendChild(tooltip);
+
+    map.current.on('load', () => {
+      // 1) WORLD MASK that keeps the outside area in page bg color
+      const worldRing: [number, number][] = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
+      const holes: [number, number][][] = [];
+      for (const f of provincesGeo.features) {
+        const g = f.geometry;
+        if (!g) continue;
+        if (g.type === 'Polygon') holes.push(g.coordinates[0] as [number, number][]);
+        if (g.type === 'MultiPolygon') g.coordinates.forEach((poly: any) => holes.push(poly[0] as [number, number][]));
+      }
+      const mask = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [worldRing, ...holes] } };
+      map.current!.addSource('world-mask', { type: 'geojson', data: mask });
+      map.current!.addLayer({
+        id: 'world-mask-layer',
+        type: 'fill',
+        source: 'world-mask',
+        paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
+      });
+
+      // 2) Provinces source + layers (generateId for feature-state hover)
+      if (!map.current!.getSource('provinces')) {
+        map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
+      }
+
+      map.current!.addLayer({
+        id: 'provinces-fill',
+        type: 'fill',
+        source: 'provinces',
+        paint: {
+          // Selected province fully transparent (map visible beneath)
+          'fill-color': [
+            'case',
+            ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvinceRef.current ?? '___none___'],
+            'rgba(0,0,0,0)',
+            'rgba(16,185,129,1)',
+          ],
+          // Hover opacity via feature-state: ~half when hovered
+          'fill-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            0.4,
+            0.78,
+          ],
+          'fill-outline-color': '#ffffff',
+        },
+      });
+
+      map.current!.addLayer({
+        id: 'provinces-outline',
+        type: 'line',
+        source: 'provinces',
+        paint: { 'line-color': '#ffffff', 'line-width': 2 },
+      });
+
+      map.current!.on('mouseenter', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = 'pointer'));
+      map.current!.on('mouseleave', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = ''));
+
+      // Hover: feature-state + tooltip
+      map.current!.on('mousemove', 'provinces-fill', (e: mapboxgl.MapLayerMouseEvent) => {
+        const f = e.features?.[0];
+        if (!f) return;
+
+        if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== f.id) {
+          map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
+        }
+        hoveredFeatureId.current = f.id as number | string;
+        map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: true });
+
+        const rawName = (f.properties as any).name || (f.properties as any).name_en;
+        const displayName =
+          PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
+
+        if (hoverTooltipRef.current) {
+          const { point } = e;
+          hoverTooltipRef.current.textContent = displayName;
+          hoverTooltipRef.current.style.left = `${point.x}px`;
+          hoverTooltipRef.current.style.top = `${point.y}px`;
+          hoverTooltipRef.current.style.opacity = '1';
+        }
+      });
+
+      map.current!.on('mouseleave', 'provinces-fill', () => {
+        if (hoveredFeatureId.current !== null) {
+          map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
+        }
+        hoveredFeatureId.current = null;
+        if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
+      });
+
+      // Click: toggle select; use ref so we don't rebuild the map
+      map.current!.on('click', 'provinces-fill', (e) => {
+        const feat = e.features?.[0];
+        if (!feat) return;
+
+        const rawName = (feat.properties as any).name || (feat.properties as any).name_en;
+        const displayName =
+          PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName;
+        const c = centroid(feat as any).geometry.coordinates as [number, number];
+
+        if (selectedProvinceRef.current && selectedProvinceRef.current === displayName) {
+          resetView();
+          return;
+        }
+        handleProvinceSelect(displayName, c, 9);
+      });
+    });
+
+    // Cleanup
+    return () => {
+      if (hoverTooltipRef.current) {
+        hoverTooltipRef.current.remove();
+        hoverTooltipRef.current = null;
+      }
+      markers.current.forEach((m) => m.remove());
+      markers.current = [];
+      map.current?.remove();
+      map.current = null;
+    };
+  }, [token, provincesGeo]); // ← no selectedProvince here
+
+  // Keep selection transparency in sync when selectedProvince changes
+  useEffect(() => {
+    if (!map.current?.getLayer('provinces-fill')) return;
+    map.current.setPaintProperty('provinces-fill', 'fill-color', [
+      'case',
+      ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvince ?? '___none___'],
+      'rgba(0,0,0,0)',
+      'rgba(16,185,129,1)',
+    ]);
+  }, [selectedProvince]);
 
   // --- UI ---
   if (!token) {
