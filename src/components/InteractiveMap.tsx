@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import centroid from '@turf/centroid';
+import union from '@turf/union';
 
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Building2, RotateCcw, Star, Wifi, Coffee, Car, Users } from 'lucide-react';
 
-const GEOJSON_URL = '/data/bg_provinces.geojson';
+// Use the new, denser GeoJSON by default. You can point this back to /data/bg_provinces.geojson if needed.
+const GEOJSON_URL = '/data/bg_provinces2.geojson';
 
 /**
  * Province dictionary:
@@ -307,6 +309,15 @@ export default function InteractiveMap() {
     map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
   };
 
+  // Helper to ensure polygon rings are closed (first == last)
+  const ensureClosed = (ring: [number, number][]) => {
+    if (!ring?.length) return ring;
+    const [x0, y0] = ring[0];
+    const [xn, yn] = ring[ring.length - 1];
+    if (x0 !== xn || y0 !== yn) return [...ring, ring[0]];
+    return ring;
+  };
+
   // --- Initialize Map ---
   useEffect(() => {
     if (!mapEl.current || !token || !provincesGeo) return;
@@ -340,16 +351,38 @@ export default function InteractiveMap() {
     mapEl.current.appendChild(tooltip);
 
     map.current.on('load', () => {
-      // WORLD MASK built from province holes
-      const worldRing: [number, number][] = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
-      const holes: [number, number][][] = [];
-      for (const f of provincesGeo.features) {
-        const g = f.geometry;
-        if (!g) continue;
-        if (g.type === 'Polygon') holes.push(g.coordinates[0] as [number, number][]);
-        if (g.type === 'MultiPolygon') g.coordinates.forEach((poly: any) => holes.push(poly[0] as [number, number][]));
+      // ==== WORLD MASK (robust) ====
+      // Build a single Bulgaria outline by merging all province features.
+      const worldRing: [number, number][] = [
+        [-180, -85],
+        [180, -85],
+        [180, 85],
+        [-180, 85],
+        [-180, -85],
+      ];
+
+      const feats: any[] = (provincesGeo?.features || []).filter((f: any) => f?.geometry);
+      let merged: any = null;
+      for (const f of feats) {
+        merged = merged ? (union(merged, f) || merged) : f;
       }
-      const mask = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [worldRing, ...holes] } };
+
+      // Extract only the OUTER ring(s) of the merged Bulgaria polygon(s).
+      const outerRings: [number, number][][] = [];
+      if (merged?.geometry?.type === 'Polygon') {
+        outerRings.push(ensureClosed(merged.geometry.coordinates[0] as [number, number][]));
+      } else if (merged?.geometry?.type === 'MultiPolygon') {
+        merged.geometry.coordinates.forEach((poly: any) => {
+          outerRings.push(ensureClosed(poly[0] as [number, number][]));
+        });
+      }
+
+      const mask = {
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'Polygon', coordinates: [worldRing, ...outerRings] },
+      };
+
       map.current!.addSource('world-mask', { type: 'geojson', data: mask });
       map.current!.addLayer({
         id: 'world-mask-layer',
@@ -358,7 +391,7 @@ export default function InteractiveMap() {
         paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
       });
 
-      // Provinces
+      // ==== Provinces ====
       if (!map.current!.getSource('provinces')) {
         map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
       }
