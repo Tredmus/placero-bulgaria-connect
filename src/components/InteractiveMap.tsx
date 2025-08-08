@@ -26,14 +26,12 @@ export default function InteractiveMap() {
   const [provinces, setProvinces] = useState<any>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [cityPoints, setCityPoints] = useState<any[]>([]);
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
+  const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
   const nationalCenterRef = useRef<{ lng: number; lat: number; zoom: number } | null>(null);
 
   useEffect(() => {
@@ -92,7 +90,6 @@ export default function InteractiveMap() {
     });
 
     return () => {
-      clearMarkers();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -147,118 +144,15 @@ export default function InteractiveMap() {
     setViewState(prev => ({ ...prev, longitude: centerLng, latitude: centerLat, zoom, pitch: 0, bearing: 0, transitionDuration: 0 }));
   }, [provinces]);
 
-  // Clear all markers
-  const clearMarkers = () => {
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current = [];
-  };
-
-  // Create styled city markers with modern design
-  const createCityMarker = (cityName: string, count: number) => {
-    const el = document.createElement('div');
-    el.className = 'city-marker';
-    el.style.cssText = `
-      position: relative;
-      cursor: pointer;
-      transform-origin: center bottom;
-      transition: all 0.3s ease;
-      z-index: 100;
-    `;
-    
-    el.innerHTML = `
-      <div style="
-        background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-foreground)));
-        border: 2px solid hsl(var(--background));
-        border-radius: 12px;
-        padding: 8px 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        min-width: 80px;
-        text-align: center;
-        position: relative;
-        backdrop-filter: blur(8px);
-      ">
-        <div style="
-          color: hsl(var(--primary-foreground));
-          font-weight: bold;
-          font-size: 12px;
-          line-height: 1.2;
-        ">${cityName}</div>
-        <div style="
-          color: hsl(var(--muted-foreground));
-          font-size: 10px;
-          margin-top: 2px;
-        ">${count} location${count > 1 ? 's' : ''}</div>
-        <div style="
-          position: absolute;
-          bottom: -8px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 0;
-          height: 0;
-          border-left: 8px solid transparent;
-          border-right: 8px solid transparent;
-          border-top: 8px solid hsl(var(--primary));
-        "></div>
-      </div>
-    `;
-    
-    el.addEventListener('mouseenter', () => {
-      el.style.transform = 'scale(1.1) translateY(-4px)';
-    });
-    
-    el.addEventListener('mouseleave', () => {
-      el.style.transform = 'scale(1) translateY(0)';
-    });
-    
-    return el;
-  };
-
-  // Create styled location markers
-  const createLocationMarker = (location: any) => {
-    const el = document.createElement('div');
-    el.className = 'location-marker';
-    el.style.cssText = `
-      width: 24px;
-      height: 24px;
-      background: hsl(var(--primary));
-      border: 2px solid hsl(var(--background));
-      border-radius: 50%;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-      z-index: 50;
-    `;
-    
-    el.addEventListener('mouseenter', () => {
-      el.style.transform = 'scale(1.3)';
-      el.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.4)';
-    });
-    
-    el.addEventListener('mouseleave', () => {
-      el.style.transform = 'scale(1)';
-      el.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
-    });
-    
-    return el;
-  };
-
-  // Group locations by city and create city points
   useEffect(() => {
     if (selectedProvince) {
-      const filtered = locations.filter(l => {
-        if (!l.city || !l.latitude || !l.longitude) return false;
-        const cityName = l.city.toLowerCase();
-        const provinceName = selectedProvince.toLowerCase();
-        return cityName.includes(provinceName) || provinceName.includes(cityName);
-      });
-      
+      const filtered = locations.filter(l => l.city === selectedProvince && l.latitude && l.longitude);
       const cities: Record<string, any[]> = {};
       filtered.forEach(l => {
-        const cityKey = l.city.split(',')[0].trim(); // Take first part before comma
-        if (!cities[cityKey]) cities[cityKey] = [];
-        cities[cityKey].push(l);
+        const city = l.city || '';
+        if (!cities[city]) cities[city] = [];
+        cities[city].push(l);
       });
-      
       setCityPoints(Object.entries(cities).map(([city, pts]) => {
         const avg = pts.reduce((acc, p) => {
           acc.longitude += typeof p.longitude === 'string' ? parseFloat(p.longitude) : p.longitude;
@@ -269,77 +163,12 @@ export default function InteractiveMap() {
         avg.latitude /= pts.length;
         return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
       }));
+      setLocationPoints(filtered.map(l => ({ position: [typeof l.longitude === 'string' ? parseFloat(l.longitude) : l.longitude, typeof l.latitude === 'string' ? parseFloat(l.latitude) : l.latitude], data: l })));
     } else {
       setCityPoints([]);
-    }
-  }, [selectedProvince, locations]);
-
-  // Update location points when city is selected
-  useEffect(() => {
-    if (selectedCity) {
-      const cityData = cityPoints.find(c => c.cityName === selectedCity);
-      if (cityData) {
-        setLocationPoints(cityData.pts.map((l: any) => ({ 
-          position: [
-            typeof l.longitude === 'string' ? parseFloat(l.longitude) : l.longitude, 
-            typeof l.latitude === 'string' ? parseFloat(l.latitude) : l.latitude
-          ], 
-          data: l 
-        })));
-      }
-    } else {
       setLocationPoints([]);
     }
-  }, [selectedCity, cityPoints]);
-
-  // Add markers based on zoom level and selections
-  useEffect(() => {
-    if (!mapRef.current) return;
-    
-    clearMarkers();
-    
-    // Show city markers when province is selected but city is not
-    if (selectedProvince && !selectedCity && cityPoints.length > 0) {
-      cityPoints.forEach(cityPoint => {
-        const el = createCityMarker(cityPoint.cityName, cityPoint.count);
-        
-        el.addEventListener('click', () => {
-          setSelectedCity(cityPoint.cityName);
-          setViewState(prev => ({ 
-            ...prev, 
-            longitude: cityPoint.position[0], 
-            latitude: cityPoint.position[1], 
-            zoom: 12, 
-            transitionDuration: 800,
-            transitionInterpolator: new FlyToInterpolator({ speed: 2 })
-          }));
-        });
-        
-        const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-          .setLngLat(cityPoint.position)
-          .addTo(mapRef.current!);
-        
-        markersRef.current.push(marker);
-      });
-    }
-    
-    // Show location markers when city is selected
-    if (selectedCity && locationPoints.length > 0) {
-      locationPoints.forEach(locationPoint => {
-        const el = createLocationMarker(locationPoint.data);
-        
-        el.addEventListener('click', () => {
-          setSelectedLocation(locationPoint.data);
-        });
-        
-        const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-          .setLngLat(locationPoint.position)
-          .addTo(mapRef.current!);
-        
-        markersRef.current.push(marker);
-      });
-    }
-  }, [selectedProvince, selectedCity, cityPoints, locationPoints]);
+  }, [selectedProvince, locations]);
 
   const onViewStateChange = useCallback((info: any) => {
     setViewState(info.viewState);
@@ -350,15 +179,11 @@ export default function InteractiveMap() {
       const name = info.object.properties.name_en || info.object.properties.name;
       if (selectedProvince === name) {
         setSelectedProvince(null);
-        setSelectedCity(null);
-        setSelectedLocation(null);
         const fallback = nationalCenterRef.current || { lng: 25.4858, lat: 42.7339, zoom: 6.5 };
         setViewState(prev => ({ ...prev, longitude: fallback.lng, latitude: fallback.lat, zoom: fallback.zoom, pitch: 0, transitionDuration: 550, transitionInterpolator: new FlyToInterpolator({ speed: 2.5 }) }));
         return;
       }
       setSelectedProvince(name);
-      setSelectedCity(null);
-      setSelectedLocation(null);
       const c = centroid(info.object);
       const [lng, lat] = c.geometry.coordinates as [number, number];
       setViewState(prev => ({ ...prev, longitude: lng, latitude: lat, zoom: 8, pitch: 0, transitionDuration: 550, transitionInterpolator: new FlyToInterpolator({ speed: 2.5 }) }));
@@ -375,17 +200,25 @@ export default function InteractiveMap() {
       stroked: true,
       wireframe: true,
       extruded: false,
-      getLineColor: [255, 255, 255, 255] as [number, number, number, number],
+      getLineColor: [255, 255, 255, 255],
       getLineWidth: () => 2,
       lineWidthMinPixels: 2,
       getElevation: 0,
-      getFillColor: (f: any) => {
+      getFillColor: f => {
         const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
-        return isSelected ? [0, 0, 0, 0] as [number, number, number, number] : [16, 185, 129, 200] as [number, number, number, number];
+        return isSelected ? [0, 0, 0, 0] : [16, 185, 129, 200];
       },
       onClick: onClickProvince,
       updateTriggers: { getFillColor: selectedProvince }
     }));
+  }
+
+  if (viewState.zoom >= 8 && cityPoints.length > 0) {
+    layers.push(new ScatterplotLayer({ id: 'cities', data: cityPoints, pickable: true, getPosition: d => d.position, getRadius: d => Math.sqrt(d.count) * 5000, getFillColor: [255, 140, 0], onClick: info => { if (info.object) { setViewState(prev => ({ ...prev, longitude: info.object.position[0], latitude: info.object.position[1], zoom: 12, transitionDuration: 1000 })); } } }));
+  }
+
+  if (viewState.zoom >= 12 && locationPoints.length > 0) {
+    layers.push(new ScatterplotLayer({ id: 'locations', data: locationPoints, pickable: true, getPosition: d => d.position, getRadius: 2000, getFillColor: [255, 0, 128], onClick: info => info.object && alert(info.object.data.name) }));
   }
 
   if (!mapboxToken) {
