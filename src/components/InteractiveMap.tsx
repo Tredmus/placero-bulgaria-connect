@@ -415,7 +415,7 @@ export default function InteractiveMap() {
         controller={{ dragRotate: false }} // disable tilt
         layers={layers}
         onViewStateChange={onViewStateChange}
-        style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, zIndex: 1 }}
+        style={{ width: '100%', height: '100%', position: 'absolute', inset: '0', zIndex: '1' }}
         getTooltip={({ object }: any) =>
           object?.properties?.name_en || object?.properties?.name || null
         }
