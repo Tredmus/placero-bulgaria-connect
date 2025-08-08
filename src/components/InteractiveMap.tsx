@@ -322,7 +322,7 @@ export default function InteractiveMap() {
             f.properties.name_en === selectedProvince ||
             f.properties.name === selectedProvince;
           // default: rich teal (opaque); selected: fully transparent to reveal map
-          return isSelected ? [0, 0, 0, 0] : [14, 100, 85, 230];
+          return isSelected ? [0, 0, 0, 0] : [14, 95, 85, 25];
         },
         onClick: onClickProvince,
         updateTriggers: { getFillColor: [selectedProvince] }
