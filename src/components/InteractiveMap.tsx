@@ -278,7 +278,28 @@ export default function InteractiveMap() {
         map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
       }
 
-      
+      map.current!.addLayer({
+        id: 'provinces-fill',
+        type: 'fill',
+        source: 'provinces',
+        paint: {
+          // Selected province fully transparent (map visible beneath)
+          'fill-color': [
+            'case',
+            ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvinceRef.current ?? '___none___'],
+            'rgba(0,0,0,0)',
+            'rgba(16,185,129,1)',
+          ],
+          // Hover opacity via feature-state: ~half when hovered
+          'fill-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            0.4,
+            0.78,
+          ],
+          'fill-outline-color': '#ffffff',
+        },
+      });
 
       map.current!.addLayer({
         id: 'provinces-outline',
