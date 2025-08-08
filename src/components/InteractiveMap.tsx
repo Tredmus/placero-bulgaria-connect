@@ -162,9 +162,8 @@ export default function InteractiveMap() {
     label.textContent = name || '';
     label.style.cssText = `
       position: absolute;
-      background-color: red;
       left: 50%; bottom: 34px;
-      transform: translate(-50%, 0);
+      transform: translate(-25%, 0);
       padding: 2px 6px;
       border-radius: 6px;
       font-size: 12px; font-weight: 700;
