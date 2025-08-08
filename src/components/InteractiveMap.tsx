@@ -6,6 +6,9 @@ import { supabase } from '@/integrations/supabase/client';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import union from '@turf/union';
+import bbox from '@turf/bbox';
+import centroid from '@turf/centroid';
+import { FlyToInterpolator } from '@deck.gl/core';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -13,7 +16,7 @@ const INITIAL_VIEW_STATE = {
   longitude: 25.4858,
   latitude: 42.7339,
   zoom: 6.5,
-  pitch: 30,
+  pitch: 0,
   bearing: 0,
   transitionDuration: 0
 };
@@ -193,6 +196,23 @@ export default function InteractiveMap() {
       .then(data => setProvinces(data));
   }, []);
 
+  // Center Bulgaria on load based on provinces bbox
+  useEffect(() => {
+    if (!provinces) return;
+    const [minX, minY, maxX, maxY] = bbox(provinces);
+    const centerLng = (minX + maxX) / 2;
+    const centerLat = (minY + maxY) / 2;
+    setViewState(prev => ({
+      ...prev,
+      longitude: centerLng,
+      latitude: centerLat,
+      zoom: 6.5,
+      pitch: 0,
+      bearing: 0,
+      transitionDuration: 0
+    }));
+  }, [provinces]);
+
   useEffect(() => {
     if (selectedProvince) {
       const filtered = locations.filter(l => l.city === selectedProvince && l.latitude && l.longitude);
@@ -252,10 +272,20 @@ export default function InteractiveMap() {
     if (info.object && info.object.properties) {
       const name = info.object.properties.name_en || info.object.properties.name;
       setSelectedProvince(name);
-      animateElevation(name);
 
-      const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
-      setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 45, transitionDuration: 1000 }));
+      // Use centroid for reliable recentre and make the move quicker
+      const c = centroid(info.object);
+      const [lng, lat] = c.geometry.coordinates as [number, number];
+
+      setViewState(prev => ({ 
+        ...prev, 
+        longitude: lng, 
+        latitude: lat, 
+        zoom: 8, 
+        pitch: 0, 
+        transitionDuration: 550,
+        transitionInterpolator: new FlyToInterpolator({ speed: 2.5 })
+      }));
     }
   }, []);
 
@@ -270,18 +300,17 @@ export default function InteractiveMap() {
         filled: true,
         stroked: true,
         wireframe: true,
-        extruded: true,
+        extruded: false,
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
-        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000,
+        getElevation: 0,
         getFillColor: f => {
           const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
           return isSelected ? [34, 197, 94, 120] : [16, 185, 129, 80];
         },
         onClick: onClickProvince,
         updateTriggers: {
-          getElevation: elevationMap,
           getFillColor: selectedProvince
         }
       })
@@ -343,7 +372,7 @@ export default function InteractiveMap() {
       />
       <DeckGL
         viewState={viewState}
-        controller={true}
+        controller={{ dragRotate: false }}
         layers={layers}
         onViewStateChange={onViewStateChange}
         style={{ 
