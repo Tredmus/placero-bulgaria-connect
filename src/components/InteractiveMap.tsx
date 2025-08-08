@@ -13,7 +13,7 @@ const INITIAL_VIEW_STATE = {
   longitude: 25.4858,
   latitude: 42.7339,
   zoom: 6.5,
-  pitch: 30,
+  pitch: 0,
   bearing: 0,
   transitionDuration: 0
 };
@@ -246,10 +246,9 @@ export default function InteractiveMap() {
     if (info.object && info.object.properties) {
       const name = info.object.properties.name_en || info.object.properties.name;
       setSelectedProvince(name);
-      animateElevation(name);
 
       const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
-      setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 45, transitionDuration: 1000 }));
+      setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 0, transitionDuration: 1000 }));
     }
   }, []);
 
@@ -263,19 +262,18 @@ export default function InteractiveMap() {
         pickable: true,
         filled: true,
         stroked: true,
-        wireframe: true,
-        extruded: true,
+        wireframe: false,
+        extruded: false,
         getLineColor: [0, 0, 0, 255],
         getLineWidth: () => 1,
         lineWidthMinPixels: 1,
-        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000,
+        getElevation: () => 0,
         getFillColor: f => {
           const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
-          return isSelected ? [34, 197, 94, 120] : [16, 185, 129, 80];
+          return isSelected ? [0, 0, 0, 0] : [34, 197, 94, 220];
         },
         onClick: onClickProvince,
         updateTriggers: {
-          getElevation: elevationMap,
           getFillColor: selectedProvince
         }
       })
