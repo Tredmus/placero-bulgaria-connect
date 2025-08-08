@@ -32,6 +32,7 @@ export default function InteractiveMap() {
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const nationalCenterRef = useRef<{ lng: number; lat: number; zoom: number } | null>(null);
 
   // Fetch Mapbox token
   useEffect(() => {
@@ -202,6 +203,8 @@ export default function InteractiveMap() {
     const [minX, minY, maxX, maxY] = bbox(provinces);
     const centerLng = (minX + maxX) / 2;
     const centerLat = (minY + maxY) / 2;
+    const zoom = 6.5;
+    nationalCenterRef.current = { lng: centerLng, lat: centerLat, zoom };
     setViewState(prev => ({
       ...prev,
       longitude: centerLng,
@@ -271,9 +274,24 @@ export default function InteractiveMap() {
   const onClickProvince = useCallback((info: any) => {
     if (info.object && info.object.properties) {
       const name = info.object.properties.name_en || info.object.properties.name;
-      setSelectedProvince(name);
 
-      // Use centroid for reliable recentre and make the move quicker
+      // Toggle selection: clicking the same province again deselects and zooms out
+      if (selectedProvince === name) {
+        setSelectedProvince(null);
+        const fallback = nationalCenterRef.current || { lng: 25.4858, lat: 42.7339, zoom: 6.5 };
+        setViewState(prev => ({
+          ...prev,
+          longitude: fallback.lng,
+          latitude: fallback.lat,
+          zoom: fallback.zoom,
+          pitch: 0,
+          transitionDuration: 550,
+          transitionInterpolator: new FlyToInterpolator({ speed: 2.5 })
+        }));
+        return;
+      }
+
+      setSelectedProvince(name);
       const c = centroid(info.object);
       const [lng, lat] = c.geometry.coordinates as [number, number];
 
@@ -287,7 +305,7 @@ export default function InteractiveMap() {
         transitionInterpolator: new FlyToInterpolator({ speed: 2.5 })
       }));
     }
-  }, []);
+  }, [selectedProvince]);
 
   const layers = [];
 
@@ -307,7 +325,7 @@ export default function InteractiveMap() {
         getElevation: 0,
         getFillColor: f => {
           const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
-          return isSelected ? [34, 197, 94, 120] : [16, 185, 129, 80];
+          return isSelected ? [0, 0, 0, 0] : [16, 185, 129, 80];
         },
         onClick: onClickProvince,
         updateTriggers: {
