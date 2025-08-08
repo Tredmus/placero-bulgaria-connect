@@ -376,18 +376,14 @@ export default function InteractiveMap() {
 
   // Keep selection transparency in sync when selectedProvince changes
   useEffect(() => {
-  if (!map.current?.getLayer('provinces-fill')) return;
-
-  map.current.setPaintProperty('provinces-fill', 'fill-color', [
-    'case',
-    ['==',
-      ['coalesce', ['get', 'name'], ['get', 'name_en']],
-      selectedProvince ? selectedProvince : '___none___'
-    ],
-    'rgba(0,0,0,0)', // transparent when selected
-    'rgba(16,185,129,1)' // green for others
-  ]);
-}, [selectedProvince]);
+    if (!map.current?.getLayer('provinces-fill')) return;
+    map.current.setPaintProperty('provinces-fill', 'fill-color', [
+      'case',
+      ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvince ?? '___none___'],
+      'rgba(0,0,0,0)',
+      'rgba(16,185,129,1)',
+    ]);
+  }, [selectedProvince]);
 
   // --- UI ---
   if (!token) {
