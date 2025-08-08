@@ -79,7 +79,7 @@ export default function InteractiveMap() {
         });
       }
       if (!mapRef.current.getLayer('world-mask-layer')) {
-        mapRef.current.addLayer({ id: 'world-mask-layer', type: 'fill', source: 'world-mask', paint: { 'fill-color': '#1a1a2e', 'fill-opacity': 1 } });
+        mapRef.current.addLayer({ id: 'world-mask-layer', type: 'fill', source: 'world-mask', paint: { 'fill-color': '#020817', 'fill-opacity': 1 } });
       }
       const layers = mapRef.current.getStyle().layers;
       const satelliteLayer = layers?.find(layer => layer.type === 'raster');
