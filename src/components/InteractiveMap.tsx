@@ -5,7 +5,9 @@ import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import union from '@turf/union';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Star, MapPin } from 'lucide-react';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -13,7 +15,7 @@ const INITIAL_VIEW_STATE = {
   longitude: 25.4858,
   latitude: 42.7339,
   zoom: 6.5,
-  pitch: 30,
+  pitch: 0,
   bearing: 0,
   transitionDuration: 0
 };
@@ -23,9 +25,10 @@ export default function InteractiveMap() {
   const [provinces, setProvinces] = useState<any>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [cityPoints, setCityPoints] = useState<any[]>([]);
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
-  const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
+  const [selectedLocation, setSelectedLocation] = useState<any>(null);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -188,16 +191,19 @@ export default function InteractiveMap() {
   }, []);
 
   useEffect(() => {
-    if (selectedProvince) {
-      const filtered = locations.filter(l => l.city === selectedProvince && l.latitude && l.longitude);
-      const cities: Record<string, any[]> = {};
-      filtered.forEach(l => {
-        const city = l.city || '';
-        if (!cities[city]) cities[city] = [];
-        cities[city].push(l);
+    if (selectedProvince && !selectedCity) {
+      // Group locations by city within the selected province
+      const provinceCities: Record<string, any[]> = {};
+      locations.forEach(l => {
+        if (l.latitude && l.longitude) {
+          const city = l.city || 'Unknown';
+          if (!provinceCities[city]) provinceCities[city] = [];
+          provinceCities[city].push(l);
+        }
       });
+      
       setCityPoints(
-        Object.entries(cities).map(([city, pts]) => {
+        Object.entries(provinceCities).map(([city, pts]) => {
           const avg = pts.reduce((acc, p) => {
             acc.longitude += typeof p.longitude === 'string' ? parseFloat(p.longitude) : p.longitude;
             acc.latitude += typeof p.latitude === 'string' ? parseFloat(p.latitude) : p.latitude;
@@ -205,51 +211,79 @@ export default function InteractiveMap() {
           }, { longitude: 0, latitude: 0 });
           avg.longitude /= pts.length;
           avg.latitude /= pts.length;
-          return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
+          return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, locations: pts };
         })
       );
-      setLocationPoints(filtered.map(l => ({ 
+      setLocationPoints([]);
+    } else if (selectedCity) {
+      // Show individual locations for selected city
+      const cityLocations = locations.filter(l => 
+        l.city === selectedCity && l.latitude && l.longitude
+      );
+      setLocationPoints(cityLocations.map(l => ({ 
         position: [
           typeof l.longitude === 'string' ? parseFloat(l.longitude) : l.longitude, 
           typeof l.latitude === 'string' ? parseFloat(l.latitude) : l.latitude
         ], 
         data: l 
       })));
+      setCityPoints([]);
     } else {
       setCityPoints([]);
       setLocationPoints([]);
     }
-  }, [selectedProvince, locations]);
+  }, [selectedProvince, selectedCity, locations]);
 
   const onViewStateChange = useCallback((info: any) => {
     setViewState(info.viewState);
   }, []);
 
-  const animateElevation = (name: string) => {
-    let current = 10000;
-    const target = 20000;
-    const step = 500;
-    const interval = setInterval(() => {
-      current += step;
-      if (current >= target) {
-        clearInterval(interval);
-        current = target;
-      }
-      setElevationMap(prev => ({
-        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: 10000 }), {}),
-        [name]: current
-      }));
-    }, 16);
-  };
-
   const onClickProvince = useCallback((info: any) => {
     if (info.object && info.object.properties) {
       const name = info.object.properties.name_en || info.object.properties.name;
       setSelectedProvince(name);
-      animateElevation(name);
+      setSelectedCity(null);
+      setSelectedLocation(null);
 
-      const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
-      setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 45, transitionDuration: 1000 }));
+      // Calculate province center
+      const bounds = info.object.geometry.coordinates[0];
+      const center = bounds.reduce((acc: any, coord: any) => {
+        acc[0] += coord[0];
+        acc[1] += coord[1];
+        return acc;
+      }, [0, 0]);
+      center[0] /= bounds.length;
+      center[1] /= bounds.length;
+
+      setViewState(prev => ({ 
+        ...prev, 
+        longitude: center[0], 
+        latitude: center[1], 
+        zoom: 8, 
+        pitch: 0, 
+        transitionDuration: 600 
+      }));
+    }
+  }, []);
+
+  const onClickCity = useCallback((info: any) => {
+    if (info.object) {
+      setSelectedCity(info.object.cityName);
+      setSelectedLocation(null);
+      setViewState(prev => ({ 
+        ...prev, 
+        longitude: info.object.position[0], 
+        latitude: info.object.position[1], 
+        zoom: 12, 
+        pitch: 0, 
+        transitionDuration: 600 
+      }));
+    }
+  }, []);
+
+  const onClickLocation = useCallback((info: any) => {
+    if (info.object) {
+      setSelectedLocation(info.object.data);
     }
   }, []);
 
@@ -263,53 +297,57 @@ export default function InteractiveMap() {
         pickable: true,
         filled: true,
         stroked: true,
-        wireframe: true,
-        extruded: true,
-        getLineColor: [0, 0, 0, 255],
-        getLineWidth: () => 1,
+        wireframe: false,
+        extruded: false,
+        getLineColor: [255, 255, 255, 180],
+        getLineWidth: () => 2,
         lineWidthMinPixels: 1,
-        getElevation: f => elevationMap[f.properties.name_en] || elevationMap[f.properties.name] || 10000,
         getFillColor: f => {
           const isSelected = f.properties.name_en === selectedProvince || f.properties.name === selectedProvince;
-          return isSelected ? [34, 197, 94, 120] : [16, 185, 129, 80];
+          return isSelected ? [34, 197, 94, 0] : [16, 185, 129, 230];
         },
         onClick: onClickProvince,
         updateTriggers: {
-          getElevation: elevationMap,
           getFillColor: selectedProvince
         }
       })
     );
   }
 
-  if (viewState.zoom >= 8 && cityPoints.length > 0) {
-    layers.push(
-      new ScatterplotLayer({
-        id: 'cities',
-        data: cityPoints,
-        pickable: true,
-        getPosition: d => d.position,
-        getRadius: d => Math.sqrt(d.count) * 5000,
-        getFillColor: [255, 140, 0],
-        onClick: info => {
-          if (info.object) {
-            setViewState(prev => ({ ...prev, longitude: info.object.position[0], latitude: info.object.position[1], zoom: 12, transitionDuration: 1000 }));
-          }
-        }
-      })
-    );
+  // City markers (when province is selected but no city is selected)
+  if ((selectedProvince && !selectedCity) || viewState.zoom >= 8) {
+    if (cityPoints.length > 0) {
+      layers.push(
+        new ScatterplotLayer({
+          id: 'cities',
+          data: cityPoints,
+          pickable: true,
+          getPosition: d => d.position,
+          getRadius: d => Math.max(8000, Math.sqrt(d.count) * 3000),
+          getFillColor: [59, 130, 246, 200],
+          getLineColor: [255, 255, 255, 255],
+          getLineWidth: 3,
+          stroked: true,
+          onClick: onClickCity
+        })
+      );
+    }
   }
 
-  if (viewState.zoom >= 12 && locationPoints.length > 0) {
+  // Location markers (when city is selected or zoomed in enough)
+  if ((selectedCity || viewState.zoom >= 12) && locationPoints.length > 0) {
     layers.push(
       new ScatterplotLayer({
         id: 'locations',
         data: locationPoints,
         pickable: true,
         getPosition: d => d.position,
-        getRadius: 2000,
-        getFillColor: [255, 0, 128],
-        onClick: info => info.object && alert(info.object.data.name)
+        getRadius: 4000,
+        getFillColor: [239, 68, 68, 220],
+        getLineColor: [255, 255, 255, 255],
+        getLineWidth: 2,
+        stroked: true,
+        onClick: onClickLocation
       })
     );
   }
@@ -348,13 +386,71 @@ export default function InteractiveMap() {
           left: '0',
           zIndex: '1'
         }}
-        getTooltip={({ object }) => {
-          if (object && object.properties) {
+        getTooltip={({ object, layer }) => {
+          if (layer?.id === 'provinces' && object?.properties) {
             return object.properties.name_en || object.properties.name;
+          }
+          if (layer?.id === 'cities' && object) {
+            return `${object.cityName}: ${object.count} locations`;
+          }
+          if (layer?.id === 'locations' && object?.data) {
+            return object.data.name;
           }
           return null;
         }}
       />
+      
+      {/* Location Info Card */}
+      {selectedLocation && (
+        <Card className="absolute top-4 right-4 w-80 max-w-sm bg-background/95 backdrop-blur-sm shadow-lg border z-10">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <MapPin className="w-4 h-4 text-primary" />
+                  <h3 className="font-semibold text-sm">{selectedLocation.name}</h3>
+                </div>
+                
+                {selectedLocation.image_url && (
+                  <img 
+                    src={selectedLocation.image_url} 
+                    alt={selectedLocation.name}
+                    className="w-full h-24 object-cover rounded-md mb-2"
+                  />
+                )}
+                
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                    <span className="text-xs font-medium">{selectedLocation.rating || 'N/A'}</span>
+                  </div>
+                  {selectedLocation.price && (
+                    <Badge variant="secondary" className="text-xs">
+                      ${selectedLocation.price}/night
+                    </Badge>
+                  )}
+                </div>
+                
+                {selectedLocation.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-3 mb-2">
+                    {selectedLocation.description}
+                  </p>
+                )}
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">{selectedLocation.city}</span>
+                  <button 
+                    onClick={() => setSelectedLocation(null)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
