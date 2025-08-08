@@ -51,10 +51,7 @@ export default function InteractiveMap() {
   // ---------------------------
   const provinceMatch = (loc: any, provName: string) => {
     const val = `${loc.province || loc.region || ''}`.toLowerCase();
-    return (
-      val.includes(provName.toLowerCase()) ||
-      provName.toLowerCase().includes(val)
-    );
+    return val.includes(provName.toLowerCase()) || provName.toLowerCase().includes(val);
   };
 
   const avgLngLat = (pts: any[]) => {
@@ -66,7 +63,7 @@ export default function InteractiveMap() {
       },
       { lng: 0, lat: 0, n: 0 }
     );
-    return sum.n ? [sum.lng / sum.n, sum.lat / sum.n] as [number, number] : null;
+    return sum.n ? ([sum.lng / sum.n, sum.lat / sum.n] as [number, number]) : null;
   };
 
   // ---------------------------
@@ -115,7 +112,7 @@ export default function InteractiveMap() {
     mapRef.current.on('load', () => {
       if (!mapRef.current || !provinces) return;
 
-      // 1) Add provinces source (not used for drawing by Mapbox, just in case)
+      // provinces source (not drawn by mapbox, but handy if needed)
       if (!mapRef.current.getSource('all-provinces')) {
         mapRef.current.addSource('all-provinces', {
           type: 'geojson',
@@ -123,7 +120,7 @@ export default function InteractiveMap() {
         });
       }
 
-      // 2) Add world mask source
+      // world mask source (we'll set the holes below in another effect)
       if (!mapRef.current.getSource('world-mask')) {
         mapRef.current.addSource('world-mask', {
           type: 'geojson',
@@ -138,8 +135,7 @@ export default function InteractiveMap() {
         });
       }
 
-
-      // 3) Add mask layer (outside: dark, inside (hole): map is visible)
+      // mask layer (outside: dark, inside (holes): map is visible)
       if (!mapRef.current.getLayer('world-mask-layer')) {
         mapRef.current.addLayer({
           id: 'world-mask-layer',
@@ -152,58 +148,47 @@ export default function InteractiveMap() {
         });
       }
     });
-    
 
     return () => {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [mapboxToken, provinces]);
+  }, [mapboxToken, provinces, viewState.longitude, viewState.latitude, viewState.zoom, viewState.bearing]);
 
-  // Update mask when province changes
+  // NEW: Reveal basemap inside ALL provinces (not just the selected one)
   useEffect(() => {
     if (!mapRef.current || !provinces) return;
 
-    const fullMask = {
+    const worldRing: [number, number][] = [
+      [-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]
+    ];
+
+    // Collect all province rings (supports Polygon and MultiPolygon)
+    const holes: number[][][] = [];
+    for (const f of provinces.features) {
+      const g = f.geometry;
+      if (!g) continue;
+      if (g.type === 'Polygon') {
+        for (const ring of g.coordinates) holes.push(ring);
+      } else if (g.type === 'MultiPolygon') {
+        for (const poly of g.coordinates) {
+          for (const ring of poly) holes.push(ring);
+        }
+      }
+    }
+
+    const maskWithAllProvinces = {
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'Polygon' as const,
-        coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
+        // Outer ring = whole world, inner rings = ALL provinces (map shows through)
+        coordinates: [worldRing, ...holes]
       }
     };
 
-    if (!selectedProvince) {
-      (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource)?.setData(fullMask);
-      return;
-    }
-
-    const selectedFeature = provinces.features.find(
-      (f: any) =>
-        f.properties.name_en === selectedProvince ||
-        f.properties.name === selectedProvince
-    );
-
-    if (!selectedFeature) {
-      (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource)?.setData(fullMask);
-      return;
-    }
-
-    // world polygon with province hole
-    const maskWithHole = {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'Polygon' as const,
-        coordinates: [
-          fullMask.geometry.coordinates[0],
-          ...selectedFeature.geometry.coordinates // holes
-        ]
-      }
-    };
-
-    (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource)?.setData(maskWithHole);
-  }, [selectedProvince, provinces]);
+    (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource)?.setData(maskWithAllProvinces);
+  }, [provinces]);
 
   // Sync Mapbox camera
   useEffect(() => {
@@ -306,7 +291,7 @@ export default function InteractiveMap() {
   // ---------------------------
   const layers: any[] = [];
 
-  // Provinces (flat, dark teal; selected becomes transparent)
+  // Provinces (dark green ~0.9 opacity; selected becomes transparent)
   if (provinces) {
     layers.push(
       new GeoJsonLayer({
@@ -323,8 +308,8 @@ export default function InteractiveMap() {
           const isSelected =
             f.properties.name_en === selectedProvince ||
             f.properties.name === selectedProvince;
-          // default: rich teal (opaque); selected: fully transparent to reveal map
-          return isSelected ? [0, 0, 0, 0] : [14, 95, 85, 255];
+          // default dark green with 0.9 alpha; selected transparent
+          return isSelected ? [0, 0, 0, 0] : [16, 84, 60, 229];
         },
         onClick: onClickProvince,
         updateTriggers: { getFillColor: [selectedProvince] }
@@ -334,7 +319,7 @@ export default function InteractiveMap() {
 
   // City markers (only when province selected & zoom >= 8)
   if (selectedProvince && viewState.zoom >= 8 && cityPoints.length > 0) {
-    // dot
+    // dots
     layers.push(
       new ScatterplotLayer({
         id: 'cities-dots',
@@ -351,7 +336,7 @@ export default function InteractiveMap() {
       })
     );
 
-    // count label
+    // labels
     layers.push(
       new TextLayer({
         id: 'cities-labels',
