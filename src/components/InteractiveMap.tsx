@@ -71,7 +71,7 @@ export default function InteractiveMap() {
     selectedProvinceRef.current = selectedProvince;
   }, [selectedProvince]);
 
-  // Raw feature name used for paint matching (keeps selected province transparent)
+  // Raw feature name used for paint matching
   const [selectedRawName, setSelectedRawName] = useState<string | null>(null);
   const selectedRawNameRef = useRef<string | null>(null);
   useEffect(() => {
@@ -112,12 +112,12 @@ export default function InteractiveMap() {
         const { data } = await supabase.functions.invoke('get-mapbox-token');
         const t =
           data?.token ||
-          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         mapboxgl.accessToken = t;
         setToken(t);
       } catch {
         const t =
-          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdzUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         mapboxgl.accessToken = t;
         setToken(t);
       }
@@ -162,18 +162,20 @@ export default function InteractiveMap() {
     label.textContent = name || '';
     label.style.cssText = `
       position: absolute;
-      left: 50%; bottom: 36px;
-      transform: translateX(-50%);
+      left: 50%; bottom: 34px;
+      transform: translate(-50%, 0);
       padding: 2px 6px;
       border-radius: 6px;
       font-size: 12px; font-weight: 700;
       color: #fff;
-      background: rgba(0,0,0,.35);
-      backdrop-filter: blur(2px) saturate(130%);
+      background: rgba(0,0,0,.65);
+      border: 1px solid rgba(255,255,255,.14);
+      box-shadow: 0 1px 2px rgba(0,0,0,.45);
       white-space: nowrap;
-      text-shadow: 0 1px 2px rgba(0,0,0,.6);
       pointer-events: none;
       user-select: none;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     `;
     root.appendChild(label);
 
@@ -224,7 +226,7 @@ export default function InteractiveMap() {
     });
   };
 
-  // Update marker visuals when selectedLocation changes (pins stay!)
+  // Update marker visuals when selectedLocation changes
   useEffect(() => {
     Object.entries(markerById.current).forEach(([id, { bubble }]) => {
       const isSel = selectedLocation && String(selectedLocation.id) === id;
@@ -245,6 +247,7 @@ export default function InteractiveMap() {
       });
 
       setSelectedProvince(rec.name);
+      setSelectedRawName(rec.nameEn ?? rec.name); // <-- ensures fill goes transparent when chosen from the list
       setSelectedCity(null);
       setSelectedLocation(null);
       setProvinceLocations(locs);
