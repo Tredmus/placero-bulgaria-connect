@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
+import { FlyToInterpolator } from '@deck.gl/core';
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import union from '@turf/union';
+import { centerOfMass, booleanPointInPolygon, point as turfPoint } from '@turf/turf';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -23,6 +24,8 @@ export default function InteractiveMap() {
   const [provinces, setProvinces] = useState<any>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [selectedLocationPopup, setSelectedLocationPopup] = useState<{ data: any; lng: number; lat: number; x: number; y: number } | null>(null);
   const [cityPoints, setCityPoints] = useState<any[]>([]);
   const [locationPoints, setLocationPoints] = useState<any[]>([]);
   const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
@@ -188,41 +191,74 @@ export default function InteractiveMap() {
   }, []);
 
   useEffect(() => {
-    if (selectedProvince) {
-      const filtered = locations.filter(l => l.city === selectedProvince && l.latitude && l.longitude);
-      const cities: Record<string, any[]> = {};
-      filtered.forEach(l => {
-        const city = l.city || '';
-        if (!cities[city]) cities[city] = [];
-        cities[city].push(l);
-      });
-      setCityPoints(
-        Object.entries(cities).map(([city, pts]) => {
-          const avg = pts.reduce((acc, p) => {
-            acc.longitude += typeof p.longitude === 'string' ? parseFloat(p.longitude) : p.longitude;
-            acc.latitude += typeof p.latitude === 'string' ? parseFloat(p.latitude) : p.latitude;
-            return acc;
-          }, { longitude: 0, latitude: 0 });
-          avg.longitude /= pts.length;
-          avg.latitude /= pts.length;
-          return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
-        })
-      );
-      setLocationPoints(filtered.map(l => ({ 
-        position: [
-          typeof l.longitude === 'string' ? parseFloat(l.longitude) : l.longitude, 
-          typeof l.latitude === 'string' ? parseFloat(l.latitude) : l.latitude
-        ], 
-        data: l 
-      })));
-    } else {
+    if (!selectedProvince || !provinces) {
       setCityPoints([]);
       setLocationPoints([]);
+      return;
     }
-  }, [selectedProvince, locations]);
+
+    const selectedFeature = provinces.features.find(
+      (f: any) => f.properties.name_en === selectedProvince || f.properties.name === selectedProvince
+    );
+    if (!selectedFeature) {
+      setCityPoints([]);
+      setLocationPoints([]);
+      return;
+    }
+
+    const inProvince = locations.filter((l) => {
+      const lng = typeof l.longitude === 'string' ? parseFloat(l.longitude) : l.longitude;
+      const lat = typeof l.latitude === 'string' ? parseFloat(l.latitude) : l.latitude;
+      if (lng == null || lat == null || isNaN(lng) || isNaN(lat)) return false;
+      try {
+        return booleanPointInPolygon(turfPoint([lng, lat]), selectedFeature as any);
+      } catch {
+        return false;
+      }
+    });
+
+    const cities: Record<string, any[]> = {};
+    inProvince.forEach((l) => {
+      const city = l.city || '';
+      if (!cities[city]) cities[city] = [];
+      cities[city].push(l);
+    });
+
+    const cityPts = Object.entries(cities)
+      .map(([city, pts]) => {
+        const coords = pts
+          .map((p: any) => ({
+            longitude: typeof p.longitude === 'string' ? parseFloat(p.longitude) : p.longitude,
+            latitude: typeof p.latitude === 'string' ? parseFloat(p.latitude) : p.latitude,
+          }))
+          .filter((c) => c.longitude != null && c.latitude != null && !isNaN(c.longitude) && !isNaN(c.latitude));
+        if (coords.length === 0) return null;
+        const avg = coords.reduce(
+          (acc, c) => ({ longitude: acc.longitude + c.longitude, latitude: acc.latitude + c.latitude }),
+          { longitude: 0, latitude: 0 }
+        );
+        avg.longitude /= coords.length;
+        avg.latitude /= coords.length;
+        return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city } as any;
+      })
+      .filter(Boolean) as any[];
+
+    setCityPoints(cityPts);
+
+    setLocationPoints(
+      inProvince.map((l) => ({
+        position: [
+          typeof l.longitude === 'string' ? parseFloat(l.longitude) : (l.longitude as number),
+          typeof l.latitude === 'string' ? parseFloat(l.latitude) : (l.latitude as number),
+        ],
+        data: l,
+      }))
+    );
+  }, [selectedProvince, provinces, locations]);
 
   const onViewStateChange = useCallback((info: any) => {
     setViewState(info.viewState);
+    setSelectedLocationPopup(null);
   }, []);
 
   const animateElevation = (name: string) => {
@@ -246,9 +282,26 @@ export default function InteractiveMap() {
     if (info.object && info.object.properties) {
       const name = info.object.properties.name_en || info.object.properties.name;
       setSelectedProvince(name);
+      setSelectedCity(null);
+      setSelectedLocationPopup(null);
 
-      const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
-      setViewState(prev => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8, pitch: 0, transitionDuration: 1000 }));
+      try {
+        const feature = info.object;
+        const center = centerOfMass(feature).geometry.coordinates as [number, number];
+        setViewState((prev) => ({
+          ...prev,
+          longitude: center[0],
+          latitude: center[1],
+          zoom: 8.5,
+          pitch: 0,
+          transitionDuration: 600,
+          transitionInterpolator: new FlyToInterpolator(),
+        }));
+      } catch {
+        // fallback to first coordinate
+        const coordinates = info.object.properties.centroid || info.object.geometry.coordinates[0][0];
+        setViewState((prev) => ({ ...prev, longitude: coordinates[0], latitude: coordinates[1], zoom: 8.5, pitch: 0, transitionDuration: 600 }));
+      }
     }
   }, []);
 
