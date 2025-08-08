@@ -315,15 +315,15 @@ export default function InteractiveMap() {
         stroked: true,
         wireframe: false,
         extruded: false,
-        getLineColor: [32, 88, 84, 220],
-        lineWidthMinPixels: 1,
         getFillColor: (f: any) => {
           const isSelected =
             f.properties.name_en === selectedProvince ||
             f.properties.name === selectedProvince;
-          // default: rich teal (opaque); selected: fully transparent to reveal map
-          return isSelected ? [0, 0, 0, 0] : [14, 95, 85, 255];
+          // selected: transparent to reveal map; unselected: solid green with 0.9 opacity
+          return isSelected ? [0, 0, 0, 0] : [34, 139, 34, 230];
         },
+        getLineColor: [60, 60, 60, 255], // dark gray borders
+        getLineWidth: 2,
         onClick: onClickProvince,
         updateTriggers: { getFillColor: [selectedProvince] }
       })
@@ -415,10 +415,13 @@ export default function InteractiveMap() {
         controller={{ dragRotate: false }} // disable tilt
         layers={layers}
         onViewStateChange={onViewStateChange}
-        style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, zIndex: 1 }}
-        getTooltip={({ object }: any) =>
-          object?.properties?.name_en || object?.properties?.name || null
-        }
+        style={{ width: '100%', height: '100%', position: 'absolute', inset: '0', zIndex: '1' }}
+        getTooltip={({ object }: any) => {
+          if (object?.properties?.name_en || object?.properties?.name) {
+            return object.properties.name_en || object.properties.name;
+          }
+          return null;
+        }}
       />
 
       {/* Location popup */}
