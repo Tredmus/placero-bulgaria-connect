@@ -74,43 +74,50 @@ export default function InteractiveMap() {
       if (!mapRef.current || !provinces) return;
 
       // Add all provinces as a source for potential masking
-      mapRef.current.addSource('all-provinces', {
-        type: 'geojson',
-        data: provinces
-      });
+      if (!mapRef.current.getSource('all-provinces')) {
+        mapRef.current.addSource('all-provinces', {
+          type: 'geojson',
+          data: provinces
+        });
+      }
 
-      // Add world mask source (starts with full coverage to hide everything)
-      mapRef.current.addSource('world-mask', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'Polygon',
-            coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
+      // Add world mask source (starts with full coverage)
+      if (!mapRef.current.getSource('world-mask')) {
+        mapRef.current.addSource('world-mask', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'Polygon',
+              coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
+            }
           }
-        }
-      });
+        });
+      }
 
-      // Add mask layer that covers everything outside selected province
-      mapRef.current.addLayer({
-        id: 'world-mask-layer',
-        type: 'fill',
-        source: 'world-mask',
-        paint: {
-          'fill-color': '#1a1a2e',
-          'fill-opacity': 1
-        }
-      });
+      // Add mask layer
+      if (!mapRef.current.getLayer('world-mask-layer')) {
+        mapRef.current.addLayer({
+          id: 'world-mask-layer',
+          type: 'fill',
+          source: 'world-mask',
+          paint: {
+            'fill-color': '#1a1a2e',
+            'fill-opacity': 1
+          }
+        });
+      }
 
-      // Set satellite layer elevation to appear below 3D provinces
+      // Slight opacity on raster so provinces/markers pop a bit
       const layers = mapRef.current.getStyle().layers;
       const satelliteLayer = layers?.find(layer => layer.type === 'raster');
-      
       if (satelliteLayer) {
-        // Add custom properties to position satellite layer below provinces
         mapRef.current.setPaintProperty(satelliteLayer.id, 'raster-opacity', 0.8);
       }
+
+      // >>> Set mask to show the map inside ALL provinces <<<
+      setMaskToAllProvinces();
     });
 
     return () => {
@@ -121,41 +128,52 @@ export default function InteractiveMap() {
     };
   }, [mapboxToken, provinces]);
 
-  // ▶️ Make the map visible in ALL province polygons (mask everything outside all provinces)
-  useEffect(() => {
+  // Build and apply a mask that cuts holes for ALL provinces
+  const setMaskToAllProvinces = useCallback(() => {
     if (!mapRef.current || !provinces) return;
 
-    const worldBounds = [
-      [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]
+    // Outer world ring
+    const worldRing: [number, number][] = [
+      [-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]
     ];
 
-    // Collect rings for all provinces (supports Polygon and MultiPolygon)
-    const holes: any[] = [];
-    for (const feature of provinces.features) {
-      if (!feature?.geometry) continue;
-      if (feature.geometry.type === 'Polygon') {
-        // Each ring in a Polygon can be added as a hole
-        holes.push(...feature.geometry.coordinates);
-      } else if (feature.geometry.type === 'MultiPolygon') {
-        // Flatten each polygon's rings
-        for (const poly of feature.geometry.coordinates) {
-          holes.push(...poly);
+    // Collect outer rings of every province as holes
+    const holes: [number, number][][] = [];
+    for (const feat of provinces.features) {
+      const geom = feat.geometry;
+      if (!geom) continue;
+
+      if (geom.type === 'Polygon') {
+        // outer ring is coordinates[0]
+        if (Array.isArray(geom.coordinates[0])) {
+          holes.push(geom.coordinates[0] as [number, number][]);
+        }
+      } else if (geom.type === 'MultiPolygon') {
+        for (const poly of geom.coordinates) {
+          if (Array.isArray(poly[0])) {
+            holes.push(poly[0] as [number, number][]);
+          }
         }
       }
     }
 
-    const maskWithHoles = {
+    const maskWithAllProvinceHoles = {
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'Polygon' as const,
-        coordinates: [worldBounds[0], ...holes]
+        // world outer ring + one hole per province
+        coordinates: [worldRing, ...holes]
       }
     };
 
-    const src = mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource | undefined;
-    if (src) src.setData(maskWithHoles);
-  }, [provinces]); // ← no longer depends on selectedProvince
+    (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource)?.setData(maskWithAllProvinceHoles);
+  }, [provinces]);
+
+  // Update mask when provinces load OR selection changes (we keep showing all provinces)
+  useEffect(() => {
+    setMaskToAllProvinces();
+  }, [setMaskToAllProvinces, selectedProvince, provinces]);
 
   // Sync Mapbox map with DeckGL viewState
   useEffect(() => {
