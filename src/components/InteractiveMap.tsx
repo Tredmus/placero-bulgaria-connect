@@ -290,11 +290,16 @@ export default function InteractiveMap() {
             'rgba(0,0,0,0)',
             'rgba(16,185,129,1)',
           ],
-          // Hover opacity via feature-state: ~half when hovered
+          // Hover/Selected opacity
           'fill-opacity': [
             'case',
+            // make selected fully transparent regardless of color
+            ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvinceRef.current ?? '___none___'],
+            0,
+            // Hover ~half when hovered
             ['boolean', ['feature-state', 'hover'], false],
             0.4,
+            // Default opacity
             0.78,
           ],
           'fill-outline-color': '#ffffff',
@@ -383,200 +388,17 @@ export default function InteractiveMap() {
       'rgba(0,0,0,0)',
       'rgba(16,185,129,1)',
     ]);
+    map.current.setPaintProperty('provinces-fill', 'fill-opacity', [
+      'case',
+      ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedProvince ?? '___none___'],
+      0,
+      ['boolean', ['feature-state', 'hover'], false],
+      0.4,
+      0.78,
+    ]);
   }, [selectedProvince]);
 
   // --- UI ---
   if (!token) {
     return (
-      <div className="bg-secondary/50 rounded-lg p-8 h-[600px] flex items-center justify-center">
-        <p className="text-muted-foreground">Зареждане на картата…</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-secondary/50 rounded-lg p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold">Изберете регион</h3>
-        {selectedProvince && (
-          <Button onClick={resetView} variant="outline" className="flex items-center gap-2">
-            <RotateCcw className="h-4 w-4" />
-            Покажи всички региони
-          </Button>
-        )}
-      </div>
-
-      <div className="relative">
-        {/* Map container */}
-        <div ref={mapEl} className="w-full h-[600px] rounded-lg overflow-hidden border border-border shadow-lg" />
-
-        {/* Province / City summary card */}
-        {(selectedProvince || selectedCity) && (
-          <div className="absolute top-4 left-4 z-10">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  <div className="flex flex-col">
-                    {selectedCity ? (
-                      <>
-                        <span className="font-bold text-lg">{selectedCity}</span>
-                        <span className="text-sm text-muted-foreground">{selectedProvince}</span>
-                      </>
-                    ) : (
-                      <span className="font-bold text-lg">{selectedProvince}</span>
-                    )}
-                  </div>
-                </div>
-                <Badge variant="secondary">
-                  {selectedCity
-                    ? `${cityLocations.length} офиса`
-                    : `${Object.keys(provinceCities).length} града, ${provinceLocations.length} офиса`}
-                </Badge>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Selected location details (right) */}
-        {selectedLocation && (
-          <div className="absolute top-4 right-4 z-20 w-80">
-            <Card className="shadow-xl">
-              <div className="relative">
-                {selectedLocation.image && (
-                  <img
-                    src={selectedLocation.image}
-                    alt={selectedLocation.name}
-                    className="w-full h-32 object-cover rounded-t-lg"
-                  />
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2 bg-background/80 hover:bg-background"
-                  onClick={() => setSelectedLocation(null)}
-                >
-                  ×
-                </Button>
-              </div>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <div>
-                    <h3 className="font-semibold text-lg">{selectedLocation.name}</h3>
-                    {selectedLocation.companies?.name && (
-                      <p className="text-sm text-muted-foreground">{selectedLocation.companies.name}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    <span>{selectedLocation.address}</span>
-                  </div>
-                  {selectedLocation.amenities?.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedLocation.amenities.slice(0, 4).map((a: string) => {
-                        const Icon = (amenityIcons as any)[a];
-                        return (
-                          <div key={a} className="flex items-center text-xs text-muted-foreground">
-                            {Icon && <Icon className="h-3 w-3 mr-1" />}
-                            <span className="capitalize">{a}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between pt-2">
-                    {selectedLocation.price_day && (
-                      <div>
-                        <span className="text-lg font-semibold">{selectedLocation.price_day}лв</span>
-                        <span className="text-sm text-muted-foreground">/ден</span>
-                      </div>
-                    )}
-                    {selectedLocation.rating && (
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        {selectedLocation.rating}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </div>
-
-      {/* Province list (bottom) */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-6">
-        {PROVINCES.map((p) => {
-          const data = provinceData[p.name];
-          if (!data || data.locations.length === 0) return null;
-          const isSelected = selectedProvince === p.name;
-          return (
-            <div
-              key={p.name}
-              onClick={() => (isSelected ? resetView() : handleProvinceSelect(p.name, data.coordinates))}
-              className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 hover:scale-105 ${
-                isSelected ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : ''
-              }`}
-            >
-              <div className="text-center">
-                <h4 className="font-semibold text-sm">{p.name}</h4>
-                <p className="text-xs text-muted-foreground">{data.locations.length} офиса</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Cities */}
-      {selectedProvince && !selectedCity && Object.keys(provinceCities).length > 0 && (
-        <div className="mt-6">
-          <h4 className="text-lg font-semibold mb-4">Градове в {selectedProvince}</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {Object.entries(provinceCities).map(([city, locs]) => (
-              <div
-                key={city}
-                onClick={() => handleCitySelect(city, locs)}
-                className="p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-secondary hover:bg-secondary/5 hover:scale-105"
-              >
-                <div className="text-center">
-                  <h5 className="font-semibold text-sm">{city}</h5>
-                  <p className="text-xs text-muted-foreground">{locs.length} офиса</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Locations */}
-      {selectedCity && cityLocations.length > 0 && (
-        <div className="mt-6">
-          <h4 className="text-lg font-semibold mb-4">Офиси в {selectedCity}</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {cityLocations.map((l) => (
-              <Card key={l.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setSelectedLocation(l)}>
-                <CardContent className="p-4">
-                  <h5 className="font-semibold mb-2">{l.name}</h5>
-                  <div className="flex items-center text-sm text-muted-foreground mb-2">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    <span>{l.address}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    {l.price_day && <Badge variant="outline">{l.price_day} лв./ден</Badge>}
-                    {l.rating && (
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        {l.rating}
-                      </Badge>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+      <div className="bg-secondary/50
