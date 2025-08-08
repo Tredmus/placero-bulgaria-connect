@@ -12,9 +12,6 @@ import { FlyToInterpolator } from '@deck.gl/core';
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
-/**
- * Initial camera for Bulgaria
- */
 const INITIAL_VIEW_STATE = {
   longitude: 25.4858,
   latitude: 42.7339,
@@ -25,33 +22,24 @@ const INITIAL_VIEW_STATE = {
 };
 
 export default function InteractiveMap() {
-  // ---- DATA STATE ----
-  const { locations } = useLocations(); // Your locations from backend
-  const [provinces, setProvinces] = useState<any>(null); // Bulgaria provinces GeoJSON
-  const [mapboxToken, setMapboxToken] = useState<string | null>(null); // Mapbox token for the raster basemap
+  const { locations } = useLocations();
 
-  // ---- MAP/VIEW STATE ----
-  const [viewState, setViewState] = useState(INITIAL_VIEW_STATE); // DeckGL camera state
-  const nationalCenterRef = useRef<{ lng: number; lat: number; zoom: number } | null>(null); // Remember whole-country center/zoom
+  // --- DATA / MAP STATE ---
+  const [provinces, setProvinces] = useState<any>(null);                          // GeoJSON for BG provinces
+  const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);                 // DeckGL camera
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);  // Selected province (by name)
+  const [hoveredProvinceId, setHoveredProvinceId] = useState<any>(null);          // <- NEW: track hovered feature id
 
-  // Selection & hover
-  const [selectedProvince, setSelectedProvince] = useState<string | null>(null); // Selected province name (en/bg)
-  const [hoveredProvinceId, setHoveredProvinceId] = useState<string | number | null>(null); // Feature id used to style hover
+  const [cityPoints, setCityPoints] = useState<any[]>([]);                        // City “cluster” pins
+  const [locationPoints, setLocationPoints] = useState<any[]>([]);                // Individual locations
+  const [elevationMap, setElevationMap] = useState<Record<string, number>>({});   // (unused now, left intact)
 
-  // City & location pin datasets (built after selecting a province)
-  const [cityPoints, setCityPoints] = useState<any[]>([]);
-  const [locationPoints, setLocationPoints] = useState<any[]>([]);
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);            // Mapbox access token
+  const mapContainerRef = useRef<HTMLDivElement>(null);                           // Mapbox div
+  const mapRef = useRef<mapboxgl.Map | null>(null);                               // Mapbox instance
+  const nationalCenterRef = useRef<{ lng: number; lat: number; zoom: number } | null>(null); // Saved national view
 
-  // Mapbox GL instance (used as the basemap under DeckGL)
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-
-  // Unused but kept if you plan future elevation styling / unions
-  const [elevationMap, setElevationMap] = useState<Record<string, number>>({});
-
-  // ------------------------------------------------------------
-  // 1) Fetch Mapbox token (from Supabase function; fallback to public token)
-  // ------------------------------------------------------------
+  // --- Load Mapbox token (unchanged) ---
   useEffect(() => {
     const fetchMapboxToken = async () => {
       try {
@@ -73,10 +61,7 @@ export default function InteractiveMap() {
     fetchMapboxToken();
   }, []);
 
-  // ------------------------------------------------------------
-  // 2) Initialize Mapbox basemap once we have token & provinces
-  //    We also add a "world mask" so only Bulgaria area reveals the map
-  // ------------------------------------------------------------
+  // --- Init Mapbox basemap + world mask (unchanged) ---
   useEffect(() => {
     if (!mapContainerRef.current || !mapboxToken || !provinces) return;
 
@@ -87,33 +72,27 @@ export default function InteractiveMap() {
       zoom: viewState.zoom,
       pitch: viewState.pitch,
       bearing: viewState.bearing,
-      interactive: false // all interactions handled by DeckGL
+      interactive: false
     });
 
     mapRef.current.on('load', () => {
       if (!mapRef.current || !provinces) return;
 
-      // Source with all provinces (for the mask)
       if (!mapRef.current.getSource('all-provinces')) {
         mapRef.current.addSource('all-provinces', { type: 'geojson', data: provinces });
       }
 
-      // A big world polygon to act as a mask background
       if (!mapRef.current.getSource('world-mask')) {
         mapRef.current.addSource('world-mask', {
           type: 'geojson',
           data: {
             type: 'Feature',
             properties: {},
-            geometry: {
-              type: 'Polygon',
-              coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]
-            }
+            geometry: { type: 'Polygon', coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]] }
           }
         });
       }
 
-      // Paint the world mask the same as page background so map looks “floating”
       if (!mapRef.current.getLayer('world-mask-layer')) {
         mapRef.current.addLayer({
           id: 'world-mask-layer',
@@ -123,14 +102,12 @@ export default function InteractiveMap() {
         });
       }
 
-      // Make underlying raster (if any) a bit visible
       const layers = mapRef.current.getStyle().layers;
-      const raster = layers?.find(layer => layer.type === 'raster');
-      if (raster) {
-        mapRef.current.setPaintProperty(raster.id, 'raster-opacity', 0.8);
+      const satelliteLayer = layers?.find(layer => layer.type === 'raster');
+      if (satelliteLayer) {
+        mapRef.current.setPaintProperty(satelliteLayer.id, 'raster-opacity', 0.8);
       }
 
-      // Initialize the mask to show the basemap only through Bulgarian provinces
       setMaskToAllProvinces();
     });
 
@@ -142,22 +119,16 @@ export default function InteractiveMap() {
     };
   }, [mapboxToken, provinces]);
 
-  // ------------------------------------------------------------
-  // 3) Build a mask with holes for every province (so basemap shows only there)
-  // ------------------------------------------------------------
+  // --- Build mask “holes” for all provinces (unchanged) ---
   const setMaskToAllProvinces = useCallback(() => {
     if (!mapRef.current || !provinces) return;
 
-    const worldRing: [number, number][] = [
-      [-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]
-    ];
-
-    // Each province outer ring becomes a "hole" in the world mask
+    const worldRing: [number, number][] = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
     const holes: [number, number][][] = [];
+
     for (const feat of provinces.features) {
       const geom = feat.geometry;
       if (!geom) continue;
-
       if (geom.type === 'Polygon') {
         if (Array.isArray(geom.coordinates[0])) {
           holes.push(geom.coordinates[0] as [number, number][]);
@@ -180,12 +151,11 @@ export default function InteractiveMap() {
     (mapRef.current.getSource('world-mask') as mapboxgl.GeoJSONSource)?.setData(maskWithAllProvinceHoles);
   }, [provinces]);
 
-  // Re-apply mask if provinces/selection change
   useEffect(() => {
     setMaskToAllProvinces();
   }, [setMaskToAllProvinces, selectedProvince, provinces]);
 
-  // Keep Mapbox camera in sync with DeckGL camera
+  // --- Keep Mapbox camera synced (unchanged) ---
   useEffect(() => {
     if (mapRef.current && viewState) {
       mapRef.current.jumpTo({
@@ -197,26 +167,18 @@ export default function InteractiveMap() {
     }
   }, [viewState]);
 
-  // ------------------------------------------------------------
-  // 4) Load provinces GeoJSON and center camera on Bulgaria
-  // ------------------------------------------------------------
+  // --- Load provinces + set national center (unchanged) ---
   useEffect(() => {
-    fetch(GEOJSON_URL)
-      .then(res => res.json())
-      .then(data => setProvinces(data));
+    fetch(GEOJSON_URL).then(res => res.json()).then(data => setProvinces(data));
   }, []);
 
   useEffect(() => {
     if (!provinces) return;
-
-    // Center roughly on Bulgaria using bbox
     const [minX, minY, maxX, maxY] = bbox(provinces);
     const centerLng = (minX + maxX) / 2;
     const centerLat = (minY + maxY) / 2;
     const zoom = 6.5;
-
     nationalCenterRef.current = { lng: centerLng, lat: centerLat, zoom };
-
     setViewState(prev => ({
       ...prev,
       longitude: centerLng,
@@ -228,229 +190,175 @@ export default function InteractiveMap() {
     }));
   }, [provinces]);
 
-  // ------------------------------------------------------------
-  // 5) Build city and location datasets once a province is selected
-  // ------------------------------------------------------------
+  // --- Build city & location points on select (UNCHANGED BY REQUEST) ---
   useEffect(() => {
     if (selectedProvince) {
-      const filtered = locations.filter(
-        l => l.city === selectedProvince && l.latitude && l.longitude
-      );
-
-      // Group by city to make "city pins"
+      const filtered = locations.filter(l => l.city === selectedProvince && l.latitude && l.longitude);
       const cities: Record<string, any[]> = {};
       filtered.forEach(l => {
         const city = l.city || '';
         if (!cities[city]) cities[city] = [];
         cities[city].push(l);
       });
-
-      // Compute city centroids (average of its locations)
-      setCityPoints(
-        Object.entries(cities).map(([city, pts]) => {
-          const avg = pts.reduce(
-            (acc, p) => {
-              acc.longitude += typeof p.longitude === 'string' ? parseFloat(p.longitude) : p.longitude;
-              acc.latitude += typeof p.latitude === 'string' ? parseFloat(p.latitude) : p.latitude;
-              return acc;
-            },
-            { longitude: 0, latitude: 0 }
-          );
-          avg.longitude /= pts.length;
-          avg.latitude /= pts.length;
-
-          return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
-        })
-      );
-
-      // Raw location pins
-      setLocationPoints(
-        filtered.map(l => ({
-          position: [
-            typeof l.longitude === 'string' ? parseFloat(l.longitude) : l.longitude,
-            typeof l.latitude === 'string' ? parseFloat(l.latitude) : l.latitude
-          ],
-          data: l
-        }))
-      );
+      setCityPoints(Object.entries(cities).map(([city, pts]) => {
+        const avg = pts.reduce((acc, p) => {
+          acc.longitude += typeof p.longitude === 'string' ? parseFloat(p.longitude) : p.longitude;
+          acc.latitude += typeof p.latitude === 'string' ? parseFloat(p.latitude) : p.latitude;
+          return acc;
+        }, { longitude: 0, latitude: 0 });
+        avg.longitude /= pts.length;
+        avg.latitude /= pts.length;
+        return { position: [avg.longitude, avg.latitude], count: pts.length, cityName: city, pts };
+      }));
+      setLocationPoints(filtered.map(l => ({
+        position: [
+          typeof l.longitude === 'string' ? parseFloat(l.longitude) : l.longitude,
+          typeof l.latitude === 'string' ? parseFloat(l.latitude) : l.latitude
+        ],
+        data: l
+      })));
     } else {
       setCityPoints([]);
       setLocationPoints([]);
     }
   }, [selectedProvince, locations]);
 
-  // DeckGL camera change
+  // --- DeckGL camera updates (unchanged) ---
   const onViewStateChange = useCallback((info: any) => {
     setViewState(info.viewState);
   }, []);
 
-  // ------------------------------------------------------------
-  // 6) Province click = select/deselect + camera fly
-  //     * Zoom bumped from 8 -> 8.8 as requested
-  // ------------------------------------------------------------
-  const onClickProvince = useCallback(
-    (info: any) => {
-      if (info.object && info.object.properties) {
-        const name =
-          info.object.properties.name_en ||
-          info.object.properties.name;
+  // --- Province click handler: select/deselect + slightly stronger zoom ---
+  const onClickProvince = useCallback((info: any) => {
+    if (info.object && info.object.properties) {
+      const name = info.object.properties.name_en || info.object.properties.name;
 
-        // Clicking same province again -> deselect and reset to national view
-        if (selectedProvince === name) {
-          setSelectedProvince(null);
-          const fallback = nationalCenterRef.current || { lng: 25.4858, lat: 42.7339, zoom: 6.5 };
-          setViewState(prev => ({
-            ...prev,
-            longitude: fallback.lng,
-            latitude: fallback.lat,
-            zoom: fallback.zoom,
-            pitch: 0,
-            transitionDuration: 550,
-            transitionInterpolator: new FlyToInterpolator({ speed: 2.5 })
-          }));
-          return;
-        }
-
-        // Select a new province
-        setSelectedProvince(name);
-
-        // Fly to province centroid
-        const c = centroid(info.object);
-        const [lng, lat] = c.geometry.coordinates as [number, number];
-
+      if (selectedProvince === name) {
+        // Deselect -> fly back to national view
+        setSelectedProvince(null);
+        const fallback = nationalCenterRef.current || { lng: 25.4858, lat: 42.7339, zoom: 6.5 };
         setViewState(prev => ({
           ...prev,
-          longitude: lng,
-          latitude: lat,
-          zoom: 8.8, // <- stronger zoom
+          longitude: fallback.lng,
+          latitude: fallback.lat,
+          zoom: fallback.zoom,
           pitch: 0,
           transitionDuration: 550,
           transitionInterpolator: new FlyToInterpolator({ speed: 2.5 })
         }));
+        return;
       }
-    },
-    [selectedProvince]
-  );
 
-  // ------------------------------------------------------------
-  // 7) Layers
-  //    - Provinces (hover + select styles)
-  //    - City pins (zoom >= 8)
-  //    - Location pins (zoom >= 12)
-  // ------------------------------------------------------------
-  const layers: any[] = [];
+      // Select -> fly to centroid, zoom a bit more (8 -> 8.8)
+      setSelectedProvince(name);
+      const c = centroid(info.object);
+      const [lng, lat] = c.geometry.coordinates as [number, number];
+      setViewState(prev => ({
+        ...prev,
+        longitude: lng,
+        latitude: lat,
+        zoom: 8.8, // <- slightly stronger zoom
+        pitch: 0,
+        transitionDuration: 550,
+        transitionInterpolator: new FlyToInterpolator({ speed: 2.5 })
+      }));
+    }
+  }, [selectedProvince]);
+
+  // --- LAYERS ---
+  const layers = [];
 
   if (provinces) {
-    layers.push(
-      new GeoJsonLayer({
-        id: 'provinces',
-        data: provinces,
-        pickable: true,
-        filled: true,
-        stroked: true,
-        wireframe: true,
-        extruded: false,
+    layers.push(new GeoJsonLayer({
+      id: 'provinces',
+      data: provinces,
+      pickable: true,
+      filled: true,
+      stroked: true,
+      wireframe: true,
+      extruded: false,
 
-        // White borders
-        getLineColor: [255, 255, 255, 255],
-        getLineWidth: () => 2,
-        lineWidthMinPixels: 2,
+      // Border styling (unchanged)
+      getLineColor: [255, 255, 255, 255],
+      getLineWidth: () => 2,
+      lineWidthMinPixels: 2,
 
-        // Fill color logic:
-        // - Selected: fully transparent (see-through to basemap)
-        // - Hovered (and not selected): 50% opacity
-        // - Default: solid accent fill
-        getFillColor: (f: any) => {
-          const isSelected =
-            f.properties.name_en === selectedProvince ||
-            f.properties.name === selectedProvince;
+      // Fill color:
+      // - Selected province: fully transparent (see-through)
+      // - Hovered province: ~50% opacity
+      // - Default: original teal-ish with higher alpha
+      getFillColor: (f: any) => {
+        const isSelected =
+          f.properties.name_en === selectedProvince ||
+          f.properties.name === selectedProvince;
 
-          // IMPORTANT: if your GeoJSON has `name_bg`, you can also check that against selectedProvince
-          // e.g., (f.properties.name_bg === selectedProvince)
+        if (isSelected) return [0, 0, 0, 0];
 
-          if (isSelected) {
-            return [0, 0, 0, 0]; // transparent
-          }
+        const id = f.id ?? f.properties?.id ?? f.properties?.code ?? f.properties?.name_en ?? f.properties?.name;
+        const isHovered = hoveredProvinceId != null && hoveredProvinceId === id;
 
-          // Use feature id or fallback to index to determine hover match
+        // base color [16,185,129], different alpha on hover
+        return isHovered ? [16, 185, 129, 128] : [16, 185, 129, 200];
+      },
+
+      // NEW: track hover so we can style opacity
+      onHover: (info: any) => {
+        if (info.object) {
+          const f = info.object;
           const id = f.id ?? f.properties?.id ?? f.properties?.code ?? f.properties?.name_en ?? f.properties?.name;
-          const isHovered = hoveredProvinceId != null && hoveredProvinceId === id;
-
-          // Base color: teal-ish; adjust alpha for hover/non-hover
-          // Non-hover alpha ~200, hover alpha ~128 (about 50%)
-          return isHovered ? [16, 185, 129, 128] : [16, 185, 129, 200];
-        },
-
-        // Track hovered feature so we can style it
-        onHover: (info: any) => {
-          if (info.object) {
-            const f = info.object;
-            const id = f.id ?? f.properties?.id ?? f.properties?.code ?? f.properties?.name_en ?? f.properties?.name;
-            setHoveredProvinceId(id);
-          } else {
-            setHoveredProvinceId(null);
-          }
-        },
-
-        onClick: onClickProvince,
-
-        // Recalculate when these change
-        updateTriggers: {
-          getFillColor: [selectedProvince, hoveredProvinceId]
+          setHoveredProvinceId(id);
+        } else {
+          setHoveredProvinceId(null);
         }
-      })
-    );
+      },
+
+      onClick: onClickProvince,
+
+      // Recompute fill when selection/hover changes
+      updateTriggers: { getFillColor: [selectedProvince, hoveredProvinceId] }
+    }));
   }
 
-  // City “cluster” pins (only when zoomed in enough and we have data)
+  // City pins (unchanged)
   if (viewState.zoom >= 8 && cityPoints.length > 0) {
-    layers.push(
-      new ScatterplotLayer({
-        id: 'cities',
-        data: cityPoints,
-        pickable: true,
-        getPosition: (d: any) => d.position,
-        getRadius: (d: any) => Math.sqrt(d.count) * 5000,
-        getFillColor: [255, 140, 0],
-        onClick: (info: any) => {
-          if (info.object) {
-            setViewState(prev => ({
-              ...prev,
-              longitude: info.object.position[0],
-              latitude: info.object.position[1],
-              zoom: 12,
-              transitionDuration: 1000
-            }));
-          }
+    layers.push(new ScatterplotLayer({
+      id: 'cities',
+      data: cityPoints,
+      pickable: true,
+      getPosition: (d: any) => d.position,
+      getRadius: (d: any) => Math.sqrt(d.count) * 5000,
+      getFillColor: [255, 140, 0],
+      onClick: (info: any) => {
+        if (info.object) {
+          setViewState(prev => ({
+            ...prev,
+            longitude: info.object.position[0],
+            latitude: info.object.position[1],
+            zoom: 12,
+            transitionDuration: 1000
+          }));
         }
-      })
-    );
+      }
+    }));
   }
 
-  // Individual location pins (only when zoomed further)
+  // Location pins (unchanged)
   if (viewState.zoom >= 12 && locationPoints.length > 0) {
-    layers.push(
-      new ScatterplotLayer({
-        id: 'locations',
-        data: locationPoints,
-        pickable: true,
-        getPosition: (d: any) => d.position,
-        getRadius: 2000,
-        getFillColor: [255, 0, 128],
-        onClick: (info: any) => info.object && alert(info.object.data.name)
-      })
-    );
+    layers.push(new ScatterplotLayer({
+      id: 'locations',
+      data: locationPoints,
+      pickable: true,
+      getPosition: (d: any) => d.position,
+      getRadius: 2000,
+      getFillColor: [255, 0, 128],
+      onClick: (info: any) => info.object && alert(info.object.data.name)
+    }));
   }
 
-  // ------------------------------------------------------------
-  // 8) Render
-  // ------------------------------------------------------------
+  // --- Render ---
   if (!mapboxToken) {
     return (
-      <div
-        style={{ width: '100%', height: '600px', position: 'relative' }}
-        className="flex items-center justify-center bg-muted"
-      >
+      <div style={{ width: '100%', height: '600px', position: 'relative' }} className="flex items-center justify-center bg-muted">
         <p className="text-muted-foreground">Loading map...</p>
       </div>
     );
@@ -458,24 +366,18 @@ export default function InteractiveMap() {
 
   return (
     <div style={{ width: '100%', height: '600px', position: 'relative' }}>
-      {/* Mapbox basemap lives underneath DeckGL */}
-      <div
-        ref={mapContainerRef}
-        style={{ width: '100%', height: '100%', position: 'absolute', top: '0', left: '0', zIndex: 0 }}
-      />
+      {/* Mapbox basemap (underneath) */}
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', position: 'absolute', top: '0', left: '0', zIndex: 0 }} />
 
+      {/* DeckGL overlay */}
       <DeckGL
         viewState={viewState}
         controller={{ dragRotate: false }}
         layers={layers}
         onViewStateChange={onViewStateChange}
-        style={{ width: '100%', height: '100%', position: 'absolute', top: '0', left: '0', zIndex: 1 }}
+        style={{ width: '100%', height: '100%', position: 'absolute', top: '0', left: '0', zIndex: '1' }}
 
-        /**
-         * Tooltip prefers Bulgarian name.
-         * If your GeoJSON uses a different field, replace `name_bg` below.
-         * Fallbacks: `name`, then `name_en`.
-         */
+        // Tooltip now prefers Bulgarian label, falls back gracefully
         getTooltip={({ object }) => {
           if (object && object.properties) {
             return object.properties.name_bg || object.properties.name || object.properties.name_en;
