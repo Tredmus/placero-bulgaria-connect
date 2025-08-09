@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import centroid from '@turf/centroid';
@@ -151,6 +152,7 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
 
 export default function InteractiveMap() {
   const { locations } = useLocations();
+  const navigate = useNavigate();
 
   const mapEl = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -500,7 +502,6 @@ export default function InteractiveMap() {
         const f = e.features?.[0];
         if (!f) return;
 
-        // clear old hover state if moving between features
         if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== f.id) {
           map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
         }
@@ -512,7 +513,6 @@ export default function InteractiveMap() {
         const displayName =
           PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
 
-        // Hide tooltip on the selected province (so it doesn't clash with city/location tooltips)
         if (selectedRawNameRef.current && rawName === selectedRawNameRef.current) {
           if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
           return;
@@ -597,8 +597,10 @@ export default function InteractiveMap() {
     if (!city) return false;
     const ch = city.trim().charAt(0).toLowerCase();
     return ch === 'в' || ch === 'ф';
-    // 'във' vs 'в'
   };
+
+  const getMainImage = (loc: any) =>
+    loc?.image || loc?.main_image_url || (Array.isArray(loc?.photos) && loc.photos[0]?.url) || null;
 
   if (!token) {
     return (
@@ -656,11 +658,19 @@ export default function InteractiveMap() {
 
         {selectedLocation && (
           <div className="absolute top-4 right-4 z-20 w-80">
-            <Card className="shadow-xl">
+            <Card className="shadow-xl overflow-hidden">
               <div className="relative">
-                {selectedLocation.image && (
-                  <img src={selectedLocation.image} alt={selectedLocation.name} className="w-full h-32 object-cover rounded-t-lg" />
-                )}
+                {(() => {
+                  const src = getMainImage(selectedLocation);
+                  return src ? (
+                    <img
+                      src={src}
+                      alt={selectedLocation.name}
+                      className="w-full h-36 object-cover"
+                      loading="lazy"
+                    />
+                  ) : null;
+                })()}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -678,10 +688,12 @@ export default function InteractiveMap() {
                       <p className="text-sm text-muted-foreground">{selectedLocation.companies.name}</p>
                     )}
                   </div>
+
                   <div className="flex items-center text-sm text-muted-foreground">
                     <MapPin className="h-4 w-4 mr-1" />
                     <span>{selectedLocation.address}</span>
                   </div>
+
                   {selectedLocation.amenities?.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {selectedLocation.amenities.slice(0, 4).map((a: string) => {
@@ -695,6 +707,7 @@ export default function InteractiveMap() {
                       })}
                     </div>
                   )}
+
                   <div className="flex items-center justify-between pt-2">
                     {selectedLocation.price_day && (
                       <div>
@@ -708,6 +721,15 @@ export default function InteractiveMap() {
                         {selectedLocation.rating}
                       </Badge>
                     )}
+                  </div>
+
+                  <div className="pt-1">
+                    <Button
+                      className="w-full"
+                      onClick={() => navigate(`/locations/${selectedLocation.id}`)}
+                    >
+                      Виж повече
+                    </Button>
                   </div>
                 </div>
               </CardContent>
