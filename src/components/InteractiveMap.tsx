@@ -623,37 +623,6 @@ export default function InteractiveMap() {
       <div className="relative">
         <div ref={mapEl} className="w-full h-[600px] rounded-lg overflow-hidden border border-border shadow-lg" />
 
-        {(selectedProvince || selectedCity) && (
-          <div className="absolute top-4 left-4 z-20">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  <div className="flex flex-col">
-                    {selectedCity ? (
-                      <>
-                        <span className="font-bold text-lg">{selectedCity}</span>
-                        <span className="text-sm text-muted-foreground">{selectedProvince}</span>
-                      </>
-                    ) : (
-                      <span className="font-bold text-lg">{selectedProvince}</span>
-                    )}
-                  </div>
-                </div>
-                <Badge variant="secondary">
-                  {selectedCity
-                    ? `${cityLocations.length} ${pluralize(cityLocations.length, 'помещение', 'помещения')}`
-                    : `${Object.keys(provinceCities).length} ${pluralize(
-                        Object.keys(provinceCities).length,
-                        'град',
-                        'града'
-                      )}, ${provinceLocations.length} ${pluralize(provinceLocations.length, 'помещение', 'помещения')}`}
-                </Badge>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
         {selectedLocation && (
   <div className="absolute top-4 right-4 z-20 w-80">
     <Card className="shadow-xl">
@@ -732,8 +701,6 @@ export default function InteractiveMap() {
     </Card>
   </div>
 )}
-
-      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-6">
         {PROVINCES.map((p) => {
