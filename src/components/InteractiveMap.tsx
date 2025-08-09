@@ -57,27 +57,8 @@ const formatCity = (s = '') =>
 
 const amenityIcons = { wifi: Wifi, coffee: Coffee, parking: Car, meeting: Users } as const;
 
-// -------- helpers for images and links ----------
-const getMainImage = (l: any) =>
-  l?.image ||
-  l?.main_image ||
-  l?.cover ||
-  l?.thumbnail ||
-  l?.images?.[0]?.url ||
-  l?.photos?.[0]?.url ||
-  '';
-
-const slugify = (s = '') =>
-  s
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^\w-]+/g, '')
-    .replace(/--+/g, '-');
-// ------------------------------------------------
-
 /* ---------------- geometry helpers ---------------- */
+
 type Ring = [number, number][];
 
 function normalizeFC(raw: any) {
@@ -165,6 +146,7 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
   } catch {}
   return mask;
 }
+
 /* -------------------------------------------------- */
 
 export default function InteractiveMap() {
@@ -518,6 +500,7 @@ export default function InteractiveMap() {
         const f = e.features?.[0];
         if (!f) return;
 
+        // clear old hover state if moving between features
         if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== f.id) {
           map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
         }
@@ -529,6 +512,7 @@ export default function InteractiveMap() {
         const displayName =
           PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
 
+        // Hide tooltip on the selected province (so it doesn't clash with city/location tooltips)
         if (selectedRawNameRef.current && rawName === selectedRawNameRef.current) {
           if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
           return;
@@ -613,6 +597,7 @@ export default function InteractiveMap() {
     if (!city) return false;
     const ch = city.trim().charAt(0).toLowerCase();
     return ch === 'в' || ch === 'ф';
+    // 'във' vs 'в'
   };
 
   if (!token) {
@@ -670,79 +655,84 @@ export default function InteractiveMap() {
         )}
 
         {selectedLocation && (
-          <div className="absolute top-4 right-4 z-20 w-80">
-            <Card className="shadow-xl">
-              <div className="relative">
-                {getMainImage(selectedLocation) && (
-                  <img
-                    src={getMainImage(selectedLocation)}
-                    alt={selectedLocation.name}
-                    className="w-full h-32 object-cover rounded-t-lg"
-                  />
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2 bg-background/80 hover:bg-background"
-                  onClick={() => setSelectedLocation(null)}
-                >
-                  ×
-                </Button>
-              </div>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <div>
-                    <h3 className="font-semibold text-lg">{selectedLocation.name}</h3>
-                    {selectedLocation.companies?.name && (
-                      <p className="text-sm text-muted-foreground">{selectedLocation.companies.name}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    <span>{selectedLocation.address}</span>
-                  </div>
-                  {selectedLocation.amenities?.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedLocation.amenities.slice(0, 4).map((a: string) => {
-                        const Icon = (amenityIcons as any)[a];
-                        return (
-                          <div key={a} className="flex items-center text-xs text-muted-foreground">
-                            {Icon && <Icon className="h-3 w-3 mr-1" />}
-                            <span className="capitalize">{a}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between pt-2">
-                    {selectedLocation.price_day && (
-                      <div>
-                        <span className="text-lg font-semibold">{selectedLocation.price_day}лв</span>
-                        <span className="text-sm text-muted-foreground">/ден</span>
-                      </div>
-                    )}
-                    {selectedLocation.rating && (
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        {selectedLocation.rating}
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Link to full page */}
-                  <div className="pt-1">
-                    <a
-                      href={`/locations/${selectedLocation.id}-${slugify(selectedLocation.name)}`}
-                      className="text-primary text-sm underline underline-offset-2 hover:opacity-80"
-                    >
-                      Виж повече
-                    </a>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+  <div className="absolute top-4 right-4 z-20 w-80">
+    <Card className="shadow-xl">
+      <div className="relative">
+        {getMainImage(selectedLocation) && (
+          <img
+            src={getMainImage(selectedLocation)}
+            alt={selectedLocation.name}
+            className="w-full h-32 object-cover rounded-t-lg"
+          />
         )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute top-2 right-2 bg-background/80 hover:bg-background"
+          onClick={() => setSelectedLocation(null)}
+        >
+          ×
+        </Button>
+      </div>
+
+      <CardContent className="p-4">
+        <div className="space-y-3">
+          <div>
+            <h3 className="font-semibold text-lg">{selectedLocation.name}</h3>
+            {selectedLocation.companies?.name && (
+              <p className="text-sm text-muted-foreground">{selectedLocation.companies.name}</p>
+            )}
+          </div>
+
+          <div className="flex items-center text-sm text-muted-foreground">
+            <MapPin className="h-4 w-4 mr-1" />
+            <span>{selectedLocation.address}</span>
+          </div>
+
+          {selectedLocation.amenities?.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedLocation.amenities.slice(0, 4).map((a: string) => {
+                const Icon = (amenityIcons as any)[a];
+                return (
+                  <div key={a} className="flex items-center text-xs text-muted-foreground">
+                    {Icon && <Icon className="h-3 w-3 mr-1" />}
+                    <span className="capitalize">{a}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-2">
+            {selectedLocation.price_day && (
+              <div>
+                <span className="text-lg font-semibold">{selectedLocation.price_day}лв</span>
+                <span className="text-sm text-muted-foreground">/ден</span>
+              </div>
+            )}
+            {selectedLocation.rating && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                {selectedLocation.rating}
+              </Badge>
+            )}
+          </div>
+
+          {/* Виж повече */}
+          <div className="pt-1">
+            <a
+              href={`/locations/${selectedLocation.id}-${slugify(selectedLocation.name)}`}
+              className="text-primary text-sm underline underline-offset-2 hover:opacity-80"
+            >
+              Виж повече
+            </a>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+)}
+
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-6">
