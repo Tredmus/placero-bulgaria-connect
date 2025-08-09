@@ -430,32 +430,10 @@ export default function InteractiveMap() {
       map.current!.on('mouseleave', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = ''));
 
       map.current!.on('mousemove', 'provinces-fill', (e: mapboxgl.MapLayerMouseEvent) => {
-      const f = e.features?.[0]; if (!f) return;
-      if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== f.id) {
-        map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
-      }
-      hoveredFeatureId.current = f.id as number | string;
-      map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: true });
-
-      const rawName = (f.properties as any).name || (f.properties as any).name_en;
-      const displayName =
-        PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
-
-      // Suppress tooltip when hovering the currently selected province
-      if (selectedRawNameRef.current && rawName === selectedRawNameRef.current) {
-        if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-        return;
-      }
-
-      if (hoverTooltipRef.current) {
-        const { point } = e;
-        hoverTooltipRef.current.textContent = displayName;
-        hoverTooltipRef.current.style.left = `${point.x}px`;
-        hoverTooltipRef.current.style.top = `${point.y}px`;
-        hoverTooltipRef.current.style.opacity = '1';
-      }
-    });
-        }
+        const f = e.features?.[0]; if (!f) return;
+        if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== f.id) {
+          map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
+        },
         hoveredFeatureId.current = f.id as number | string;
         map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: true });
 
@@ -654,28 +632,17 @@ export default function InteractiveMap() {
         })}
       </div>
 
-      {selectedProvince && Object.keys(provinceCities).length > 0 && (
+      {selectedProvince && !selectedCity && Object.keys(provinceCities).length > 0 && (
         <div className="mt-6">
           <h4 className="text-lg font-semibold mb-4">Градове в област {selectedProvince}</h4>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {Object.entries(provinceCities).map(([cityKey, locs]) => {
               const displayCity = formatCity(cityKey);
-              const isActive = selectedCity === displayCity;
               return (
                 <div
                   key={cityKey}
-                  onClick={() => {
-                  if (isActive) {
-                    setSelectedCity(null);
-                    setSelectedLocation(null);
-                    addCityMarkers(provinceCities);
-                  } else {
-                    handleCitySelect(displayCity, locs);
-                  }
-                }}
-                  className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-secondary hover:bg-secondary/5 hover:scale-105 ${
-                  isActive ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : ''
-                }`}
+                  onClick={() => handleCitySelect(displayCity, locs)}
+                  className="p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-secondary hover:bg-secondary/5 hover:scale-105"
                 >
                   <div className="text-center">
                     <h5 className="font-semibold text-sm">{displayCity}</h5>
