@@ -454,10 +454,12 @@ export default function InteractiveMap() {
         hoverTooltipRef.current.style.top = `${point.y}px`;
         hoverTooltipRef.current.style.opacity = '1';
       }
-    });
-        }
-        hoveredFeatureId.current = f.id as number | string;
-        map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: true });
+      
+      hoveredFeatureId.current = f.id as number | string;
+      map.current!.setFeatureState(
+        { source: 'provinces', id: hoveredFeatureId.current },
+        { hover: true }
+      );
 
         const rawName = (f.properties as any).name || (f.properties as any).name_en;
         const displayName =
