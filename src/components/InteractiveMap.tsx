@@ -433,7 +433,7 @@ export default function InteractiveMap() {
         const f = e.features?.[0]; if (!f) return;
         if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== f.id) {
           map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
-        },
+        }
         hoveredFeatureId.current = f.id as number | string;
         map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: true });
 
