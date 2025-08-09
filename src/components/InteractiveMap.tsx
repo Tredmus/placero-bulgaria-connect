@@ -675,7 +675,7 @@ export default function InteractiveMap() {
                 }}
                   className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-secondary hover:bg-secondary/5 hover:scale-105 ${
                   isActive ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : ''
-                }`)}
+                }`}
                 >
                   <div className="text-center">
                     <h5 className="font-semibold text-sm">{displayCity}</h5>
