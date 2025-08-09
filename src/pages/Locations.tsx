@@ -42,7 +42,7 @@ const Locations = () => {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-destructive mb-4">Error Loading Locations</h1>
+          <h1 className="text-2xl font-bold text-destructive mb-4">Грешка при зареждане на локациите</h1>
           <p className="text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -52,14 +52,14 @@ const Locations = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-4">Find Your Perfect Workspace</h1>
+        <h1 className="text-3xl font-bold text-foreground mb-4">Намерете вашето идеално работно място</h1>
         
         {/* Search and Filters */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Search locations..."
+              placeholder="Търсене на локации..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -68,10 +68,10 @@ const Locations = () => {
           
           <Select value={selectedCity} onValueChange={(value) => setSelectedCity(value === 'all' ? '' : value)}>
             <SelectTrigger>
-              <SelectValue placeholder="Select city" />
+              <SelectValue placeholder="Изберете град" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Cities</SelectItem>
+              <SelectItem value="all">Всички градове</SelectItem>
               {cities.map(city => (
                 <SelectItem key={city} value={city}>{city}</SelectItem>
               ))}
@@ -153,7 +153,7 @@ const Locations = () => {
                       {location.companies?.name}
                     </span>
                     <span className="font-semibold">
-                      €{location.price_day}/day
+                      {location.price_day} лв/ден • ≈ €{(Number(location.price_day)/1.95583).toFixed(2)} / ден
                     </span>
                   </div>
                   
@@ -170,7 +170,7 @@ const Locations = () => {
                       })}
                       {location.amenities.length > 4 && (
                         <Badge variant="secondary" className="text-xs">
-                          +{location.amenities.length - 4} more
+                          +{location.amenities.length - 4} още
                         </Badge>
                       )}
                     </div>
@@ -182,9 +182,9 @@ const Locations = () => {
 
           {locations.length === 0 && !loading && (
             <div className="text-center py-12">
-              <h3 className="text-lg font-semibold mb-2">No workspaces found</h3>
+              <h3 className="text-lg font-semibold mb-2">Няма намерени локации</h3>
               <p className="text-muted-foreground">
-                Try adjusting your search criteria or check back later for new listings.
+                Опитайте да промените критериите за търсене или проверете отново по-късно.
               </p>
             </div>
           )}

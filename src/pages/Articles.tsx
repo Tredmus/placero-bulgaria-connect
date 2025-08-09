@@ -17,7 +17,7 @@ const Articles = () => {
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-destructive mb-4">Error Loading Articles</h1>
+            <h1 className="text-2xl font-bold text-destructive mb-4">Грешка при зареждане на статиите</h1>
             <p className="text-muted-foreground">{error}</p>
           </div>
         </div>
@@ -29,9 +29,9 @@ const Articles = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-4">Articles & Insights</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-4">Статии и анализи</h1>
           <p className="text-lg text-muted-foreground mb-6">
-            Discover valuable insights and stories from the coworking community
+            Открийте ценни идеи и истории от общността на coworking пространствата
           </p>
           
           {/* Search */}
@@ -39,7 +39,7 @@ const Articles = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
-                placeholder="Search articles..."
+                placeholder="Търсене на статии..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -66,7 +66,7 @@ const Articles = () => {
           <>
             <div className="mb-4">
               <p className="text-muted-foreground">
-                {articles.length} article{articles.length !== 1 ? 's' : ''} found
+                Намерени {articles.length} статии
               </p>
             </div>
             
@@ -87,9 +87,9 @@ const Articles = () => {
             {articles.length === 0 && !loading && (
               <div className="text-center py-12">
                 <FileText className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No articles found</h3>
+                <h3 className="text-lg font-semibold mb-2">Няма намерени статии</h3>
                 <p className="text-muted-foreground">
-                  Try adjusting your search criteria or check back later for new articles.
+                  Опитайте да промените критериите за търсене или проверете отново по-късно.
                 </p>
               </div>
             )}
