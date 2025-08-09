@@ -57,8 +57,27 @@ const formatCity = (s = '') =>
 
 const amenityIcons = { wifi: Wifi, coffee: Coffee, parking: Car, meeting: Users } as const;
 
-/* ---------------- geometry helpers ---------------- */
+// -------- helpers for images and links ----------
+const getMainImage = (l: any) =>
+  l?.image ||
+  l?.main_image ||
+  l?.cover ||
+  l?.thumbnail ||
+  l?.images?.[0]?.url ||
+  l?.photos?.[0]?.url ||
+  '';
 
+const slugify = (s = '') =>
+  s
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-');
+// ------------------------------------------------
+
+/* ---------------- geometry helpers ---------------- */
 type Ring = [number, number][];
 
 function normalizeFC(raw: any) {
@@ -146,7 +165,6 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
   } catch {}
   return mask;
 }
-
 /* -------------------------------------------------- */
 
 export default function InteractiveMap() {
@@ -500,7 +518,6 @@ export default function InteractiveMap() {
         const f = e.features?.[0];
         if (!f) return;
 
-        // clear old hover state if moving between features
         if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== f.id) {
           map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
         }
@@ -512,7 +529,6 @@ export default function InteractiveMap() {
         const displayName =
           PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
 
-        // Hide tooltip on the selected province (so it doesn't clash with city/location tooltips)
         if (selectedRawNameRef.current && rawName === selectedRawNameRef.current) {
           if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
           return;
@@ -597,7 +613,6 @@ export default function InteractiveMap() {
     if (!city) return false;
     const ch = city.trim().charAt(0).toLowerCase();
     return ch === 'в' || ch === 'ф';
-    // 'във' vs 'в'
   };
 
   if (!token) {
@@ -658,8 +673,12 @@ export default function InteractiveMap() {
           <div className="absolute top-4 right-4 z-20 w-80">
             <Card className="shadow-xl">
               <div className="relative">
-                {selectedLocation.image && (
-                  <img src={selectedLocation.image} alt={selectedLocation.name} className="w-full h-32 object-cover rounded-t-lg" />
+                {getMainImage(selectedLocation) && (
+                  <img
+                    src={getMainImage(selectedLocation)}
+                    alt={selectedLocation.name}
+                    className="w-full h-32 object-cover rounded-t-lg"
+                  />
                 )}
                 <Button
                   variant="ghost"
@@ -708,6 +727,16 @@ export default function InteractiveMap() {
                         {selectedLocation.rating}
                       </Badge>
                     )}
+                  </div>
+
+                  {/* Link to full page */}
+                  <div className="pt-1">
+                    <a
+                      href={`/locations/${selectedLocation.id}-${slugify(selectedLocation.name)}`}
+                      className="text-primary text-sm underline underline-offset-2 hover:opacity-80"
+                    >
+                      Виж повече
+                    </a>
                   </div>
                 </div>
               </CardContent>
