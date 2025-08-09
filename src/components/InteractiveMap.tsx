@@ -49,6 +49,13 @@ const PROVINCES = [
 const cleanCity = (s = '') =>
   s.toLowerCase().replace(/област$/, '').replace(/region$/, '').replace(/,.*$/, '').trim();
 
+// Capitalize first letter of each word (bulgarian-friendly)
+const formatCity = (s = '') =>
+  s
+    .split(/\s+/)
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(' ');
+
 const amenityIcons = { wifi: Wifi, coffee: Coffee, parking: Car, meeting: Users } as const;
 
 /* ---------------- geometry helpers ---------------- */
@@ -141,6 +148,8 @@ export default function InteractiveMap() {
 
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
+
+  // provinceCities: lowercase city key -> array of locations
   const [provinceCities, setProvinceCities] = useState<Record<string, any[]>>({});
   const [provinceLocations, setProvinceLocations] = useState<any[]>([]);
   const [cityLocations, setCityLocations] = useState<any[]>([]);
@@ -207,32 +216,36 @@ export default function InteractiveMap() {
 
   // helpers for markers
   const clearMarkers = () => { markers.current.forEach((m) => m.remove()); markers.current = []; markerById.current = {}; };
-  const styleMarker = (bubble: HTMLDivElement, isSelected: boolean) => {
-    bubble.style.width = '28px'; bubble.style.height = '28px'; bubble.style.borderRadius = '50%';
+
+  const styleMarker = (bubble: HTMLDivElement, isSelected: boolean, size = 28) => {
+    bubble.style.width = `${size}px`; bubble.style.height = `${size}px`; bubble.style.borderRadius = '50%';
     bubble.style.border = '2px solid #fff'; bubble.style.boxShadow = '0 2px 8px rgba(16,185,129,.35)';
     bubble.style.cursor = 'pointer'; bubble.style.transition = 'transform .12s ease';
     bubble.style.transformOrigin = 'center';
     bubble.style.background = isSelected ? '#22d3ee' : '#10b981';
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
-  const createLabeledMarkerRoot = (name: string) => {
+
+  const createLabeledMarkerRoot = (labelText: string) => {
     const root = document.createElement('div');
     root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
     const label = document.createElement('div');
-    label.textContent = name || '';
+    label.textContent = labelText || '';
     label.style.cssText = 'position:absolute;left:50%;bottom:8px;transform:translate(-15%,0);padding:2px 6px;border-radius:6px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.14);white-space:nowrap;pointer-events:none;';
     root.appendChild(label);
     const bubble = document.createElement('div'); bubble.style.position = 'absolute'; bubble.style.left = '50%'; bubble.style.top = '50%'; bubble.style.transform = 'translate(-50%,-50%)';
     root.appendChild(bubble);
-    return { root, bubble };
+    return { root, bubble, label };
   };
+
+  // LOCATION pins (leaf level)
   const addLocationMarkers = (locs: any[]) => {
     if (!map.current) return; clearMarkers();
     locs.forEach((l) => {
       if (!l.latitude || !l.longitude) return;
       const { root, bubble } = createLabeledMarkerRoot(l.name || '');
       const isSel = selectedLocation && selectedLocation.id === l.id;
-      styleMarker(bubble, !!isSel);
+      styleMarker(bubble, !!isSel, 28);
       root.onmouseenter = () => { if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0'; if (!isSel) bubble.style.transform = 'scale(1.15)'; };
       root.onmouseleave = () => { if (!isSel) bubble.style.transform = 'scale(1)'; };
       root.addEventListener('click', (e) => { e.stopPropagation(); setSelectedLocation(l); });
@@ -241,10 +254,41 @@ export default function InteractiveMap() {
     });
   };
 
+  // CITY pins (mid level)
+  const addCityMarkers = (cityMap: Record<string, any[]>) => {
+    if (!map.current) return; clearMarkers();
+
+    Object.entries(cityMap).forEach(([key, locs]) => {
+      const valid = locs.filter((l) => l.latitude && l.longitude);
+      if (!valid.length) return;
+      const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
+      const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
+
+      const displayCity = formatCity(key);
+      const labelText = `${displayCity} — ${locs.length} ${locs.length === 1 ? 'помещение' : 'помещения'}`;
+
+      const { root, bubble, label } = createLabeledMarkerRoot(labelText);
+      // make city pins a bit bigger
+      styleMarker(bubble, false, 34);
+      // slightly larger label
+      label.style.fontSize = '13px';
+
+      root.onmouseenter = () => { bubble.style.transform = 'scale(1.12)'; };
+      root.onmouseleave = () => { bubble.style.transform = 'scale(1)'; };
+      root.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleCitySelect(displayCity, locs);
+      });
+
+      const mk = new mapboxgl.Marker({ element: root, anchor: 'center' }).setLngLat([lng, lat]).addTo(map.current!);
+      markers.current.push(mk);
+    });
+  };
+
   useEffect(() => {
     Object.entries(markerById.current).forEach(([id, { bubble }]) => {
       const isSel = selectedLocation && String(selectedLocation.id) === id;
-      styleMarker(bubble, isSel);
+      styleMarker(bubble, isSel, 28);
     });
   }, [selectedLocation]);
 
@@ -268,7 +312,8 @@ export default function InteractiveMap() {
     locs.forEach((l) => { const c = cleanCity(l.city || ''); if (!c) return; (cityMap[c] ||= []).push(l); });
     setProvinceCities(cityMap);
 
-    addLocationMarkers(locs);
+    // >>> show CITY PINS now (instead of locations)
+    addCityMarkers(cityMap);
 
     const targetZoom = zoomOverride ?? 9;
     if (centerGuess) map.current?.flyTo({ center: centerGuess, zoom: targetZoom, pitch: 0, duration: 800 });
@@ -591,20 +636,23 @@ export default function InteractiveMap() {
         <div className="mt-6">
           <h4 className="text-lg font-semibold mb-4">Градове в област {selectedProvince}</h4>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {Object.entries(provinceCities).map(([city, locs]) => (
-              <div
-                key={city}
-                onClick={() => handleCitySelect(city, locs)}
-                className="p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-secondary hover:bg-secondary/5 hover:scale-105"
-              >
-                <div className="text-center">
-                  <h5 className="font-semibold text-sm">{city}</h5>
-                  <p className="text-xs text-muted-foreground">
-                    {locs.length} {locs.length === 1 ? 'помещение' : 'помещения'}
-                  </p>
+            {Object.entries(provinceCities).map(([cityKey, locs]) => {
+              const displayCity = formatCity(cityKey);
+              return (
+                <div
+                  key={cityKey}
+                  onClick={() => handleCitySelect(displayCity, locs)}
+                  className="p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-secondary hover:bg-secondary/5 hover:scale-105"
+                >
+                  <div className="text-center">
+                    <h5 className="font-semibold text-sm">{displayCity}</h5>
+                    <p className="text-xs text-muted-foreground">
+                      {locs.length} {locs.length === 1 ? 'помещение' : 'помещения'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
