@@ -623,98 +623,84 @@ export default function InteractiveMap() {
       <div className="relative">
         <div ref={mapEl} className="w-full h-[600px] rounded-lg overflow-hidden border border-border shadow-lg" />
 
-        {(selectedProvince || selectedCity) && (
-          <div className="absolute top-4 left-4 z-20">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  <div className="flex flex-col">
-                    {selectedCity ? (
-                      <>
-                        <span className="font-bold text-lg">{selectedCity}</span>
-                        <span className="text-sm text-muted-foreground">{selectedProvince}</span>
-                      </>
-                    ) : (
-                      <span className="font-bold text-lg">{selectedProvince}</span>
-                    )}
-                  </div>
-                </div>
-                <Badge variant="secondary">
-                  {selectedCity
-                    ? `${cityLocations.length} ${pluralize(cityLocations.length, 'помещение', 'помещения')}`
-                    : `${Object.keys(provinceCities).length} ${pluralize(
-                        Object.keys(provinceCities).length,
-                        'град',
-                        'града'
-                      )}, ${provinceLocations.length} ${pluralize(provinceLocations.length, 'помещение', 'помещения')}`}
-                </Badge>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
         {selectedLocation && (
-          <div className="absolute top-4 right-4 z-20 w-80">
-            <Card className="shadow-xl">
-              <div className="relative">
-                {selectedLocation.image && (
-                  <img src={selectedLocation.image} alt={selectedLocation.name} className="w-full h-32 object-cover rounded-t-lg" />
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2 bg-background/80 hover:bg-background"
-                  onClick={() => setSelectedLocation(null)}
-                >
-                  ×
-                </Button>
-              </div>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <div>
-                    <h3 className="font-semibold text-lg">{selectedLocation.name}</h3>
-                    {selectedLocation.companies?.name && (
-                      <p className="text-sm text-muted-foreground">{selectedLocation.companies.name}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    <span>{selectedLocation.address}</span>
-                  </div>
-                  {selectedLocation.amenities?.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedLocation.amenities.slice(0, 4).map((a: string) => {
-                        const Icon = (amenityIcons as any)[a];
-                        return (
-                          <div key={a} className="flex items-center text-xs text-muted-foreground">
-                            {Icon && <Icon className="h-3 w-3 mr-1" />}
-                            <span className="capitalize">{a}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between pt-2">
-                    {selectedLocation.price_day && (
-                      <div>
-                        <span className="text-lg font-semibold">{selectedLocation.price_day}лв</span>
-                        <span className="text-sm text-muted-foreground">/ден</span>
-                      </div>
-                    )}
-                    {selectedLocation.rating && (
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        {selectedLocation.rating}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+  <div className="absolute top-4 right-4 z-20 w-80">
+    <Card className="shadow-xl">
+      <div className="relative">
+        {getMainImage(selectedLocation) && (
+          <img
+            src={getMainImage(selectedLocation)}
+            alt={selectedLocation.name}
+            className="w-full h-32 object-cover rounded-t-lg"
+          />
         )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute top-2 right-2 bg-background/80 hover:bg-background"
+          onClick={() => setSelectedLocation(null)}
+        >
+          ×
+        </Button>
       </div>
+
+      <CardContent className="p-4">
+        <div className="space-y-3">
+          <div>
+            <h3 className="font-semibold text-lg">{selectedLocation.name}</h3>
+            {selectedLocation.companies?.name && (
+              <p className="text-sm text-muted-foreground">{selectedLocation.companies.name}</p>
+            )}
+          </div>
+
+          <div className="flex items-center text-sm text-muted-foreground">
+            <MapPin className="h-4 w-4 mr-1" />
+            <span>{selectedLocation.address}</span>
+          </div>
+
+          {selectedLocation.amenities?.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedLocation.amenities.slice(0, 4).map((a: string) => {
+                const Icon = (amenityIcons as any)[a];
+                return (
+                  <div key={a} className="flex items-center text-xs text-muted-foreground">
+                    {Icon && <Icon className="h-3 w-3 mr-1" />}
+                    <span className="capitalize">{a}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-2">
+            {selectedLocation.price_day && (
+              <div>
+                <span className="text-lg font-semibold">{selectedLocation.price_day}лв</span>
+                <span className="text-sm text-muted-foreground">/ден</span>
+              </div>
+            )}
+            {selectedLocation.rating && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                {selectedLocation.rating}
+              </Badge>
+            )}
+          </div>
+
+          {/* Виж повече */}
+          <div className="pt-1">
+            <a
+              href={`/locations/${selectedLocation.id}-${slugify(selectedLocation.name)}`}
+              className="text-primary text-sm underline underline-offset-2 hover:opacity-80"
+            >
+              Виж повече
+            </a>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+)}
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-6">
         {PROVINCES.map((p) => {
