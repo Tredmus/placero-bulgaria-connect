@@ -608,6 +608,12 @@ export default function InteractiveMap() {
     );
   }
 
+  const getMainImage = (l: any) =>
+  l?.image || l?.main_image || l?.cover || l?.thumbnail || l?.images?.[0]?.url || l?.photos?.[0]?.url || '';
+const slugify = (s = '') =>
+  s.toString().toLowerCase().trim()
+    .replace(/\s+/g, '-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-');
+
   return (
     <div className="bg-secondary/50 rounded-lg p-8">
       <div className="flex items-center justify-between mb-6">
@@ -654,6 +660,7 @@ export default function InteractiveMap() {
           </div>
         )}
 
+        
         {selectedLocation && (
   <div className="absolute top-4 right-4 z-20 w-80">
     <Card className="shadow-xl">
