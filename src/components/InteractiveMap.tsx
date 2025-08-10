@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Building2, RotateCcw, Star, Wifi, Coffee, Car, Users } from 'lucide-react';
+l
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
@@ -600,11 +601,7 @@ export default function InteractiveMap() {
   };
 
   const getMainImage = (loc: any) =>
-    loc?.main_photo ||
-    (Array.isArray(loc?.photos) ? loc.photos[0] : null) ||
-    loc?.image ||
-    loc?.main_image_url ||
-    null;
+    loc?.image || loc?.main_image_url || (Array.isArray(loc?.photos) && loc.photos[0]?.url) || null;
 
   if (!token) {
     return (
@@ -713,16 +710,12 @@ export default function InteractiveMap() {
                   )}
 
                   <div className="flex items-center justify-between pt-2">
-                    {selectedLocation.price_day && (() => {
-                      const eur = Number(selectedLocation.price_day) / 1.95583;
-                      return (
-                        <div>
-                          <span className="text-lg font-semibold">{selectedLocation.price_day} лв</span>
-                          <span className="text-sm text-muted-foreground"> / ден</span>
-                          <div className="text-xs text-muted-foreground">≈ €{eur.toFixed(2)} / ден</div>
-                        </div>
-                      );
-                    })()}
+                    {selectedLocation.price_day && (
+                      <div>
+                        <span className="text-lg font-semibold">{selectedLocation.price_day}лв</span>
+                        <span className="text-sm text-muted-foreground">/ден</span>
+                      </div>
+                    )}
                     {selectedLocation.rating && (
                       <Badge variant="outline" className="flex items-center gap-1">
                         <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
@@ -829,12 +822,7 @@ export default function InteractiveMap() {
                       <span>{l.address}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      {l.price_day && (
-                        <div className="flex flex-col">
-                          <Badge variant="outline">{l.price_day} лв./ден</Badge>
-                          <span className="text-xs text-muted-foreground">≈ €{(Number(l.price_day)/1.95583).toFixed(2)} / ден</span>
-                        </div>
-                      )}
+                      {l.price_day && <Badge variant="outline">{l.price_day} лв./ден</Badge>}
                       {l.rating && (
                         <Badge variant="outline" className="flex items-center gap-1">
                           <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
