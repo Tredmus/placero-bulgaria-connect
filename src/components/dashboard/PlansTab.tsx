@@ -44,8 +44,8 @@ const PlansTab = ({ userCompanies, onSubscriptionUpdate }: PlansTabProps) => {
     } catch (error) {
       console.error('Error fetching plans:', error);
       toast({
-        title: 'Грешка',
-        description: 'Неуспешно зареждане на плановете',
+        title: 'Error',
+        description: 'Failed to load plans',
         variant: 'destructive',
       });
     } finally {
@@ -86,8 +86,8 @@ const PlansTab = ({ userCompanies, onSubscriptionUpdate }: PlansTabProps) => {
     } catch (error) {
       console.error('Error creating checkout:', error);
       toast({
-        title: 'Грешка',
-        description: 'Неуспешно стартиране на процеса за абонамент',
+        title: 'Error',
+        description: 'Failed to start checkout process',
         variant: 'destructive',
       });
     } finally {
@@ -122,7 +122,7 @@ const PlansTab = ({ userCompanies, onSubscriptionUpdate }: PlansTabProps) => {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Зареждане на плановете...</div>;
+    return <div className="text-center py-8">Loading plans...</div>;
   }
 
   const hasCompany = userCompanies.length > 0;
@@ -135,11 +135,11 @@ const PlansTab = ({ userCompanies, onSubscriptionUpdate }: PlansTabProps) => {
             <Crown className="h-10 w-10 text-primary" />
           </div>
         </div>
-        <h2 className="text-3xl font-bold mb-4 placero-heading">Изберете план</h2>
+        <h2 className="text-3xl font-bold mb-4 placero-heading">Choose Your Plan</h2>
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
           {hasCompany 
-            ? "Надградете присъствието си и отключете премиум функции" 
-            : "Моля, създайте първата си компания и локация преди да изберете план"
+            ? "Upgrade your workspace to unlock premium features and boost your visibility" 
+            : "Please create your first company and location before selecting a plan"
           }
         </p>
       </div>
@@ -153,7 +153,7 @@ const PlansTab = ({ userCompanies, onSubscriptionUpdate }: PlansTabProps) => {
                 <Building2 className="h-5 w-5 text-primary" />
               </div>
               <p className="text-foreground font-medium">
-                Трябва да създадете първата си компания и локация, преди да можете да изберете план.
+                You need to create your first company and location before you can select a plan.
               </p>
             </div>
           </CardContent>
@@ -176,14 +176,14 @@ const PlansTab = ({ userCompanies, onSubscriptionUpdate }: PlansTabProps) => {
               {isPopular && (
                 <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-20">
                   <Badge className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg">
-                    Най-популярен
+                    Most Popular
                   </Badge>
                 </div>
               )}
               {isCurrentPlan && (
                 <div className="absolute -top-2 right-4 z-20">
                   <Badge className="bg-gradient-to-r from-secondary to-secondary/80 text-secondary-foreground shadow-lg">
-                    Текущ план
+                    Current Plan
                   </Badge>
                 </div>
               )}
@@ -197,13 +197,12 @@ const PlansTab = ({ userCompanies, onSubscriptionUpdate }: PlansTabProps) => {
                 <CardTitle className="text-2xl font-bold placero-heading">{plan.name}</CardTitle>
                 <CardDescription className="mt-4">
                   <span className="text-4xl font-bold text-foreground">
-                    {plan.price_month} лв
+                    ${plan.price_month}
                   </span>
-                  <span className="text-muted-foreground text-lg">/месец</span>
-                  <div className="text-sm text-muted-foreground mt-1">≈ €{(plan.price_month/1.95583).toFixed(2)} / месец</div>
+                  <span className="text-muted-foreground text-lg">/month</span>
                 </CardDescription>
                 <p className="text-sm text-muted-foreground mt-2">
-                  или {plan.price_year} лв/година (спестявате {((plan.price_month * 12) - plan.price_year).toFixed(2)} лв) • ≈ €{(plan.price_year/1.95583).toFixed(2)} / година
+                  or ${plan.price_year}/year (save ${((plan.price_month * 12) - plan.price_year).toFixed(2)})
                 </p>
               </CardHeader>
 
@@ -233,12 +232,12 @@ const PlansTab = ({ userCompanies, onSubscriptionUpdate }: PlansTabProps) => {
                   {processingPlan === plan.id ? (
                     <div className="flex items-center gap-2">
                       <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
-                      Обработка...
+                      Processing...
                     </div>
                   ) : isCurrentPlan ? (
-                    "Текущ план"
+                    "Current Plan"
                   ) : (
-                    `Избери ${plan.name}`
+                    `Select ${plan.name}`
                   )}
                 </Button>
               </CardContent>
@@ -258,9 +257,9 @@ const PlansTab = ({ userCompanies, onSubscriptionUpdate }: PlansTabProps) => {
                   <Zap className="h-6 w-6 text-primary" />
                 </div>
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Готови ли сте да започнете?</h3>
+              <h3 className="text-xl font-bold text-foreground mb-2">Ready to get started?</h3>
               <p className="text-muted-foreground max-w-md mx-auto">
-                Изберете план по-горе, за да отключите премиум функции за вашето пространство.
+                Choose a plan above to unlock premium features for your workspace.
               </p>
             </div>
           </CardContent>

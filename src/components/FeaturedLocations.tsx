@@ -86,12 +86,11 @@ const FeaturedLocations = () => {
                     
                     <div className="flex items-center justify-between mb-4">
                       <span className="text-2xl font-bold text-primary">
-                        {location.price_day} лв
+                        {location.price_day}лв
                         <span className="text-sm font-normal text-muted-foreground">/ден</span>
-                        <span className="block text-sm font-normal text-muted-foreground">≈ €{(Number(location.price_day)/1.95583).toFixed(2)} / ден</span>
                       </span>
                       <span className="text-sm text-muted-foreground">
-                        от {location.companies?.name}
+                        by {location.companies?.name}
                       </span>
                     </div>
                     

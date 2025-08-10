@@ -16,7 +16,6 @@ interface LocationFilters {
   minPrice?: number;
   maxPrice?: number;
   search?: string;
-  context?: 'header' | 'map';
 }
 
 export function useLocations(filters: LocationFilters = {}) {
@@ -49,14 +48,7 @@ export function useLocations(filters: LocationFilters = {}) {
       }
 
       if (filters.search) {
-        const term = filters.search.trim();
-        if (term.length > 1) {
-          // Use full-text search on precomputed vector (websearch syntax)
-          query = query.textSearch('search_vec', term, { type: 'websearch', config: 'simple' });
-        } else {
-          // Fallback for very short queries
-          query = query.ilike('search_text', `%${term}%`);
-        }
+        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
       }
 
       if (filters.amenities && filters.amenities.length > 0) {
@@ -74,27 +66,6 @@ export function useLocations(filters: LocationFilters = {}) {
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      // Fire-and-forget: log search analytics (non-blocking)
-      try {
-        if (filters.search) {
-          await supabase.from('search_logs').insert({
-            q: filters.search,
-            normalized_q: filters.search.toLowerCase(),
-            tokens: filters.search.toLowerCase().split(/\s+/).filter(Boolean),
-            filters: {
-              city: filters.city ?? null,
-              amenities: filters.amenities ?? [],
-              minPrice: filters.minPrice ?? null,
-              maxPrice: filters.maxPrice ?? null
-            },
-            result_count: (data?.length ?? 0),
-            context: filters.context ?? 'header'
-          });
-        }
-      } catch (_) {
-        // ignore logging errors
-      }
 
       setLocations(data || []);
     } catch (err) {
