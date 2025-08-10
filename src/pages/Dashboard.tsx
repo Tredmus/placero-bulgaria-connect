@@ -302,7 +302,7 @@ export default function Dashboard() {
   };
 
   if (!userRole) {
-    return <div className="container mx-auto py-8">Loading...</div>;
+    return <div className="container mx-auto py-8">Зареждане...</div>;
   }
 
   return (
@@ -315,10 +315,10 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                Dashboard
+                Табло
               </h1>
               <p className="text-muted-foreground text-lg">
-                {userRole === 'admin' ? 'Manage pending submissions' : 'Manage your workspace listings'}
+                {userRole === 'admin' ? 'Управлявайте чакащите за одобрение' : 'Управлявайте вашите работни пространства'}
               </p>
             </div>
           </div>
@@ -329,28 +329,28 @@ export default function Dashboard() {
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5"></div>
               <div className="relative z-10">
                 <div className="text-3xl font-bold text-primary mb-1">{userCompanies.length}</div>
-                <div className="text-sm text-muted-foreground">Companies</div>
+                <div className="text-sm text-muted-foreground">Компании</div>
               </div>
             </div>
             <div className="placero-card p-6 text-center placero-hover-lift placero-scale-in placero-stagger-2 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-accent/20 to-accent/10"></div>
               <div className="relative z-10">
                 <div className="text-3xl font-bold text-primary mb-1">{userLocations.length}</div>
-                <div className="text-sm text-muted-foreground">Locations</div>
+                <div className="text-sm text-muted-foreground">Локации</div>
               </div>
             </div>
             <div className="placero-card p-6 text-center placero-hover-lift placero-scale-in placero-stagger-3 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-secondary/20 to-secondary/10"></div>
               <div className="relative z-10">
                 <div className="text-3xl font-bold text-primary mb-1">{userArticles.length}</div>
-                <div className="text-sm text-muted-foreground">Articles</div>
+                <div className="text-sm text-muted-foreground">Статии</div>
               </div>
             </div>
             <div className="placero-card p-6 text-center placero-hover-lift placero-scale-in placero-stagger-4 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-muted/20 to-muted/10"></div>
               <div className="relative z-10">
                 <div className="text-3xl font-bold text-primary mb-1">{userBanners.length}</div>
-                <div className="text-sm text-muted-foreground">Banners</div>
+                <div className="text-sm text-muted-foreground">Банери</div>
               </div>
             </div>
           </div>
@@ -363,10 +363,10 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="h-5 w-5" />
-                  Your Spaces
+                  Вашите пространства
                 </CardTitle>
                 <CardDescription>
-                  Add and manage your coworking spaces
+                  Добавяйте и управлявайте вашите coworking пространства
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -374,14 +374,14 @@ export default function Dashboard() {
                   <DialogTrigger asChild>
                     <Button className="flex items-center gap-2">
                       <Plus className="h-4 w-4" />
-                      Add Your Space
+                      Добавете вашето пространство
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Add Your Space</DialogTitle>
+                      <DialogTitle>Добавете вашето пространство</DialogTitle>
                       <DialogDescription>
-                        Create a listing for your coworking space
+                        Създайте обява за вашето coworking пространство
                       </DialogDescription>
                     </DialogHeader>
                     
