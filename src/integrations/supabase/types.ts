@@ -160,6 +160,7 @@ export type Database = {
         Row: {
           address: string
           amenities: string[] | null
+          category: string | null
           city: string
           company_id: string
           created_at: string
@@ -175,12 +176,15 @@ export type Database = {
           price_week: number | null
           rating: number | null
           rejection_reason: string | null
+          search_text: string | null
+          search_vec: unknown | null
           status: Database["public"]["Enums"]["status_type"]
           updated_at: string
         }
         Insert: {
           address: string
           amenities?: string[] | null
+          category?: string | null
           city: string
           company_id: string
           created_at?: string
@@ -196,12 +200,15 @@ export type Database = {
           price_week?: number | null
           rating?: number | null
           rejection_reason?: string | null
+          search_text?: string | null
+          search_vec?: unknown | null
           status?: Database["public"]["Enums"]["status_type"]
           updated_at?: string
         }
         Update: {
           address?: string
           amenities?: string[] | null
+          category?: string | null
           city?: string
           company_id?: string
           created_at?: string
@@ -217,6 +224,8 @@ export type Database = {
           price_week?: number | null
           rating?: number | null
           rejection_reason?: string | null
+          search_text?: string | null
+          search_vec?: unknown | null
           status?: Database["public"]["Enums"]["status_type"]
           updated_at?: string
         }
@@ -290,6 +299,39 @@ export type Database = {
         }
         Relationships: []
       }
+      search_logs: {
+        Row: {
+          context: string | null
+          created_at: string
+          filters: Json | null
+          id: string
+          normalized_q: string | null
+          q: string | null
+          result_count: number | null
+          tokens: string[] | null
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string
+          filters?: Json | null
+          id?: string
+          normalized_q?: string | null
+          q?: string | null
+          result_count?: number | null
+          tokens?: string[] | null
+        }
+        Update: {
+          context?: string | null
+          created_at?: string
+          filters?: Json | null
+          id?: string
+          normalized_q?: string | null
+          q?: string | null
+          result_count?: number | null
+          tokens?: string[] | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -299,6 +341,26 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      gtrgm_compress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_decompress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_in: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_options: {
+        Args: { "": unknown }
+        Returns: undefined
+      }
+      gtrgm_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
       is_company_moderator: {
         Args: { company_uuid: string }
         Returns: boolean
@@ -306,6 +368,26 @@ export type Database = {
       is_company_owner: {
         Args: { company_uuid: string }
         Returns: boolean
+      }
+      set_limit: {
+        Args: { "": number }
+        Returns: number
+      }
+      show_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      show_trgm: {
+        Args: { "": string }
+        Returns: string[]
+      }
+      unaccent: {
+        Args: { "": string }
+        Returns: string
+      }
+      unaccent_init: {
+        Args: { "": unknown }
+        Returns: unknown
       }
     }
     Enums: {
