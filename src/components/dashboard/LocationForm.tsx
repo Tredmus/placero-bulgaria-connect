@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { X, Plus, ChevronsUpDown, Check, Loader2 } from 'lucide-react';
 import { CoordinateValidator } from '@/components/CoordinateValidator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 
 interface LocationFormProps {
@@ -21,10 +21,13 @@ interface LocationFormProps {
 
 type Option = { id: string; name: string };
 
+/**
+ * Reusable searchable combobox built on shadcn/ui + cmdk
+ */
 function ComboBox({
   value, // selected option or null
   onSelect,
-  options,
+  options = [],
   placeholder,
   disabled,
   loading,
@@ -33,7 +36,7 @@ function ComboBox({
 }: {
   value: Option | null;
   onSelect: (opt: Option) => void;
-  options: Option[];
+  options?: Option[];
   placeholder: string;
   disabled?: boolean;
   loading?: boolean;
@@ -65,32 +68,43 @@ function ComboBox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
-        <Command shouldFilter={true}>
+        <Command>
           <CommandInput
             placeholder={placeholder}
-            // shadcn CommandInput exposes onValueChange
             onValueChange={(v) => onSearchChange?.(v)}
           />
-          <CommandEmpty>Няма резултати</CommandEmpty>
-          <CommandGroup>
-            {options.map((opt) => (
-              <CommandItem
-                key={opt.id}
-                value={opt.name}
-                onSelect={() => {
-                  onSelect(opt);
-                  setOpen(false);
-                }}
-              >
-                <Check className={cn('mr-2 h-4 w-4', value?.id === opt.id ? 'opacity-100' : 'opacity-0')} />
-                {opt.name}
-              </CommandItem>
-            ))}
-          </CommandGroup>
+          <CommandList>
+            <CommandEmpty>Няма резултати</CommandEmpty>
+            <CommandGroup>
+              {(options || []).map((opt) => (
+                <CommandItem
+                  key={opt.id}
+                  value={opt.name || ''}
+                  onSelect={() => {
+                    onSelect(opt);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn('mr-2 h-4 w-4', value?.id === opt.id ? 'opacity-100' : 'opacity-0')} />
+                  {opt.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
         </Command>
       </PopoverContent>
     </Popover>
   );
+}
+
+// Small debounce hook so we don't spam Supabase while typing
+function useDebounced(value: string, delay = 250) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
 }
 
 export function LocationForm({ location, companyId, onSuccess, onCancel }: LocationFormProps) {
@@ -102,7 +116,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
   const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
   const [selectedPreviews, setSelectedPreviews] = useState<string[]>([]);
 
-  // --- NEW: Province → City → Street state ---
+  // --- Province → City → Street state ---
   const [provinces, setProvinces] = useState<Option[]>([]);
   const [cities, setCities] = useState<Option[]>([]);
   const [streets, setStreets] = useState<Option[]>([]);
@@ -126,8 +140,8 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
 
   const [formData, setFormData] = useState({
     name: location?.name || '',
-    address: location?.address || '', // will mirror selected street name
-    city: location?.city || '', // will mirror selected city name
+    address: location?.address || '', // mirrors selected street name
+    city: location?.city || '', // mirrors selected city name
     description: location?.description || '',
     mainPhoto: location?.main_photo || '',
     existingPhotos: location?.photos || [],
@@ -152,20 +166,8 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
       setProvinces(opts);
       setProvinceLoading(false);
     })();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
-
-  // Debounce helper
-  function useDebounced(value: string, delay = 250) {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-      const id = setTimeout(() => setDebounced(value), delay);
-      return () => clearTimeout(id);
-    }, [value, delay]);
-    return debounced;
-  }
 
   const debCity = useDebounced(citySearch);
   const debStreet = useDebounced(streetSearch);
@@ -179,23 +181,23 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
     setStreets([]);
     setCityError(false);
     setStreetError(false);
-    if (!selectedProvince) return;
+    if (!selectedProvince?.id) return;
     (async () => {
       setCityLoading(true);
-      const query = supabase
+      let query = supabase
         .from('cities')
         .select('id, name')
         .eq('province_id', selectedProvince.id)
         .order('name')
-        .limit(100);
-      if (debCity) query.ilike('name', `%${debCity}%`);
+        .limit(150);
+      if (debCity) query = query.ilike('name', `%${debCity}%`);
       const { data, error } = await query;
       if (!active) return;
       if (error) console.error('Load cities error:', error);
       setCities((data || []).map((r: any) => ({ id: String(r.id), name: r.name })));
       setCityLoading(false);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { active = false; };
   }, [selectedProvince?.id, debCity]);
 
   // Load streets when city or search changes
@@ -204,23 +206,23 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
     setSelectedStreet(null);
     setStreets([]);
     setStreetError(false);
-    if (!selectedCity) return;
+    if (!selectedCity?.id) return;
     (async () => {
       setStreetLoading(true);
-      const query = supabase
+      let query = supabase
         .from('streets')
         .select('id, name')
         .eq('city_id', selectedCity.id)
         .order('name')
-        .limit(200);
-      if (debStreet) query.ilike('name', `%${debStreet}%`);
+        .limit(300);
+      if (debStreet) query = query.ilike('name', `%${debStreet}%`);
       const { data, error } = await query;
       if (!active) return;
       if (error) console.error('Load streets error:', error);
       setStreets((data || []).map((r: any) => ({ id: String(r.id), name: r.name })));
       setStreetLoading(false);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { active = false; };
   }, [selectedCity?.id, debStreet]);
 
   // Mirror selections into formData strings
@@ -235,15 +237,9 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
     try {
       const { data, error } = await supabase.storage
         .from(bucket)
-        .upload(path, file, {
-          cacheControl: '3600',
-          upsert: false,
-        });
-
+        .upload(path, file, { cacheControl: '3600', upsert: false });
       if (error) throw error;
-
       const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(data.path);
-
       return publicUrl;
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -273,7 +269,6 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
     }
 
     setLoading(true);
-
     try {
       let mainPhotoUrl = formData.mainPhoto;
       const photoUrls: string[] = [];
@@ -305,7 +300,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
         latitude: formData.latitude,
         longitude: formData.longitude,
         status: location ? location.status : 'pending',
-        // If you later add columns, uncomment:
+        // If you add columns later, you can save IDs too:
         // province_id: selectedProvince?.id,
         // city_id: selectedCity?.id,
         // street_id: selectedStreet?.id,
@@ -317,7 +312,6 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
           status: location.status === 'rejected' ? 'pending' : location.status,
           rejection_reason: location.status === 'rejected' ? null : location.rejection_reason,
         };
-
         const { error } = await supabase.from('locations').update(updateData).eq('id', location.id);
         if (error) throw error;
         toast({ title: 'Success!', description: 'Location updated successfully.' });
@@ -351,7 +345,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
           />
         </div>
 
-        {/* NEW: Cascading Province → City → Street (searchable comboboxes) */}
+        {/* Cascading Province → City → Street */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Област *</Label>
@@ -413,7 +407,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
           </div>
         </div>
 
-        {/* Coordinate Validator (kept). If you want to auto-fill lat/lng from selected street, add columns to streets and fetch them. */}
+        {/* Coordinate Validator */}
         {formData.latitude && formData.longitude && (
           <CoordinateValidator
             latitude={formData.latitude}
@@ -482,7 +476,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
               if (file) {
                 setMainPhotoFile(file);
                 setMainPhotoPreview(URL.createObjectURL(file));
-                setFormData((prev) => ({ ...prev, mainPhoto: '' })); // Clear URL when file is selected
+                setFormData((prev) => ({ ...prev, mainPhoto: '' }));
               }
             }}
           />
