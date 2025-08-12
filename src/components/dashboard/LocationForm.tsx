@@ -6,9 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { X, Plus } from 'lucide-react';
-// import AddressAutocomplete from '@/components/AddressAutocomplete'; // ⟵ replaced by Province → City → Street cascading
+import { X, Plus, ChevronsUpDown, Check, Loader2 } from 'lucide-react';
 import { CoordinateValidator } from '@/components/CoordinateValidator';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 
 interface LocationFormProps {
   location?: any;
@@ -18,6 +20,78 @@ interface LocationFormProps {
 }
 
 type Option = { id: string; name: string };
+
+function ComboBox({
+  value, // selected option or null
+  onSelect,
+  options,
+  placeholder,
+  disabled,
+  loading,
+  error,
+  onSearchChange,
+}: {
+  value: Option | null;
+  onSelect: (opt: Option) => void;
+  options: Option[];
+  placeholder: string;
+  disabled?: boolean;
+  loading?: boolean;
+  error?: boolean;
+  onSearchChange?: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          role="combobox"
+          variant="outline"
+          className={cn(
+            'w-full justify-between',
+            disabled && 'opacity-60 cursor-not-allowed',
+            error && 'border-red-500 focus-visible:ring-red-500'
+          )}
+          disabled={disabled}
+        >
+          <span className={cn(!value && 'text-muted-foreground')}>{value?.name || placeholder}</span>
+          {loading ? (
+            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+          ) : (
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+        <Command shouldFilter={true}>
+          <CommandInput
+            placeholder={placeholder}
+            // shadcn CommandInput exposes onValueChange
+            onValueChange={(v) => onSearchChange?.(v)}
+          />
+          <CommandEmpty>Няма резултати</CommandEmpty>
+          <CommandGroup>
+            {options.map((opt) => (
+              <CommandItem
+                key={opt.id}
+                value={opt.name}
+                onSelect={() => {
+                  onSelect(opt);
+                  setOpen(false);
+                }}
+              >
+                <Check className={cn('mr-2 h-4 w-4', value?.id === opt.id ? 'opacity-100' : 'opacity-0')} />
+                {opt.name}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function LocationForm({ location, companyId, onSuccess, onCancel }: LocationFormProps) {
   const { user } = useAuth();
@@ -33,13 +107,17 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
   const [cities, setCities] = useState<Option[]>([]);
   const [streets, setStreets] = useState<Option[]>([]);
 
-  const [provinceInput, setProvinceInput] = useState('');
-  const [cityInput, setCityInput] = useState(location?.city || '');
-  const [streetInput, setStreetInput] = useState(location?.address || '');
+  const [provinceSearch, setProvinceSearch] = useState('');
+  const [citySearch, setCitySearch] = useState('');
+  const [streetSearch, setStreetSearch] = useState('');
 
-  const [provinceId, setProvinceId] = useState<string>('');
-  const [cityId, setCityId] = useState<string>('');
-  const [streetId, setStreetId] = useState<string>('');
+  const [selectedProvince, setSelectedProvince] = useState<Option | null>(null);
+  const [selectedCity, setSelectedCity] = useState<Option | null>(null);
+  const [selectedStreet, setSelectedStreet] = useState<Option | null>(null);
+
+  const [provinceLoading, setProvinceLoading] = useState(false);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [streetLoading, setStreetLoading] = useState(false);
 
   // Visual error flags for red borders
   const [provinceError, setProvinceError] = useState(false);
@@ -49,7 +127,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
   const [formData, setFormData] = useState({
     name: location?.name || '',
     address: location?.address || '', // will mirror selected street name
-    city: location?.city || '',       // will mirror selected city name
+    city: location?.city || '', // will mirror selected city name
     description: location?.description || '',
     mainPhoto: location?.main_photo || '',
     existingPhotos: location?.photos || [],
@@ -60,110 +138,98 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
     longitude: location?.longitude || null,
   });
 
-  // Load all provinces on mount
+  // Load provinces once
   useEffect(() => {
     let active = true;
     (async () => {
-      const { data, error } = await supabase
-        .from('provinces')
-        .select('id, name')
-        .order('name');
+      setProvinceLoading(true);
+      const { data, error } = await supabase.from('provinces').select('id, name').order('name');
       if (!active) return;
       if (error) {
         console.error('Load provinces error:', error);
-      } else if (data) {
-        const opts = data.map((r: any) => ({ id: String(r.id), name: r.name }));
-        setProvinces(opts);
-        // If incoming location has city/address but no province, try to infer later if needed
       }
+      const opts = (data || []).map((r: any) => ({ id: String(r.id), name: r.name }));
+      setProvinces(opts);
+      setProvinceLoading(false);
     })();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Resolve ID from input helpers
-  const matchByName = (list: Option[], name: string) => list.find(o => o.name.toLowerCase() === name.trim().toLowerCase());
+  // Debounce helper
+  function useDebounced(value: string, delay = 250) {
+    const [debounced, setDebounced] = useState(value);
+    useEffect(() => {
+      const id = setTimeout(() => setDebounced(value), delay);
+      return () => clearTimeout(id);
+    }, [value, delay]);
+    return debounced;
+  }
 
-  // When province input changes, resolve id and fetch cities
+  const debCity = useDebounced(citySearch);
+  const debStreet = useDebounced(streetSearch);
+
+  // Load cities when province or search changes
   useEffect(() => {
-    setProvinceError(false);
-    const p = matchByName(provinces, provinceInput);
-    const newProvId = p?.id || '';
-    setProvinceId(newProvId);
-
-    // Reset downstream when province changes
-    setCities([]);
-    setCityInput('');
-    setCityId('');
-    setStreets([]);
-    setStreetInput('');
-    setStreetId('');
-
-    if (!newProvId) return;
     let active = true;
+    setCities([]);
+    setSelectedCity(null);
+    setSelectedStreet(null);
+    setStreets([]);
+    setCityError(false);
+    setStreetError(false);
+    if (!selectedProvince) return;
     (async () => {
-      const { data, error } = await supabase
+      setCityLoading(true);
+      const query = supabase
         .from('cities')
         .select('id, name')
-        .eq('province_id', newProvId)
-        .order('name');
+        .eq('province_id', selectedProvince.id)
+        .order('name')
+        .limit(100);
+      if (debCity) query.ilike('name', `%${debCity}%`);
+      const { data, error } = await query;
       if (!active) return;
-      if (error) {
-        console.error('Load cities error:', error);
-      } else if (data) {
-        const opts = data.map((r: any) => ({ id: String(r.id), name: r.name }));
-        setCities(opts);
-      }
+      if (error) console.error('Load cities error:', error);
+      setCities((data || []).map((r: any) => ({ id: String(r.id), name: r.name })));
+      setCityLoading(false);
     })();
-    return () => { active = false; };
-  }, [provinceInput, provinces]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProvince?.id, debCity]);
 
-  // When city input changes, resolve id and fetch streets
+  // Load streets when city or search changes
   useEffect(() => {
-    setCityError(false);
-    const c = matchByName(cities, cityInput);
-    const newCityId = c?.id || '';
-    setCityId(newCityId);
-
-    // Reset streets when city changes
-    setStreets([]);
-    setStreetInput('');
-    setStreetId('');
-
-    if (!newCityId) return;
     let active = true;
+    setSelectedStreet(null);
+    setStreets([]);
+    setStreetError(false);
+    if (!selectedCity) return;
     (async () => {
-      const { data, error } = await supabase
+      setStreetLoading(true);
+      const query = supabase
         .from('streets')
         .select('id, name')
-        .eq('city_id', newCityId)
+        .eq('city_id', selectedCity.id)
         .order('name')
-        .limit(2000); // adjust if needed
+        .limit(200);
+      if (debStreet) query.ilike('name', `%${debStreet}%`);
+      const { data, error } = await query;
       if (!active) return;
-      if (error) {
-        console.error('Load streets error:', error);
-      } else if (data) {
-        const opts = data.map((r: any) => ({ id: String(r.id), name: r.name }));
-        setStreets(opts);
-      }
+      if (error) console.error('Load streets error:', error);
+      setStreets((data || []).map((r: any) => ({ id: String(r.id), name: r.name })));
+      setStreetLoading(false);
     })();
-    return () => { active = false; };
-  }, [cityInput, cities]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCity?.id, debStreet]);
 
-  // When street input changes, resolve id
+  // Mirror selections into formData strings
   useEffect(() => {
-    setStreetError(false);
-    const s = matchByName(streets, streetInput);
-    setStreetId(s?.id || '');
-  }, [streetInput, streets]);
-
-  // Mirror selected names into the original fields the DB expects (city, address)
+    if (selectedCity) setFormData((p) => ({ ...p, city: selectedCity.name }));
+  }, [selectedCity]);
   useEffect(() => {
-    // Only set when we have exact matches
-    const c = matchByName(cities, cityInput);
-    if (c) setFormData(prev => ({ ...prev, city: c.name }));
-    const s = matchByName(streets, streetInput);
-    if (s) setFormData(prev => ({ ...prev, address: s.name }));
-  }, [cityInput, streetInput, cities, streets]);
+    if (selectedStreet) setFormData((p) => ({ ...p, address: selectedStreet.name }));
+  }, [selectedStreet]);
 
   const uploadFile = async (file: File, bucket: string, path: string): Promise<string | null> => {
     try {
@@ -176,9 +242,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
 
       if (error) throw error;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(data.path);
+      const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(data.path);
 
       return publicUrl;
     } catch (error) {
@@ -190,31 +254,21 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate cascading fields
-    const hasProvince = !!provinceId;
-    const hasCity = !!cityId;
-    const hasStreet = !!streetId;
+    const hasProvince = !!selectedProvince?.id;
+    const hasCity = !!selectedCity?.id;
+    const hasStreet = !!selectedStreet?.id;
 
     setProvinceError(!hasProvince);
     setCityError(!hasCity);
     setStreetError(!hasStreet);
 
     if (!hasProvince || !hasCity || !hasStreet) {
-      toast({
-        title: 'Грешка',
-        description: 'Моля избери област, населено място и улица.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Грешка', description: 'Моля избери област, населено място и улица.', variant: 'destructive' });
       return;
     }
 
-    // Validate main photo is required
     if (!mainPhotoFile && !formData.mainPhoto.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Main photo is required.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Main photo is required.', variant: 'destructive' });
       return;
     }
 
@@ -229,25 +283,19 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
         mainPhotoUrl = (await uploadFile(mainPhotoFile, 'location-photos', mainPhotoPath)) || '';
       }
 
-      // Keep existing photos
       photoUrls.push(...formData.existingPhotos);
 
-      // Upload new gallery photos
       for (let i = 0; i < selectedPhotos.length; i++) {
         const photoPath = `${user?.id}/${Date.now()}-photo-${i}.${selectedPhotos[i].name.split('.').pop()}`;
         const photoUrl = await uploadFile(selectedPhotos[i], 'location-photos', photoPath);
         if (photoUrl) photoUrls.push(photoUrl);
       }
 
-      // Resolve final city/street names (extra safety)
-      const cityName = matchByName(cities, cityInput)?.name || formData.city;
-      const streetName = matchByName(streets, streetInput)?.name || formData.address;
-
       const locationData = {
         company_id: companyId,
         name: formData.name,
-        address: streetName, // street name; building/number can be added in description or extend schema later
-        city: cityName,
+        address: selectedStreet?.name || formData.address,
+        city: selectedCity?.name || formData.city,
         description: formData.description,
         main_photo: mainPhotoUrl,
         photos: photoUrls,
@@ -257,10 +305,10 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
         latitude: formData.latitude,
         longitude: formData.longitude,
         status: location ? location.status : 'pending',
-        // Optionally also save the IDs if you add columns: province_id, city_id, street_id
-        // province_id: provinceId,
-        // city_id: cityId,
-        // street_id: streetId,
+        // If you later add columns, uncomment:
+        // province_id: selectedProvince?.id,
+        // city_id: selectedCity?.id,
+        // street_id: selectedStreet?.id,
       } as any;
 
       if (location) {
@@ -270,13 +318,8 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
           rejection_reason: location.status === 'rejected' ? null : location.rejection_reason,
         };
 
-        const { error } = await supabase
-          .from('locations')
-          .update(updateData)
-          .eq('id', location.id);
-
+        const { error } = await supabase.from('locations').update(updateData).eq('id', location.id);
         if (error) throw error;
-
         toast({ title: 'Success!', description: 'Location updated successfully.' });
       } else {
         const { error } = await supabase.from('locations').insert(locationData);
@@ -293,11 +336,6 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
     }
   };
 
-  // Helpers for datalist options rendering
-  const ProvinceOptions = useMemo(() => provinces.map(p => (<option key={p.id} value={p.name} />)), [provinces]);
-  const CityOptions = useMemo(() => cities.map(c => (<option key={c.id} value={c.name} />)), [cities]);
-  const StreetOptions = useMemo(() => streets.map(s => (<option key={s.id} value={s.name} />)), [streets]);
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-4">
@@ -313,60 +351,69 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
           />
         </div>
 
-        {/* NEW: Cascading Province → City → Street */}
+        {/* NEW: Cascading Province → City → Street (searchable comboboxes) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Province */}
           <div className="space-y-2">
-            <Label htmlFor="province">Област *</Label>
-            <input
-              id="province"
-              list="province-list"
-              value={provinceInput}
-              onChange={(e) => setProvinceInput(e.target.value)}
-              placeholder="Започни да пишеш..."
-              className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 ${
-                provinceError ? 'border-red-500 focus-visible:ring-red-500' : 'focus-visible:ring-primary'
-              }`}
+            <Label>Област *</Label>
+            <ComboBox
+              value={selectedProvince}
+              onSelect={(opt) => {
+                setSelectedProvince(opt);
+                setProvinceError(false);
+                // reset downstream
+                setSelectedCity(null);
+                setSelectedStreet(null);
+                setCities([]);
+                setStreets([]);
+                setCitySearch('');
+                setStreetSearch('');
+              }}
+              options={provinces}
+              placeholder="Избери област..."
+              disabled={false}
+              loading={provinceLoading}
+              error={provinceError}
+              onSearchChange={setProvinceSearch}
             />
-            <datalist id="province-list">{ProvinceOptions}</datalist>
           </div>
 
-          {/* City */}
-          <div className="space-y-2 opacity-100">
-            <Label htmlFor="city">Населено място *</Label>
-            <input
-              id="city"
-              list="city-list"
-              value={cityInput}
-              onChange={(e) => setCityInput(e.target.value)}
-              placeholder={provinceId ? 'Започни да пишеш...' : 'Първо избери област'}
-              disabled={!provinceId}
-              className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 ${
-                !provinceId ? 'opacity-60 cursor-not-allowed' : ''
-              } ${cityError ? 'border-red-500 focus-visible:ring-red-500' : 'focus-visible:ring-primary'}`}
+          <div className="space-y-2">
+            <Label>Населено място *</Label>
+            <ComboBox
+              value={selectedCity}
+              onSelect={(opt) => {
+                setSelectedCity(opt);
+                setCityError(false);
+                setStreetSearch('');
+              }}
+              options={cities}
+              placeholder={selectedProvince ? 'Търси град/село...' : 'Първо избери област'}
+              disabled={!selectedProvince}
+              loading={cityLoading}
+              error={cityError}
+              onSearchChange={setCitySearch}
             />
-            <datalist id="city-list">{CityOptions}</datalist>
           </div>
 
-          {/* Street */}
           <div className="space-y-2">
-            <Label htmlFor="street">Улица *</Label>
-            <input
-              id="street"
-              list="street-list"
-              value={streetInput}
-              onChange={(e) => setStreetInput(e.target.value)}
-              placeholder={cityId ? 'Започни да пишеш...' : 'Първо избери населено място'}
-              disabled={!cityId}
-              className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 ${
-                !cityId ? 'opacity-60 cursor-not-allowed' : ''
-              } ${streetError ? 'border-red-500 focus-visible:ring-red-500' : 'focus-visible:ring-primary'}`}
+            <Label>Улица *</Label>
+            <ComboBox
+              value={selectedStreet}
+              onSelect={(opt) => {
+                setSelectedStreet(opt);
+                setStreetError(false);
+              }}
+              options={streets}
+              placeholder={selectedCity ? 'Търси улица...' : 'Първо избери населено място'}
+              disabled={!selectedCity}
+              loading={streetLoading}
+              error={streetError}
+              onSearchChange={setStreetSearch}
             />
-            <datalist id="street-list">{StreetOptions}</datalist>
           </div>
         </div>
 
-        {/* Coordinate Validator (kept). If you want to auto-fill lat/lng from street selection, add a streets.lat/lng and fetch those too. */}
+        {/* Coordinate Validator (kept). If you want to auto-fill lat/lng from selected street, add columns to streets and fetch them. */}
         {formData.latitude && formData.longitude && (
           <CoordinateValidator
             latitude={formData.latitude}
