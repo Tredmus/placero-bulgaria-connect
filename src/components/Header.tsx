@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
-
+import Logo from "@/components/Logo";
 const Header = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -17,15 +17,8 @@ const Header = () => {
     <header className="placero-glass border-b border-border/50 sticky top-0 z-50 backdrop-blur-xl">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3 group">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary/60 rounded-xl blur-lg opacity-20 group-hover:opacity-40 transition-opacity"></div>
-              <img src="/lovable-uploads/cfef3fb4-b93f-46d6-bb46-95813a08d122.png" alt="Placero logo" className="h-9 w-9 relative z-10 group-hover:scale-110 transition-transform" loading="eager" />
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
-              Placero
-            </span>
+          <Link to="/" className="group">
+            <Logo variant="header" />
           </Link>
 
           {/* Search Bar */}

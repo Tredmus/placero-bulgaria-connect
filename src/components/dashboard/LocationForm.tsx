@@ -22,8 +22,9 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [mainPhotoFile, setMainPhotoFile] = useState<File | null>(null);
+  const [mainPhotoPreview, setMainPhotoPreview] = useState<string>('');
   const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
-  
+  const [selectedPreviews, setSelectedPreviews] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     name: location?.name || '',
     address: location?.address || '',
@@ -277,13 +278,38 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
               const file = e.target.files?.[0];
               if (file) {
                 setMainPhotoFile(file);
+                setMainPhotoPreview(URL.createObjectURL(file));
                 setFormData(prev => ({ ...prev, mainPhoto: '' })); // Clear URL when file is selected
               }
             }}
           />
-          {mainPhotoFile && (
-            <p className="text-sm text-muted-foreground">Selected: {mainPhotoFile.name}</p>
+
+          {/* Preview for selected file or URL */}
+          {(mainPhotoPreview || (!mainPhotoFile && formData.mainPhoto)) && (
+            <div className="mt-2 relative">
+              <img
+                src={mainPhotoPreview || formData.mainPhoto}
+                alt="Main photo preview"
+                className="w-full max-w-md h-40 object-cover rounded-md"
+              />
+              {mainPhotoPreview && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2 h-6 w-6 p-0"
+                  onClick={() => {
+                    URL.revokeObjectURL(mainPhotoPreview);
+                    setMainPhotoPreview('');
+                    setMainPhotoFile(null);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           )}
+
           {!mainPhotoFile && (
             <>
               <div className="text-sm text-muted-foreground">Or provide URL:</div>
@@ -304,21 +330,21 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
           {formData.existingPhotos.length > 0 && (
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Existing Photos:</div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                 {formData.existingPhotos.map((photo, index) => (
-                  <div key={index} className="flex items-center gap-2 bg-muted rounded-md px-3 py-2">
-                    <span className="text-sm truncate max-w-[200px]">Photo {index + 1}</span>
+                  <div key={index} className="relative group rounded-md overflow-hidden border border-border/50">
+                    <img src={photo} alt={`Existing photo ${index + 1}`} className="h-24 w-full object-cover" />
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => {
                         const newPhotos = formData.existingPhotos.filter((_, i) => i !== index);
                         setFormData(prev => ({ ...prev, existingPhotos: newPhotos }));
                       }}
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
@@ -330,20 +356,22 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
           {selectedPhotos.length > 0 && (
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">New Photos to Upload:</div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                 {selectedPhotos.map((photo, index) => (
-                  <div key={index} className="flex items-center gap-2 bg-muted rounded-md px-3 py-2">
-                    <span className="text-sm truncate max-w-[200px]">{photo.name}</span>
+                  <div key={index} className="relative group rounded-md overflow-hidden border border-border/50">
+                    <img src={selectedPreviews[index]} alt={photo.name} className="h-24 w-full object-cover" />
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => {
-                        setSelectedPhotos(photos => photos.filter((_, i) => i !== index));
+                        setSelectedPhotos((photos) => photos.filter((_, i) => i !== index));
+                        URL.revokeObjectURL(selectedPreviews[index]);
+                        setSelectedPreviews((prev) => prev.filter((_, i) => i !== index));
                       }}
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
@@ -365,7 +393,9 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
                   input.onchange = (e) => {
                     const file = (e.target as HTMLInputElement).files?.[0];
                     if (file && (formData.existingPhotos.length + selectedPhotos.length) < 5) {
+                      const url = URL.createObjectURL(file);
                       setSelectedPhotos(prev => [...prev, file]);
+                      setSelectedPreviews(prev => [...prev, url]);
                     }
                   };
                   input.click();
