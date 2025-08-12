@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLocations } from "@/hooks/useLocations";
-
+import LightboxGallery from "@/components/LightboxGallery";
 const amenityIcons = {
   wifi: Wifi,
   coffee: Coffee,
@@ -20,9 +20,14 @@ const amenityIcons = {
 const LocationDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { getLocationById } = useLocations();
-  const [location, setLocation] = useState(null);
+  const [location, setLocation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const images: string[] = (location?.photos && Array.isArray(location.photos) && location.photos.length > 0)
+    ? location.photos
+    : (location?.main_photo ? [location.main_photo] : []);
 
   useEffect(() => {
     const fetchLocation = async () => {
@@ -93,7 +98,7 @@ const LocationDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Image Gallery */}
           <div className="space-y-4">
-            <div className="aspect-video rounded-lg overflow-hidden">
+            <div className="aspect-video rounded-lg overflow-hidden cursor-zoom-in">
               <img
                 src={location.main_photo || location.photos?.[0] || "/placeholder.svg"}
                 alt={location.name}
@@ -101,12 +106,13 @@ const LocationDetail = () => {
                 onError={(e) => {
                   e.currentTarget.src = "/placeholder.svg";
                 }}
+                onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}
               />
             </div>
             {location.photos && location.photos.length > 1 && (
               <div className="grid grid-cols-2 gap-4">
                 {location.photos.slice(1, 3).map((photo, index) => (
-                  <div key={index} className="aspect-video rounded-lg overflow-hidden">
+                  <div key={index} className="aspect-video rounded-lg overflow-hidden cursor-zoom-in">
                     <img
                       src={photo}
                       alt={`${location.name} ${index + 2}`}
@@ -114,6 +120,7 @@ const LocationDetail = () => {
                       onError={(e) => {
                         e.currentTarget.src = "/placeholder.svg";
                       }}
+                      onClick={() => { setLightboxIndex(index + 1); setLightboxOpen(true); }}
                     />
                   </div>
                 ))}
@@ -206,6 +213,12 @@ const LocationDetail = () => {
           </div>
         </div>
       </main>
+      <LightboxGallery
+        images={images}
+        open={lightboxOpen}
+        initialIndex={lightboxIndex}
+        onOpenChange={setLightboxOpen}
+      />
     </div>
   );
 };

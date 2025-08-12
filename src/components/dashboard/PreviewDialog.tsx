@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
+import LightboxGallery from '@/components/LightboxGallery';
 
 interface PreviewDialogProps {
   showPreview: {type: string, item: any} | null;
@@ -13,6 +14,11 @@ interface PreviewDialogProps {
 export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialogProps) {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionForm, setShowRejectionForm] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const locationImages = showPreview?.type === 'location'
+    ? ([...(showPreview.item?.main_photo ? [showPreview.item.main_photo] : []), ...((showPreview.item?.photos as string[]) || [])])
+    : [];
   
   if (!showPreview) return null;
 
@@ -132,7 +138,8 @@ export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialo
                   <img 
                     src={showPreview.item.main_photo} 
                     alt={showPreview.item.name}
-                    className="w-32 h-24 object-cover rounded-lg"
+                    className="w-32 h-24 object-cover rounded-lg cursor-zoom-in"
+                    onClick={() => { setGalleryIndex(0); setGalleryOpen(true); }}
                   />
                 )}
                 <div className="flex-1">
@@ -177,7 +184,8 @@ export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialo
                         key={index}
                         src={photo} 
                         alt={`${showPreview.item.name} photo ${index + 1}`}
-                        className="w-full h-20 object-cover rounded"
+                        className="w-full h-20 object-cover rounded cursor-zoom-in"
+                        onClick={() => { setGalleryIndex((showPreview.item.main_photo ? index + 1 : index)); setGalleryOpen(true); }}
                       />
                     ))}
                   </div>
@@ -372,6 +380,14 @@ export function PreviewDialog({ showPreview, onClose, onApproval }: PreviewDialo
             </div>
           )}
         </div>
+        {showPreview.type === 'location' && (
+          <LightboxGallery
+            images={locationImages}
+            open={galleryOpen}
+            initialIndex={galleryIndex}
+            onOpenChange={setGalleryOpen}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
