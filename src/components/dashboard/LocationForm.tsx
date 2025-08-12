@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { X, Plus } from 'lucide-react';
-import AddressAutocomplete from '@/components/AddressAutocomplete';
+// import AddressAutocomplete from '@/components/AddressAutocomplete'; // ⟵ replaced by Province → City → Street cascading
 import { CoordinateValidator } from '@/components/CoordinateValidator';
 
 interface LocationFormProps {
@@ -17,6 +17,8 @@ interface LocationFormProps {
   onCancel: () => void;
 }
 
+type Option = { id: string; name: string };
+
 export function LocationForm({ location, companyId, onSuccess, onCancel }: LocationFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -25,10 +27,29 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
   const [mainPhotoPreview, setMainPhotoPreview] = useState<string>('');
   const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
   const [selectedPreviews, setSelectedPreviews] = useState<string[]>([]);
+
+  // --- NEW: Province → City → Street state ---
+  const [provinces, setProvinces] = useState<Option[]>([]);
+  const [cities, setCities] = useState<Option[]>([]);
+  const [streets, setStreets] = useState<Option[]>([]);
+
+  const [provinceInput, setProvinceInput] = useState('');
+  const [cityInput, setCityInput] = useState(location?.city || '');
+  const [streetInput, setStreetInput] = useState(location?.address || '');
+
+  const [provinceId, setProvinceId] = useState<string>('');
+  const [cityId, setCityId] = useState<string>('');
+  const [streetId, setStreetId] = useState<string>('');
+
+  // Visual error flags for red borders
+  const [provinceError, setProvinceError] = useState(false);
+  const [cityError, setCityError] = useState(false);
+  const [streetError, setStreetError] = useState(false);
+
   const [formData, setFormData] = useState({
     name: location?.name || '',
-    address: location?.address || '',
-    city: location?.city || '',
+    address: location?.address || '', // will mirror selected street name
+    city: location?.city || '',       // will mirror selected city name
     description: location?.description || '',
     mainPhoto: location?.main_photo || '',
     existingPhotos: location?.photos || [],
@@ -36,8 +57,113 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
     priceWeek: location?.price_week || '',
     priceMonth: location?.price_month || '',
     latitude: location?.latitude || null,
-    longitude: location?.longitude || null
+    longitude: location?.longitude || null,
   });
+
+  // Load all provinces on mount
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from('provinces')
+        .select('id, name')
+        .order('name');
+      if (!active) return;
+      if (error) {
+        console.error('Load provinces error:', error);
+      } else if (data) {
+        const opts = data.map((r: any) => ({ id: String(r.id), name: r.name }));
+        setProvinces(opts);
+        // If incoming location has city/address but no province, try to infer later if needed
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  // Resolve ID from input helpers
+  const matchByName = (list: Option[], name: string) => list.find(o => o.name.toLowerCase() === name.trim().toLowerCase());
+
+  // When province input changes, resolve id and fetch cities
+  useEffect(() => {
+    setProvinceError(false);
+    const p = matchByName(provinces, provinceInput);
+    const newProvId = p?.id || '';
+    setProvinceId(newProvId);
+
+    // Reset downstream when province changes
+    setCities([]);
+    setCityInput('');
+    setCityId('');
+    setStreets([]);
+    setStreetInput('');
+    setStreetId('');
+
+    if (!newProvId) return;
+    let active = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from('cities')
+        .select('id, name')
+        .eq('province_id', newProvId)
+        .order('name');
+      if (!active) return;
+      if (error) {
+        console.error('Load cities error:', error);
+      } else if (data) {
+        const opts = data.map((r: any) => ({ id: String(r.id), name: r.name }));
+        setCities(opts);
+      }
+    })();
+    return () => { active = false; };
+  }, [provinceInput, provinces]);
+
+  // When city input changes, resolve id and fetch streets
+  useEffect(() => {
+    setCityError(false);
+    const c = matchByName(cities, cityInput);
+    const newCityId = c?.id || '';
+    setCityId(newCityId);
+
+    // Reset streets when city changes
+    setStreets([]);
+    setStreetInput('');
+    setStreetId('');
+
+    if (!newCityId) return;
+    let active = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from('streets')
+        .select('id, name')
+        .eq('city_id', newCityId)
+        .order('name')
+        .limit(2000); // adjust if needed
+      if (!active) return;
+      if (error) {
+        console.error('Load streets error:', error);
+      } else if (data) {
+        const opts = data.map((r: any) => ({ id: String(r.id), name: r.name }));
+        setStreets(opts);
+      }
+    })();
+    return () => { active = false; };
+  }, [cityInput, cities]);
+
+  // When street input changes, resolve id
+  useEffect(() => {
+    setStreetError(false);
+    const s = matchByName(streets, streetInput);
+    setStreetId(s?.id || '');
+  }, [streetInput, streets]);
+
+  // Mirror selected names into the original fields the DB expects (city, address)
+  useEffect(() => {
+    // Only set when we have exact matches
+    const c = matchByName(cities, cityInput);
+    if (c) setFormData(prev => ({ ...prev, city: c.name }));
+    const s = matchByName(streets, streetInput);
+    if (s) setFormData(prev => ({ ...prev, address: s.name }));
+  }, [cityInput, streetInput, cities, streets]);
 
   const uploadFile = async (file: File, bucket: string, path: string): Promise<string | null> => {
     try {
@@ -45,7 +171,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
         .from(bucket)
         .upload(path, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: false,
         });
 
       if (error) throw error;
@@ -64,12 +190,30 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validate cascading fields
+    const hasProvince = !!provinceId;
+    const hasCity = !!cityId;
+    const hasStreet = !!streetId;
+
+    setProvinceError(!hasProvince);
+    setCityError(!hasCity);
+    setStreetError(!hasStreet);
+
+    if (!hasProvince || !hasCity || !hasStreet) {
+      toast({
+        title: 'Грешка',
+        description: 'Моля избери област, населено място и улица.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Validate main photo is required
     if (!mainPhotoFile && !formData.mainPhoto.trim()) {
       toast({
-        title: "Error",
-        description: "Main photo is required.",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Main photo is required.',
+        variant: 'destructive',
       });
       return;
     }
@@ -80,10 +224,9 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
       let mainPhotoUrl = formData.mainPhoto;
       const photoUrls: string[] = [];
 
-      // Upload main photo if file is selected
       if (mainPhotoFile) {
         const mainPhotoPath = `${user?.id}/${Date.now()}-main.${mainPhotoFile.name.split('.').pop()}`;
-        mainPhotoUrl = await uploadFile(mainPhotoFile, 'location-photos', mainPhotoPath) || '';
+        mainPhotoUrl = (await uploadFile(mainPhotoFile, 'location-photos', mainPhotoPath)) || '';
       }
 
       // Keep existing photos
@@ -96,11 +239,15 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
         if (photoUrl) photoUrls.push(photoUrl);
       }
 
+      // Resolve final city/street names (extra safety)
+      const cityName = matchByName(cities, cityInput)?.name || formData.city;
+      const streetName = matchByName(streets, streetInput)?.name || formData.address;
+
       const locationData = {
         company_id: companyId,
         name: formData.name,
-        address: formData.address,
-        city: formData.city,
+        address: streetName, // street name; building/number can be added in description or extend schema later
+        city: cityName,
         description: formData.description,
         main_photo: mainPhotoUrl,
         photos: photoUrls,
@@ -109,17 +256,20 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
         price_month: formData.priceMonth ? parseFloat(formData.priceMonth) : null,
         latitude: formData.latitude,
         longitude: formData.longitude,
-        status: location ? location.status : 'pending'
-      };
+        status: location ? location.status : 'pending',
+        // Optionally also save the IDs if you add columns: province_id, city_id, street_id
+        // province_id: provinceId,
+        // city_id: cityId,
+        // street_id: streetId,
+      } as any;
 
       if (location) {
-        // Update existing location - reset status to pending if it was rejected
         const updateData = {
           ...locationData,
           status: location.status === 'rejected' ? 'pending' : location.status,
-          rejection_reason: location.status === 'rejected' ? null : location.rejection_reason
+          rejection_reason: location.status === 'rejected' ? null : location.rejection_reason,
         };
-        
+
         const { error } = await supabase
           .from('locations')
           .update(updateData)
@@ -127,97 +277,103 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
 
         if (error) throw error;
 
-        toast({
-          title: "Success!",
-          description: "Location updated successfully."
-        });
+        toast({ title: 'Success!', description: 'Location updated successfully.' });
       } else {
-        // Create new location
-        const { error } = await supabase
-          .from('locations')
-          .insert(locationData);
-
+        const { error } = await supabase.from('locations').insert(locationData);
         if (error) throw error;
-
-        toast({
-          title: "Success!",
-          description: "Location created and submitted for review."
-        });
+        toast({ title: 'Success!', description: 'Location created and submitted for review.' });
       }
 
       onSuccess();
     } catch (error) {
       console.error('Error saving location:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save location. Please try again.",
-        variant: "destructive"
-      });
+      toast({ title: 'Error', description: 'Failed to save location. Please try again.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
+  // Helpers for datalist options rendering
+  const ProvinceOptions = useMemo(() => provinces.map(p => (<option key={p.id} value={p.name} />)), [provinces]);
+  const CityOptions = useMemo(() => cities.map(c => (<option key={c.id} value={c.name} />)), [cities]);
+  const StreetOptions = useMemo(() => streets.map(s => (<option key={s.id} value={s.name} />)), [streets]);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Location Information</h3>
-        
+
         <div className="space-y-2">
           <Label htmlFor="locationName">Location Name *</Label>
           <Input
             id="locationName"
             value={formData.name}
-            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+            onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
             required
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* NEW: Cascading Province → City → Street */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Province */}
           <div className="space-y-2">
-            <AddressAutocomplete
-              value={formData.address}
-              onChange={(value, coordinates) => {
-                setFormData(prev => ({ 
-                  ...prev, 
-                  address: value,
-                  latitude: coordinates?.lat || null,
-                  longitude: coordinates?.lng || null
-                }));
-              }}
-              label="Address *"
-              placeholder="Enter address in Bulgaria..."
+            <Label htmlFor="province">Област *</Label>
+            <input
+              id="province"
+              list="province-list"
+              value={provinceInput}
+              onChange={(e) => setProvinceInput(e.target.value)}
+              placeholder="Започни да пишеш..."
+              className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 ${
+                provinceError ? 'border-red-500 focus-visible:ring-red-500' : 'focus-visible:ring-primary'
+              }`}
             />
+            <datalist id="province-list">{ProvinceOptions}</datalist>
           </div>
-          <div className="space-y-2">
-            <AddressAutocomplete
-              value={formData.city}
-              onChange={(value, coordinates) => {
-                setFormData(prev => ({ 
-                  ...prev, 
-                  city: value,
-                  latitude: coordinates?.lat || null,
-                  longitude: coordinates?.lng || null
-                }));
-              }}
-              label="City *"
-              placeholder="Enter city in Bulgaria..."
+
+          {/* City */}
+          <div className="space-y-2 opacity-100">
+            <Label htmlFor="city">Населено място *</Label>
+            <input
+              id="city"
+              list="city-list"
+              value={cityInput}
+              onChange={(e) => setCityInput(e.target.value)}
+              placeholder={provinceId ? 'Започни да пишеш...' : 'Първо избери област'}
+              disabled={!provinceId}
+              className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 ${
+                !provinceId ? 'opacity-60 cursor-not-allowed' : ''
+              } ${cityError ? 'border-red-500 focus-visible:ring-red-500' : 'focus-visible:ring-primary'}`}
             />
+            <datalist id="city-list">{CityOptions}</datalist>
+          </div>
+
+          {/* Street */}
+          <div className="space-y-2">
+            <Label htmlFor="street">Улица *</Label>
+            <input
+              id="street"
+              list="street-list"
+              value={streetInput}
+              onChange={(e) => setStreetInput(e.target.value)}
+              placeholder={cityId ? 'Започни да пишеш...' : 'Първо избери населено място'}
+              disabled={!cityId}
+              className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 ${
+                !cityId ? 'opacity-60 cursor-not-allowed' : ''
+              } ${streetError ? 'border-red-500 focus-visible:ring-red-500' : 'focus-visible:ring-primary'}`}
+            />
+            <datalist id="street-list">{StreetOptions}</datalist>
           </div>
         </div>
 
-        {/* Coordinate Validator */}
-        {(formData.latitude && formData.longitude) && (
+        {/* Coordinate Validator (kept). If you want to auto-fill lat/lng from street selection, add a streets.lat/lng and fetch those too. */}
+        {formData.latitude && formData.longitude && (
           <CoordinateValidator
             latitude={formData.latitude}
             longitude={formData.longitude}
             address={formData.address}
             onCoordinatesChange={(lat, lng) => {
-              setFormData(prev => ({ 
-                ...prev, 
-                latitude: lat,
-                longitude: lng
-              }));
+              setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
             }}
           />
         )}
@@ -227,7 +383,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
           <Textarea
             id="description"
             value={formData.description}
-            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+            onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
             rows={3}
           />
         </div>
@@ -240,7 +396,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
               type="number"
               step="0.01"
               value={formData.priceDay}
-              onChange={(e) => setFormData(prev => ({ ...prev, priceDay: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, priceDay: e.target.value }))}
               placeholder="0.00"
             />
           </div>
@@ -251,7 +407,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
               type="number"
               step="0.01"
               value={formData.priceWeek}
-              onChange={(e) => setFormData(prev => ({ ...prev, priceWeek: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, priceWeek: e.target.value }))}
               placeholder="0.00"
             />
           </div>
@@ -262,7 +418,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
               type="number"
               step="0.01"
               value={formData.priceMonth}
-              onChange={(e) => setFormData(prev => ({ ...prev, priceMonth: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, priceMonth: e.target.value }))}
               placeholder="0.00"
             />
           </div>
@@ -279,12 +435,11 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
               if (file) {
                 setMainPhotoFile(file);
                 setMainPhotoPreview(URL.createObjectURL(file));
-                setFormData(prev => ({ ...prev, mainPhoto: '' })); // Clear URL when file is selected
+                setFormData((prev) => ({ ...prev, mainPhoto: '' })); // Clear URL when file is selected
               }
             }}
           />
 
-          {/* Preview for selected file or URL */}
           {(mainPhotoPreview || (!mainPhotoFile && formData.mainPhoto)) && (
             <div className="mt-2 relative">
               <img
@@ -316,7 +471,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
               <Input
                 type="url"
                 value={formData.mainPhoto}
-                onChange={(e) => setFormData(prev => ({ ...prev, mainPhoto: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, mainPhoto: e.target.value }))}
                 placeholder="https://example.com/main-photo.jpg"
               />
             </>
@@ -325,8 +480,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
 
         <div className="space-y-2">
           <Label>Additional Photos (up to 5 total)</Label>
-          
-          {/* Existing photos from database */}
+
           {formData.existingPhotos.length > 0 && (
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Existing Photos:</div>
@@ -341,7 +495,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
                       className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => {
                         const newPhotos = formData.existingPhotos.filter((_, i) => i !== index);
-                        setFormData(prev => ({ ...prev, existingPhotos: newPhotos }));
+                        setFormData((prev) => ({ ...prev, existingPhotos: newPhotos }));
                       }}
                     >
                       <X className="h-4 w-4" />
@@ -352,7 +506,6 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
             </div>
           )}
 
-          {/* New photos to upload */}
           {selectedPhotos.length > 0 && (
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">New Photos to Upload:</div>
@@ -379,7 +532,6 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
             </div>
           )}
 
-          {/* Add photo button */}
           {(formData.existingPhotos.length + selectedPhotos.length) < 5 && (
             <div className="space-y-2">
               <Button
@@ -394,8 +546,8 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
                     const file = (e.target as HTMLInputElement).files?.[0];
                     if (file && (formData.existingPhotos.length + selectedPhotos.length) < 5) {
                       const url = URL.createObjectURL(file);
-                      setSelectedPhotos(prev => [...prev, file]);
-                      setSelectedPreviews(prev => [...prev, url]);
+                      setSelectedPhotos((prev) => [...prev, file]);
+                      setSelectedPreviews((prev) => [...prev, url]);
                     }
                   };
                   input.click();
