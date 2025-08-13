@@ -7,7 +7,7 @@ const Footer = () => {
         <div className="grid md:grid-cols-4 gap-8">
           {/* Logo & Description */}
           <div className="space-y-4">
-            <div className="flex items-center">
+            <div className="flex">
               <img src="/lovable-uploads/cfef3fb4-b93f-46d6-bb46-95813a08d122.png" alt="Placero logo" className="w-9" loading="lazy" />
               <span className="text-white font-bold -ml-2">lacero</span>
             </div>
