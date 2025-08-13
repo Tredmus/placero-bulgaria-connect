@@ -9,7 +9,7 @@ const Footer = () => {
           <div className="space-y-4">
             <div className="flex items-center">
               <img src="/lovable-uploads/cfef3fb4-b93f-46d6-bb46-95813a08d122.png" alt="Placero logo" className="w-9" loading="lazy" />
-              <span className="text-white font-bold -ml-5">Placero</span>
+              <span className="text-white font-bold -ml-3">Placero</span>
             </div>
             <p className="text-white/80">
               Водещата платформа за споделени работни пространства в България
