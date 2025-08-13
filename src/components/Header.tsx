@@ -21,7 +21,7 @@ const Header = () => {
           <Link to="/" className="flex items-center group">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary/60 rounded-xl blur-lg opacity-20 group-hover:opacity-40 transition-opacity"></div>
-              <img src="https://i.snipboard.io/wU9oRm.jpg" alt="Placero logo" className="w-12 relative z-10 group-hover:scale-110 transition-transform" loading="eager" />
+              <img src="https://i.snipboard.io/wU9oRm.jpg" alt="Placero logo" className="w-9 relative z-10 group-hover:scale-110 transition-transform" loading="eager" />
             </div>
             <span className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
               Placero
