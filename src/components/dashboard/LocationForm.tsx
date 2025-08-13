@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { X, Plus } from 'lucide-react';
-import AddressAutocomplete from '@/components/AddressAutocomplete';
+import AddressHierarchy from '@/components/AddressHierarchy';
 import { CoordinateValidator } from '@/components/CoordinateValidator';
 
 interface LocationFormProps {
@@ -27,6 +27,7 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
   const [selectedPreviews, setSelectedPreviews] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     name: location?.name || '',
+    province: '',
     address: location?.address || '',
     city: location?.city || '',
     description: location?.description || '',
@@ -173,38 +174,30 @@ export function LocationForm({ location, companyId, onSuccess, onCancel }: Locat
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <AddressAutocomplete
-              value={formData.address}
-              onChange={(value, coordinates) => {
-                setFormData(prev => ({ 
-                  ...prev, 
-                  address: value,
-                  latitude: coordinates?.lat || null,
-                  longitude: coordinates?.lng || null
-                }));
-              }}
-              label="Address *"
-              placeholder="Enter address in Bulgaria..."
-            />
-          </div>
-          <div className="space-y-2">
-            <AddressAutocomplete
-              value={formData.city}
-              onChange={(value, coordinates) => {
-                setFormData(prev => ({ 
-                  ...prev, 
-                  city: value,
-                  latitude: coordinates?.lat || null,
-                  longitude: coordinates?.lng || null
-                }));
-              }}
-              label="City *"
-              placeholder="Enter city in Bulgaria..."
-            />
-          </div>
-        </div>
+        <AddressHierarchy
+          provinceValue={formData.province}
+          cityValue={formData.city}
+          addressValue={formData.address}
+          onProvinceChange={(value) => {
+            setFormData(prev => ({ ...prev, province: value }));
+          }}
+          onCityChange={(value, coordinates) => {
+            setFormData(prev => ({ 
+              ...prev, 
+              city: value,
+              latitude: coordinates?.lat || null,
+              longitude: coordinates?.lng || null
+            }));
+          }}
+          onAddressChange={(value, coordinates) => {
+            setFormData(prev => ({ 
+              ...prev, 
+              address: value,
+              latitude: coordinates?.lat || null,
+              longitude: coordinates?.lng || null
+            }));
+          }}
+        />
 
         {/* Coordinate Validator */}
         {(formData.latitude && formData.longitude) && (
