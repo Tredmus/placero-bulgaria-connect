@@ -16,7 +16,7 @@ const Header = () => {
   return (
     <header className="placero-glass border-b border-border/50 sticky top-0 z-50 backdrop-blur-xl">
       <div className="container mx-auto px-4 py-4">
-        <div className="flex justify-between">
+        <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3 group">
             <div className="relative">
