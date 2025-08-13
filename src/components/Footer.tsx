@@ -1,4 +1,5 @@
 import { Mail, Phone, MapPin } from "lucide-react";
+import Logo from "@/components/Logo";
 
 const Footer = () => {
   return (
@@ -7,10 +8,7 @@ const Footer = () => {
         <div className="grid md:grid-cols-4 gap-8">
           {/* Logo & Description */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <img src="/lovable-uploads/cfef3fb4-b93f-46d6-bb46-95813a08d122.png" alt="Placero logo" className="h-8 w-8" loading="lazy" />
-              <span className="text-white font-bold">Placero</span>
-            </div>
+            <Logo variant="footer" textClassName="text-white" />
             <p className="text-white/80">
               Водещата платформа за споделени работни пространства в България
             </p>
