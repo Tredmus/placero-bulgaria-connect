@@ -14,7 +14,7 @@ const Footer = () => {
       className="h-9 w-9 w-auto block"   // block removes baseline gap; control height
       loading="lazy"
     />
-    <span className="text-white text-2xl font-bold ml-1 -mt-1 leading-none">
+    <span className="text-white text-2xl font-bold ml-0.5 -mt-1 leading-none">
       lacero
     </span>
   </div>
