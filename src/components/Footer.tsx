@@ -67,7 +67,7 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-white/20 mt-8 pt-8 text-center text-white/60">
-          <p>&copy; 2024 Placero. Всички права запазени.</p>
+          <p>&copy; 2025 Placero. Всички права запазени.</p>
         </div>
       </div>
     </footer>
