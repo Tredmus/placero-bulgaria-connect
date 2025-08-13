@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
-import { MapPin, Loader2, ChevronDown } from "lucide-react";
+import { MapPin, Loader2, Check, ChevronsUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { BULGARIA_PROVINCES, findCitiesByProvince, type Province, type City } from "@/data/bulgariaDivisions";
 
@@ -40,6 +43,8 @@ const AddressHierarchy = ({
   const [addressSuggestions, setAddressSuggestions] = useState<MapboxSuggestion[]>([]);
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [openProvince, setOpenProvince] = useState(false);
+  const [openCity, setOpenCity] = useState(false);
 
   // Update cities when province changes
   useEffect(() => {
@@ -120,43 +125,94 @@ const AddressHierarchy = ({
       {/* Province Selection */}
       <div className="space-y-2">
         <Label htmlFor="province-select">Област *</Label>
-        <Select value={provinceValue} onValueChange={onProvinceChange}>
-          <SelectTrigger id="province-select">
-            <SelectValue placeholder="Изберете област..." />
-          </SelectTrigger>
-          <SelectContent className="max-h-60 overflow-auto">
-            {BULGARIA_PROVINCES.map((province) => (
-              <SelectItem key={province.code} value={province.name}>
-                {province.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={openProvince} onOpenChange={setOpenProvince}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={openProvince}
+              className="w-full justify-between"
+            >
+              {provinceValue || "Изберете област..."}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-full p-0">
+            <Command>
+              <CommandInput placeholder="Търсете област..." />
+              <CommandList>
+                <CommandEmpty>Няма намерена област.</CommandEmpty>
+                <CommandGroup>
+                  {BULGARIA_PROVINCES.map((province) => (
+                    <CommandItem
+                      key={province.code}
+                      value={province.name}
+                      onSelect={(currentValue) => {
+                        onProvinceChange(currentValue === provinceValue ? "" : currentValue);
+                        setOpenProvince(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          provinceValue === province.name ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {province.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* City Selection */}
       <div className="space-y-2">
-        <Label htmlFor="city-select">Град/Село *</Label>
-        <Select 
-          value={cityValue} 
-          onValueChange={handleCitySelect}
-          disabled={!provinceValue}
-        >
-          <SelectTrigger id="city-select" className={!provinceValue ? "opacity-50" : ""}>
-            <SelectValue placeholder={
-              !provinceValue 
-                ? "Първо изберете област..." 
-                : "Изберете град или село..."
-            } />
-          </SelectTrigger>
-          <SelectContent className="max-h-60 overflow-auto">
-            {cities.map((city, index) => (
-              <SelectItem key={index} value={city.name}>
-                {city.name} ({city.type})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label htmlFor="city-select">Населено място *</Label>
+        <Popover open={openCity} onOpenChange={setOpenCity}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={openCity}
+              className={cn("w-full justify-between", !provinceValue && "opacity-50")}
+              disabled={!provinceValue}
+            >
+              {cityValue || (!provinceValue ? "Първо изберете област..." : "Изберете населено място...")}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-full p-0">
+            <Command>
+              <CommandInput placeholder="Търсете населено място..." />
+              <CommandList>
+                <CommandEmpty>Няма намерено населено място.</CommandEmpty>
+                <CommandGroup>
+                  {cities.map((city, index) => (
+                    <CommandItem
+                      key={index}
+                      value={city.name}
+                      onSelect={(currentValue) => {
+                        handleCitySelect(currentValue === cityValue ? "" : currentValue);
+                        setOpenCity(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          cityValue === city.name ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {city.name} ({city.type})
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Address Input */}

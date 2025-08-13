@@ -45,7 +45,18 @@ export const BULGARIA_PROVINCES: Province[] = [
       { name: 'Созопол', type: 'град' },
       { name: 'Средец', type: 'град' },
       { name: 'Сунгурларе', type: 'град' },
-      { name: 'Царево', type: 'град' }
+      { name: 'Царево', type: 'град' },
+      // Additional villages and settlements
+      { name: 'Ахтопол', type: 'град' },
+      { name: 'Багрово', type: 'село' },
+      { name: 'Бриз', type: 'квартал' },
+      { name: 'Бриз 2', type: 'квартал' },
+      { name: 'Крайморие', type: 'село' },
+      { name: 'Лозенец', type: 'село' },
+      { name: 'Резово', type: 'село' },
+      { name: 'Росен', type: 'село' },
+      { name: 'Синеморец', type: 'село' },
+      { name: 'Устица', type: 'село' }
     ]
   },
   {
@@ -61,7 +72,28 @@ export const BULGARIA_PROVINCES: Province[] = [
       { name: 'Дългопол', type: 'град' },
       { name: 'Провадия', type: 'град' },
       { name: 'Суворово', type: 'град' },
-      { name: 'Ахтопол', type: 'град' }
+      // Additional villages and settlements
+      { name: 'Авен', type: 'село' },
+      { name: 'Алтимир', type: 'село' },
+      { name: 'Балчик', type: 'град' },
+      { name: 'Батово', type: 'село' },
+      { name: 'Българево', type: 'село' },
+      { name: 'Валчи дол', type: 'село' },
+      { name: 'Варвара', type: 'село' },
+      { name: 'Венец', type: 'село' },
+      { name: 'Владимирово', type: 'село' },
+      { name: 'Злати дол', type: 'село' },
+      { name: 'Златни пясъци', type: 'квартал' },
+      { name: 'Каварна', type: 'град' },
+      { name: 'Камен бряг', type: 'село' },
+      { name: 'Кранево', type: 'село' },
+      { name: 'Обзор', type: 'град' },
+      { name: 'Оряхово', type: 'село' },
+      { name: 'Първенец', type: 'село' },
+      { name: 'Слънчев ден', type: 'квартал' },
+      { name: 'Тополи', type: 'село' },
+      { name: 'Шкорпиловци', type: 'село' },
+      { name: 'Ябланица', type: 'село' }
     ]
   },
   {

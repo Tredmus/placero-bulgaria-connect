@@ -70,28 +70,32 @@ export function CoordinateValidator({
 
   // Update marker when coordinates change
   useEffect(() => {
-    if (!map.current || !latitude || !longitude) return;
-
+    if (!map.current) return;
+    
     // Remove existing marker
     if (marker.current) {
       marker.current.remove();
     }
 
-    // Add new marker
-    marker.current = new mapboxgl.Marker({ color: '#ef4444' })
-      .setLngLat([longitude, latitude])
-      .addTo(map.current);
+    // Only add marker if we have valid coordinates
+    if (latitude && longitude) {
 
-    // Fly to location
-    map.current.flyTo({
-      center: [longitude, latitude],
-      zoom: 15,
-      duration: 1000
-    });
+      // Add new marker
+      marker.current = new mapboxgl.Marker({ color: '#ef4444' })
+        .setLngLat([longitude, latitude])
+        .addTo(map.current);
 
-    // Update manual inputs
-    setManualLat(latitude.toFixed(6));
-    setManualLng(longitude.toFixed(6));
+      // Fly to location
+      map.current.flyTo({
+        center: [longitude, latitude],
+        zoom: 15,
+        duration: 1000
+      });
+
+      // Update manual inputs
+      setManualLat(latitude.toFixed(6));
+      setManualLng(longitude.toFixed(6));
+    }
   }, [latitude, longitude]);
 
   const updateCoordinates = (lat: number, lng: number) => {
