@@ -11,7 +11,7 @@ const Footer = () => {
     <img
       src="https://i.snipboard.io/wU9oRm.jpg"
       alt="Placero logo"
-      className="h-7 w-auto block"   // block removes baseline gap; control height
+      className="h-9 w-9 w-auto block"   // block removes baseline gap; control height
       loading="lazy"
     />
     <span className="text-white text-2xl font-bold ml-1 -mt-1 leading-none">
