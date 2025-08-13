@@ -18,15 +18,21 @@ const Header = () => {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center group">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary/60 rounded-xl blur-lg opacity-20 group-hover:opacity-40 transition-opacity"></div>
-              <img src="https://i.snipboard.io/wU9oRm.jpg" alt="Placero logo" className="h-9 w-9 relative z-10 group-hover:scale-110 transition-transform" loading="eager" />
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
-              Placero
-            </span>
-          </Link>
+          <Link to="/" className="flex items-center group space-x-2">
+  <div className="relative">
+    <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary/60 rounded-xl blur-lg opacity-20 group-hover:opacity-40 transition-opacity"></div>
+    <img
+      src="https://i.snipboard.io/wU9oRm.jpg"
+      alt="Placero logo"
+      className="h-9 w-9 relative z-10 group-hover:scale-110 transition-transform"
+      loading="eager"
+    />
+  </div>
+  <span className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
+    Placero
+  </span>
+</Link>
+
 
           {/* Search Bar */}
           <div className="hidden md:flex items-center space-x-2 flex-1 max-w-md mx-8">
