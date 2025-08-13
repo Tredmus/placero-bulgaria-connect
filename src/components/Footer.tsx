@@ -9,7 +9,7 @@ const Footer = () => {
 <div className="space-y-4">
   <div className="flex items-end">
     <img
-      src="/lovable-uploads/cfef3fb4-b93f-46d6-bb46-95813a08d122.png"
+      src="https://i.snipboard.io/wU9oRm.jpg"
       alt="Placero logo"
       className="h-7 w-auto block"   // block removes baseline gap; control height
       loading="lazy"
