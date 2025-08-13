@@ -21,7 +21,7 @@ const Logo: React.FC<LogoProps> = ({
   if (variant === "header") {
     return (
       <div className={cn("flex items-center space-x-3", className)}>
-        <div className="relative h-9 group">
+        <div className="relative h-9">
           <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary/60 rounded-xl blur-lg opacity-20 group-hover:opacity-40 transition-opacity" />
           <img
             src={LOGO_SRC}
