@@ -419,7 +419,7 @@ export default function InteractiveMapV1() {
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
     clearMarkers(); // Only clear location markers, city markers stay visible
-    map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
+    map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6, pitch: 0, bearing: 0, duration: 700 });
   };
 
   useEffect(() => {
@@ -429,16 +429,16 @@ export default function InteractiveMapV1() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
-      zoom: 6.5,
+      zoom: 6,
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 6.5,
-      // Restrict map boundaries to Bulgaria region
+      minZoom: 6,
+      // Restrict map boundaries to Bulgaria region - tighter bounds
       maxBounds: [
-        [22.0, 41.0], // Southwest coordinates [lng, lat]
-        [29.0, 44.5]  // Northeast coordinates [lng, lat]
+        [22.5, 41.2], // Southwest coordinates [lng, lat] 
+        [28.5, 44.2]  // Northeast coordinates [lng, lat]
       ]
     });
 
