@@ -1,5 +1,5 @@
 import HeroSection from "@/components/HeroSection";
-import InteractiveMap from "@/components/InteractiveMap";
+import InteractiveMapTabs from "@/components/InteractiveMapTabs";
 import FeaturedLocations from "@/components/FeaturedLocations";
 import FeaturedArticles from "@/components/FeaturedArticles";
 import BannerDisplay from "@/components/BannerDisplay";
@@ -10,7 +10,7 @@ const Index = () => {
       <HeroSection />
       <section className="py-16">
         <div className="container mx-auto px-4">
-          <InteractiveMap />
+          <InteractiveMapTabs />
         </div>
       </section>
       <FeaturedLocations />

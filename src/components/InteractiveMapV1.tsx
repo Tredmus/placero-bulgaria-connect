@@ -150,7 +150,7 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
 
 /* -------------------------------------------------- */
 
-export default function InteractiveMap() {
+export default function InteractiveMapV1() {
   const { locations } = useLocations();
   const navigate = useNavigate();
 
@@ -252,11 +252,11 @@ export default function InteractiveMap() {
     bubble.style.height = `${size}px`;
     bubble.style.borderRadius = '50%';
     bubble.style.border = '2px solid #fff';
-    bubble.style.boxShadow = '0 2px 8px rgba(16,185,129,.35)';
+    bubble.style.boxShadow = '0 2px 8px rgba(220,38,38,.35)';
     bubble.style.cursor = 'pointer';
     bubble.style.transition = 'transform .12s ease';
     bubble.style.transformOrigin = 'center';
-    bubble.style.background = isSelected ? '#22d3ee' : '#10b981';
+    bubble.style.background = isSelected ? '#ef4444' : '#dc2626';
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
 
@@ -420,7 +420,7 @@ export default function InteractiveMap() {
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 5.5,
+      minZoom: 6.5,
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -440,6 +440,15 @@ export default function InteractiveMap() {
 
     map.current.on('load', () => {
       map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
+
+      // Add city markers initially
+      const allCityMap: Record<string, any[]> = {};
+      locations.forEach((l) => {
+        const c = cleanCity(l.city || '');
+        if (!c) return;
+        (allCityMap[c] ||= []).push(l);
+      });
+      addCityMarkers(allCityMap);
 
       map.current!.addLayer({
         id: 'provinces-fill',
