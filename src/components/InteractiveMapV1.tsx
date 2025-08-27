@@ -304,11 +304,24 @@ export default function InteractiveMapV1() {
     });
   };
 
-  const addCityMarkers = (cityMap: Record<string, any[]>) => {
-    if (!map.current) return;
-    clearMarkers();
+  // Keep reference to all city markers so they're always visible
+  const allCityMarkersRef = useRef<mapboxgl.Marker[]>([]);
 
-    Object.entries(cityMap).forEach(([key, locs]) => {
+  const addAllCityMarkers = () => {
+    if (!map.current) return;
+    
+    // Clear existing all-city markers
+    allCityMarkersRef.current.forEach((m) => m.remove());
+    allCityMarkersRef.current = [];
+
+    const allCityMap: Record<string, any[]> = {};
+    locations.forEach((l) => {
+      const c = cleanCity(l.city || '');
+      if (!c) return;
+      (allCityMap[c] ||= []).push(l);
+    });
+
+    Object.entries(allCityMap).forEach(([key, locs]) => {
       const valid = locs.filter((l) => l.latitude && l.longitude);
       if (!valid.length) return;
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
@@ -333,7 +346,7 @@ export default function InteractiveMapV1() {
       });
 
       const mk = new mapboxgl.Marker({ element: root, anchor: 'center' }).setLngLat([lng, lat]).addTo(map.current!);
-      markers.current.push(mk);
+      allCityMarkersRef.current.push(mk);
     });
   };
 
@@ -368,7 +381,8 @@ export default function InteractiveMapV1() {
       });
       setProvinceCities(cityMap);
 
-      addCityMarkers(cityMap);
+      // Don't clear all city markers, keep them visible
+      clearMarkers(); // Only clear location markers, not city markers
 
       const targetZoom = zoomOverride ?? 9;
       if (centerGuess) map.current?.flyTo({ center: centerGuess, zoom: targetZoom, pitch: 0, duration: 800 });
@@ -404,7 +418,7 @@ export default function InteractiveMapV1() {
       hoveredFeatureId.current = null;
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-    clearMarkers();
+    clearMarkers(); // Only clear location markers, city markers stay visible
     map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
   };
 
@@ -421,6 +435,11 @@ export default function InteractiveMapV1() {
       renderWorldCopies: false,
       maxZoom: 18,
       minZoom: 6.5,
+      // Restrict map boundaries to Bulgaria region
+      maxBounds: [
+        [22.0, 41.0], // Southwest coordinates [lng, lat]
+        [29.0, 44.5]  // Northeast coordinates [lng, lat]
+      ]
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -441,14 +460,8 @@ export default function InteractiveMapV1() {
     map.current.on('load', () => {
       map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
 
-      // Add city markers initially
-      const allCityMap: Record<string, any[]> = {};
-      locations.forEach((l) => {
-        const c = cleanCity(l.city || '');
-        if (!c) return;
-        (allCityMap[c] ||= []).push(l);
-      });
-      addCityMarkers(allCityMap);
+      // Add all city markers initially and keep them visible always
+      addAllCityMarkers();
 
       map.current!.addLayer({
         id: 'provinces-fill',
@@ -572,6 +585,8 @@ export default function InteractiveMapV1() {
       markers.current.forEach((m) => m.remove());
       markers.current = [];
       markerById.current = {};
+      allCityMarkersRef.current.forEach((m) => m.remove());
+      allCityMarkersRef.current = [];
       map.current?.remove();
       map.current = null;
     };
@@ -785,7 +800,7 @@ export default function InteractiveMapV1() {
                     if (isActive) {
                       setSelectedCity(null);
                       setSelectedLocation(null);
-                      addCityMarkers(provinceCities);
+                      clearMarkers(); // Only clear location markers
                     } else {
                       handleCitySelect(displayCity, locs);
                     }
