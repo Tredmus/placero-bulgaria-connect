@@ -450,7 +450,7 @@ export default function InteractiveMapV1() {
        maxBounds: [
         [22.0, 41.2],   // tightened SW corner [lng, lat]
         [28.5, 44.0]    // tightened NE corner
-      ]
+      ],
       zoom: 6.5,
       pitch: 0,
       bearing: 0,
