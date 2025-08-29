@@ -451,12 +451,12 @@ export default function InteractiveMapV1() {
         [22.57, 41.23],  // SW corner [lng, lat]
         [28.60, 44.21]   // NE corner [lng, lat]
       ],
-      zoom: 7.5,
+      zoom: 4.5,
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 7.5,
+      minZoom: 4.5,
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
