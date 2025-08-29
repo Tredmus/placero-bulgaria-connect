@@ -452,7 +452,7 @@ export default function InteractiveMapV1() {
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 5.5,     // prevent zooming too far out
+      minZoom: 1,     // prevent zooming too far out
       maxBounds: [
         [22.0, 41.2],   // tightened SW corner [lng, lat]
         [28.5, 44.0]    // tightened NE corner
