@@ -610,26 +610,41 @@ export default function InteractiveMapV1() {
 
       // Fit and constrain the view so Bulgaria is always fully visible
       try {
-  const bb = turfBbox(provincesGeo) as [number, number, number, number];
-  bulgariaBoundsRef.current = new mapboxgl.LngLatBounds(
-    [bb[0], bb[1]],
-    [bb[2], bb[3]]
-  );
+        const bb = turfBbox(provincesGeo) as [number, number, number, number];
+        bulgariaBoundsRef.current = new mapboxgl.LngLatBounds([bb[0], bb[1]], [bb[2], bb[3]]);
+        const padding = 48;
+        const cam = map.current!.cameraForBounds(bulgariaBoundsRef.current, { padding }) as any;
+        const minZ = (cam && typeof cam.zoom === 'number') ? cam.zoom : map.current!.getZoom();
+        map.current!.setMinZoom(minZ);
+        map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
 
-  const padding = 48;
+        const updateConstrainedBounds = () => {
+          if (!map.current || !bulgariaBoundsRef.current) return;
+          const view = map.current.getBounds();
+          const vw = view.getEast() - view.getWest();
+          const vh = view.getNorth() - view.getSouth();
+          const bbounds = bulgariaBoundsRef.current;
+          const minLng = bbounds.getWest() + vw / 2;
+          const maxLng = bbounds.getEast() - vw / 2;
+          const minLat = bbounds.getSouth() + vh / 2;
+          const maxLat = bbounds.getNorth() - vh / 2;
+          let sw: [number, number];
+          let ne: [number, number];
+          if (minLng > maxLng || minLat > maxLat) {
+            const c = bbounds.getCenter();
+            sw = [c.lng, c.lat];
+            ne = [c.lng, c.lat];
+          } else {
+            sw = [minLng, minLat];
+            ne = [maxLng, maxLat];
+          }
+          map.current.setMaxBounds(new mapboxgl.LngLatBounds(sw, ne));
+        };
 
-  // 1. Fit once to Bulgaria, no animation
-  map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
-
-  // 2. (Optional) Set a static buffer around Bulgaria to prevent panning too far
-  // This keeps Bulgaria always visible but does NOT fight against zooming
-  const buffered = bulgariaBoundsRef.current.pad(0.05); // 5% buffer around
-  map.current!.setMaxBounds(buffered);
-
-  // ✅ IMPORTANT:
-  // - Do NOT set minZoom dynamically here (remove setMinZoom)
-  // - Do NOT add zoom/resize listeners that shrink bounds every time
-} catch {}
+        updateConstrainedBounds();
+        map.current!.on('zoom', updateConstrainedBounds);
+        map.current!.on('resize', updateConstrainedBounds);
+      } catch {}
     });
 
     return () => {
