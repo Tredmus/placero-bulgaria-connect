@@ -447,7 +447,7 @@ export default function InteractiveMapV1() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
-      zoom: 4,          // default zoomed-out a bit more
+      zoom: 1,          // default zoomed-out a bit more
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
