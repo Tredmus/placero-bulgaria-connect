@@ -20,7 +20,7 @@ const PROVINCES = [
   { name: 'София Град', nameEn: 'Sofia Grad', searchTerms: ['софия', 'sofia'] },
   { name: 'София Област', nameEn: 'Sofia Oblast', searchTerms: ['софия', 'sofia'] },
   { name: 'Пловдив', nameEn: 'Plovdiv', searchTerms: ['пловдив', 'plovdiv'] },
-  { name: 'Варна', nameEn: 'Varna', searchTerms: ['варна', 'varna', 'белослав', 'beloslav', 'девня', 'devnya'] },
+  { name: 'Варна', nameEn: 'Varna', searchTerms: ['варна', 'varna', 'белослав', 'beloslav', 'девня', 'devnya', 'суворово', 'suvorovo'] },
   { name: 'Бургас', nameEn: 'Burgas', searchTerms: ['бургас', 'burgas'] },
   { name: 'Русе', nameEn: 'Ruse', searchTerms: ['русе', 'ruse'] },
   { name: 'Стара Загора', nameEn: 'Stara Zagora', searchTerms: ['стара загора', 'stara zagora'] },
@@ -448,7 +448,7 @@ export default function InteractiveMapV1() {
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 6,
+      minZoom: 5.5,
       // Restrict map boundaries to Bulgaria region
       maxBounds: [
         [22.0, 41.0], // Southwest coordinates [lng, lat]
