@@ -420,7 +420,7 @@ export default function InteractiveMapV2() {
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 5.5,
+      minZoom: 0,
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
