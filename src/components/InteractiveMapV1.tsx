@@ -448,8 +448,8 @@ export default function InteractiveMapV1() {
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
       maxBounds: [
-        [22.57, 41.23],  // SW corner [lng, lat]
-        [28.60, 44.21]   // NE corner [lng, lat]
+        [22.410512, 41.038740],  // SW corner [lng, lat]
+        [28.707448, 44.358608]   // NE corner [lng, lat]
       ],
       zoom: 6.5,
       pitch: 0,
