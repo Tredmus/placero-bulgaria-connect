@@ -266,7 +266,7 @@ export default function InteractiveMapV1() {
     const label = document.createElement('div');
     label.textContent = labelText || '';
     label.style.cssText =
-      'position:absolute;left:50%;bottom:8px;transform:translate(-50%,0);padding:2px 6px;border-radius:6px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.14);white-space:nowrap;pointer-events:none;';
+      'position:absolute;left:50%;bottom:8px;transform:translate(-50%,0);padding:2px 6px;border-radius:6px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.14);white-space:nowrap;pointer-events:none;text-align:center;';
     root.appendChild(label);
     const bubble = document.createElement('div');
     bubble.style.position = 'absolute';
@@ -452,7 +452,7 @@ export default function InteractiveMapV1() {
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 4,
+      minZoom: 2,
       // Restrict map boundaries to Bulgaria region
       maxBounds: [
         [22.0, 41.0], // Southwest coordinates [lng, lat]
