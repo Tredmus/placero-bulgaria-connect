@@ -447,6 +447,10 @@ export default function InteractiveMapV1() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
+       maxBounds: [
+        [22.0, 41.2],   // tightened SW corner [lng, lat]
+        [28.5, 44.0]    // tightened NE corner
+      ]
       zoom: 6.5,
       pitch: 0,
       bearing: 0,
