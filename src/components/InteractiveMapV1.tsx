@@ -447,16 +447,15 @@ export default function InteractiveMapV1() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
-      zoom: 7,
+      zoom: 6,          // default zoomed-out a bit more
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 2,
-      // Restrict map boundaries to Bulgaria region
+      minZoom: 5.5,     // prevent zooming too far out
       maxBounds: [
-        [22.0, 41.0], // Southwest coordinates [lng, lat]
-        [29.0, 44.5]  // Northeast coordinates [lng, lat]
+        [22.0, 41.2],   // tightened SW corner [lng, lat]
+        [28.5, 44.0]    // tightened NE corner
       ]
     });
 
