@@ -397,6 +397,16 @@ export default function InteractiveMapV1() {
     setSelectedLocation(null);
     setCityLocations(locs);
     addLocationMarkers(locs);
+    
+    // Hide the city marker for the selected city
+    allCityMarkersRef.current.forEach(marker => {
+      const element = marker.getElement();
+      const label = element.querySelector('div') as HTMLDivElement;
+      if (label && label.textContent?.includes(city)) {
+        element.style.display = 'none';
+      }
+    });
+    
     const valid = locs.filter((l) => l.latitude && l.longitude);
     if (valid.length) {
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
@@ -419,7 +429,11 @@ export default function InteractiveMapV1() {
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
     clearMarkers(); // Only clear location markers, city markers stay visible
-    map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
+    // Show all city markers again
+    allCityMarkersRef.current.forEach(marker => {
+      marker.getElement().style.display = '';
+    });
+    map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 7, pitch: 0, bearing: 0, duration: 700 });
   };
 
   useEffect(() => {
@@ -429,12 +443,12 @@ export default function InteractiveMapV1() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
-      zoom: 6.5,
+      zoom: 7,
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 6.5,
+      minZoom: 6,
       // Restrict map boundaries to Bulgaria region
       maxBounds: [
         [22.0, 41.0], // Southwest coordinates [lng, lat]
