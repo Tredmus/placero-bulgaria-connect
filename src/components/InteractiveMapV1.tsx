@@ -447,12 +447,16 @@ export default function InteractiveMapV1() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
+      maxBounds: [
+        [21.57, 41.23],  // SW corner [lng, lat]
+        [28.60, 44.21]   // NE corner [lng, lat]
+      ],
       zoom: 6.5,
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 0,
+      minZoom: 5.5,
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
