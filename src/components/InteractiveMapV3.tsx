@@ -439,6 +439,7 @@ export default function InteractiveMapV3() {
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
+      minZoom: 6.2,
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -578,10 +579,14 @@ export default function InteractiveMapV3() {
         bulgariaBoundsRef.current = new mapboxgl.LngLatBounds([bb[0], bb[1]], [bb[2], bb[3]]);
         const padding = 48;
         const cam = map.current!.cameraForBounds(bulgariaBoundsRef.current, { padding }) as any;
-        const minZ = (cam && typeof cam.zoom === 'number') ? cam.zoom : map.current!.getZoom();
-        // Set minimum zoom to allow slight zoom out from the fitted view
-        map.current!.setMinZoom(Math.max(3, minZ - 0.8));
+        const fittedZoom = (cam && typeof cam.zoom === 'number') ? cam.zoom : map.current!.getZoom();
+
+        // First, fit to the full Bulgaria view
         map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
+
+        // Allow a small margin below the fitted zoom so users can zoom out a bit and back
+        const minZoomMargin = 0.5;
+        map.current!.setMinZoom(Math.max(fittedZoom - minZoomMargin, 4));
 
         const updateConstrainedBounds = () => {
           if (!map.current || !bulgariaBoundsRef.current) return;
