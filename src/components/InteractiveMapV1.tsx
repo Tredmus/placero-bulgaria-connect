@@ -262,11 +262,11 @@ export default function InteractiveMapV1() {
 
   const createLabeledMarkerRoot = (labelText: string) => {
     const root = document.createElement('div');
-    root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
+    root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:100;';
     const label = document.createElement('div');
     label.textContent = labelText || '';
     label.style.cssText =
-      'position:absolute;left:50%;bottom:8px;transform:translate(-48%,0);padding:2px 6px;border-radius:6px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.14);white-space:nowrap;pointer-events:none;';
+      'position:absolute;left:50%;bottom:8px;transform:translate(-50%,0);padding:2px 6px;border-radius:6px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.14);white-space:nowrap;pointer-events:none;';
     root.appendChild(label);
     const bubble = document.createElement('div');
     bubble.style.position = 'absolute';
@@ -288,11 +288,11 @@ export default function InteractiveMapV1() {
       root.onmouseenter = () => {
         if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
         if (!isSel) bubble.style.transform = 'scale(1.15)';
-        root.style.zIndex = '1000';
+        root.style.zIndex = '9999';
       };
       root.onmouseleave = () => {
         if (!isSel) bubble.style.transform = 'scale(1)';
-        root.style.zIndex = '2';
+        root.style.zIndex = '100';
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -338,9 +338,11 @@ export default function InteractiveMapV1() {
 
       root.onmouseenter = () => {
         bubble.style.transform = 'scale(1.12)';
+        root.style.zIndex = '9999';
       };
       root.onmouseleave = () => {
         bubble.style.transform = 'scale(1)';
+        root.style.zIndex = '100';
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -450,7 +452,7 @@ export default function InteractiveMapV1() {
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 5,
+      minZoom: 4,
       // Restrict map boundaries to Bulgaria region
       maxBounds: [
         [22.0, 41.0], // Southwest coordinates [lng, lat]
