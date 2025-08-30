@@ -750,31 +750,21 @@ export default function InteractiveMapV1() {
           const vw = view.getEast() - view.getWest();
           const vh = view.getNorth() - view.getSouth();
           const bbounds = bulgariaBoundsRef.current;
-          const bulgariaWidth = bbounds.getEast() - bbounds.getWest();
-          const bulgariaHeight = bbounds.getNorth() - bbounds.getSouth();
-          
-          // Only apply tight bounds when viewport is significantly smaller than Bulgaria
-          // This prevents the mouse wheel zoom-out from being constrained too aggressively
-          if (vw < bulgariaWidth * 0.8 && vh < bulgariaHeight * 0.8) {
-            const minLng = bbounds.getWest() + vw / 2;
-            const maxLng = bbounds.getEast() - vw / 2;
-            const minLat = bbounds.getSouth() + vh / 2;
-            const maxLat = bbounds.getNorth() - vh / 2;
-            let sw: [number, number];
-            let ne: [number, number];
-            if (minLng > maxLng || minLat > maxLat) {
-              const c = bbounds.getCenter();
-              sw = [c.lng, c.lat];
-              ne = [c.lng, c.lat];
-            } else {
-              sw = [minLng, minLat];
-              ne = [maxLng, maxLat];
-            }
-            map.current.setMaxBounds(new mapboxgl.LngLatBounds(sw, ne));
+          const minLng = bbounds.getWest() + vw / 2;
+          const maxLng = bbounds.getEast() - vw / 2;
+          const minLat = bbounds.getSouth() + vh / 2;
+          const maxLat = bbounds.getNorth() - vh / 2;
+          let sw: [number, number];
+          let ne: [number, number];
+          if (minLng > maxLng || minLat > maxLat) {
+            const c = bbounds.getCenter();
+            sw = [c.lng, c.lat];
+            ne = [c.lng, c.lat];
           } else {
-            // When viewport is large enough, use Bulgaria's full bounds
-            map.current.setMaxBounds(bulgariaBoundsRef.current);
+            sw = [minLng, minLat];
+            ne = [maxLng, maxLat];
           }
+          map.current.setMaxBounds(new mapboxgl.LngLatBounds(sw, ne));
         };
 
         updateConstrainedBounds();
