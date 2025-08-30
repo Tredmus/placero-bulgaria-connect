@@ -734,6 +734,40 @@ export default function InteractiveMapV1() {
         (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
       }
 
+      // Fit and constrain the view so Bulgaria is always fully visible
+      try {
+        const bb = turfBbox(provincesGeo) as [number, number, number, number];
+        bulgariaBoundsRef.current = new mapboxgl.LngLatBounds([bb[0], bb[1]], [bb[2], bb[3]]);
+        const padding = 48;
+        map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
+
+        const updateConstrainedBounds = () => {
+          if (!map.current || !bulgariaBoundsRef.current) return;
+          const view = map.current.getBounds();
+          const vw = view.getEast() - view.getWest();
+          const vh = view.getNorth() - view.getSouth();
+          const bbounds = bulgariaBoundsRef.current;
+          const minLng = bbounds.getWest() + vw / 2;
+          const maxLng = bbounds.getEast() - vw / 2;
+          const minLat = bbounds.getSouth() + vh / 2;
+          const maxLat = bbounds.getNorth() - vh / 2;
+          let sw: [number, number];
+          let ne: [number, number];
+          if (minLng > maxLng || minLat > maxLat) {
+            const c = bbounds.getCenter();
+            sw = [c.lng, c.lat];
+            ne = [c.lng, c.lat];
+          } else {
+            sw = [minLng, minLat];
+            ne = [maxLng, maxLat];
+          }
+          map.current.setMaxBounds(new mapboxgl.LngLatBounds(sw, ne));
+        };
+
+        updateConstrainedBounds();
+        map.current!.on('zoom', updateConstrainedBounds);
+        map.current!.on('resize', updateConstrainedBounds);
+      } catch {}
     });
 
     return () => {
