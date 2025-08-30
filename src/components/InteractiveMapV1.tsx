@@ -739,6 +739,9 @@ export default function InteractiveMapV1() {
         const bb = turfBbox(provincesGeo) as [number, number, number, number];
         bulgariaBoundsRef.current = new mapboxgl.LngLatBounds([bb[0], bb[1]], [bb[2], bb[3]]);
         const padding = 48;
+        const cam = map.current!.cameraForBounds(bulgariaBoundsRef.current, { padding }) as any;
+        const minZ = (cam && typeof cam.zoom === 'number') ? cam.zoom : map.current!.getZoom();
+        map.current!.setMinZoom(minZ);
         map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
 
         const updateConstrainedBounds = () => {
