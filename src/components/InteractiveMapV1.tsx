@@ -733,6 +733,7 @@ export default function InteractiveMapV1() {
       if (worldMask) {
         (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
       }
+
     });
 
     return () => {
