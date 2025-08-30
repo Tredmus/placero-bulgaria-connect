@@ -20,7 +20,7 @@ const PROVINCES = [
   { name: 'София Град', nameEn: 'Sofia Grad', searchTerms: ['софия', 'sofia'] },
   { name: 'София Област', nameEn: 'Sofia Oblast', searchTerms: ['софия', 'sofia'] },
   { name: 'Пловдив', nameEn: 'Plovdiv', searchTerms: ['пловдив', 'plovdiv'] },
-  { name: 'Варна', nameEn: 'Varna', searchTerms: ['варна', 'varna', 'белослав', 'beloslav', 'девня', 'devnya', 'суворово', 'suvorovo'] },
+  { name: 'Варна', nameEn: 'Varna', searchTerms: ['варна', 'varna', 'белослав', 'beloslav', 'девня', 'devnya'] },
   { name: 'Бургас', nameEn: 'Burgas', searchTerms: ['бургас', 'burgas'] },
   { name: 'Русе', nameEn: 'Ruse', searchTerms: ['русе', 'ruse'] },
   { name: 'Стара Загора', nameEn: 'Stara Zagora', searchTerms: ['стара загора', 'stara zagora'] },
@@ -266,7 +266,7 @@ export default function InteractiveMapV1() {
     const label = document.createElement('div');
     label.textContent = labelText || '';
     label.style.cssText =
-      'position:absolute;left:50%;bottom:8px;transform:translate(-48%,0);padding:2px 6px;border-radius:6px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.14);white-space:nowrap;pointer-events:none;';
+      'position:absolute;left:50%;bottom:8px;transform:translate(-15%,0);padding:2px 6px;border-radius:6px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.14);white-space:nowrap;pointer-events:none;';
     root.appendChild(label);
     const bubble = document.createElement('div');
     bubble.style.position = 'absolute';
@@ -288,11 +288,9 @@ export default function InteractiveMapV1() {
       root.onmouseenter = () => {
         if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
         if (!isSel) bubble.style.transform = 'scale(1.15)';
-        root.style.zIndex = '1000';
       };
       root.onmouseleave = () => {
         if (!isSel) bubble.style.transform = 'scale(1)';
-        root.style.zIndex = '2';
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -399,16 +397,6 @@ export default function InteractiveMapV1() {
     setSelectedLocation(null);
     setCityLocations(locs);
     addLocationMarkers(locs);
-    
-    // Hide the city marker for the selected city
-    allCityMarkersRef.current.forEach(marker => {
-      const element = marker.getElement();
-      const label = element.querySelector('div') as HTMLDivElement;
-      if (label && label.textContent?.includes(city)) {
-        element.style.display = 'none';
-      }
-    });
-    
     const valid = locs.filter((l) => l.latitude && l.longitude);
     if (valid.length) {
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
@@ -431,11 +419,7 @@ export default function InteractiveMapV1() {
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
     clearMarkers(); // Only clear location markers, city markers stay visible
-    // Show all city markers again
-    allCityMarkersRef.current.forEach(marker => {
-      marker.getElement().style.display = '';
-    });
-    map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 7, pitch: 0, bearing: 0, duration: 700 });
+    map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
   };
 
   useEffect(() => {
@@ -445,12 +429,12 @@ export default function InteractiveMapV1() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
-      zoom: 7,
+      zoom: 6.5,
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 5,
+      minZoom: 6.5,
       // Restrict map boundaries to Bulgaria region
       maxBounds: [
         [22.0, 41.0], // Southwest coordinates [lng, lat]
