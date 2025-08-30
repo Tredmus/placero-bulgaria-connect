@@ -27,10 +27,8 @@ import { MapPin, Building2, RotateCcw, Star, Wifi, Coffee, Car, Users } from 'lu
 // ====================================================================
 // CONSTANTS
 // ====================================================================
-// Path to the Bulgaria provinces GeoJSON file containing geographic boundaries
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
-// Configuration for all Bulgarian provinces with name mappings and search terms
 const PROVINCES = [
   { name: 'София Град', nameEn: 'Sofia Grad', searchTerms: ['софия', 'sofia'] },
   { name: 'София Област', nameEn: 'Sofia Oblast', searchTerms: ['софия', 'sofia'] },
@@ -63,7 +61,7 @@ const PROVINCES = [
 ];
 
 // ====================================================================
-// UTILITY FUNCTIONS
+// UTILS & GEO HELPERS
 // ====================================================================
 const cleanCity = (s = '') =>
   s.toLowerCase().replace(/област$/, '').replace(/region$/, '').replace(/,.*$/, '').trim();
@@ -76,9 +74,6 @@ const formatCity = (s = '') =>
 
 const amenityIcons = { wifi: Wifi, coffee: Coffee, parking: Car, meeting: Users } as const;
 
-// ====================================================================
-// GEOMETRY HELPERS
-// ====================================================================
 type Ring = [number, number][];
 
 function normalizeFC(raw: any) {
@@ -92,9 +87,7 @@ function normalizeFC(raw: any) {
     })
     .map((f: any) => {
       let g = cleanCoords(f, { mutate: false }) as any;
-      try {
-        g = rewind(g, { reverse: false, mutate: false });
-      } catch {}
+      try { g = rewind(g, { reverse: false, mutate: false }); } catch {}
       return g;
     });
   return { type: 'FeatureCollection', features };
@@ -104,13 +97,9 @@ function dissolve(features: any[]) {
   if (!features.length) return null;
   let acc = features[0];
   for (let i = 1; i < features.length; i++) {
-    try {
-      acc = union(acc, features[i]) as any;
-    } catch {}
+    try { acc = union(acc, features[i]) as any; } catch {}
   }
-  try {
-    acc = rewind(cleanCoords(acc, { mutate: false }) as any, { reverse: false, mutate: false });
-  } catch {}
+  try { acc = rewind(cleanCoords(acc, { mutate: false }) as any, { reverse: false, mutate: false }); } catch {}
   return acc;
 }
 
@@ -142,9 +131,7 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
       properties: {},
       geometry: { type: 'Polygon', coordinates: [worldRing, ...holes] },
     };
-    try {
-      mask = rewind(cleanCoords(mask, { mutate: false }) as any, { reverse: false, mutate: false });
-    } catch {}
+    try { mask = rewind(cleanCoords(mask, { mutate: false }) as any, { reverse: false, mutate: false }); } catch {}
     return mask;
   }
 
@@ -161,26 +148,18 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
     properties: { province: rawName },
     geometry: { type: 'Polygon', coordinates: [worldRing, ...holes] },
   };
-  try {
-    mask = rewind(cleanCoords(mask, { mutate: false }) as any, { reverse: false, mutate: false });
-  } catch {}
+  try { mask = rewind(cleanCoords(mask, { mutate: false }) as any, { reverse: false, mutate: false }); } catch {}
   return mask;
 }
 
 // ====================================================================
 // MAIN COMPONENT
 // ====================================================================
-
 export default function InteractiveMapV1() {
-  // ====================================================================
-  // HOOKS AND DATA
-  // ====================================================================
   const { locations } = useLocations();
   const navigate = useNavigate();
 
-  // ====================================================================
-  // REFS
-  // ====================================================================
+  // Refs
   const mapEl = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
@@ -188,22 +167,16 @@ export default function InteractiveMapV1() {
   const hoverTooltipRef = useRef<HTMLDivElement | null>(null);
   const hoveredFeatureId = useRef<number | string | null>(null);
   const bulgariaBoundsRef = useRef<mapboxgl.LngLatBounds | null>(null);
-  const fitZoomRef = useRef<number | null>(null); // << stores the "fit Bulgaria" zoom
+  const fitZoomRef = useRef<number | null>(null); // >>> store Bulgaria fit zoom
 
-  // ====================================================================
-  // STATE
-  // ====================================================================
+  // State
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const selectedProvinceRef = useRef<string | null>(null);
-  useEffect(() => {
-    selectedProvinceRef.current = selectedProvince;
-  }, [selectedProvince]);
+  useEffect(() => { selectedProvinceRef.current = selectedProvince; }, [selectedProvince]);
 
   const [selectedRawName, setSelectedRawName] = useState<string | null>(null);
   const selectedRawNameRef = useRef<string | null>(null);
-  useEffect(() => {
-    selectedRawNameRef.current = selectedRawName;
-  }, [selectedRawName]);
+  useEffect(() => { selectedRawNameRef.current = selectedRawName; }, [selectedRawName]);
 
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
@@ -216,9 +189,7 @@ export default function InteractiveMapV1() {
   const [provincesGeo, setProvincesGeo] = useState<any>(null);
   const [worldMask, setWorldMask] = useState<any>(null);
 
-  // ====================================================================
-  // MEMO
-  // ====================================================================
+  // Province centers
   const provinceData = useMemo(() => {
     const map: Record<string, { locations: any[]; coordinates: [number, number] }> = {};
     PROVINCES.forEach((p) => {
@@ -236,27 +207,23 @@ export default function InteractiveMapV1() {
     return map;
   }, [locations]);
 
-  // ====================================================================
-  // INIT EFFECTS
-  // ====================================================================
+  // Init token
   useEffect(() => {
     (async () => {
       try {
         const { data } = await supabase.functions.invoke('get-mapbox-token');
-        const t =
-          data?.token ||
-          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+        const t = data?.token || 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         mapboxgl.accessToken = t;
         setToken(t);
       } catch {
-        const t =
-          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+        const t = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         mapboxgl.accessToken = t;
         setToken(t);
       }
     })();
   }, []);
 
+  // Load geo
   useEffect(() => {
     (async () => {
       const raw = await fetch(GEOJSON_URL).then((r) => r.json());
@@ -267,6 +234,7 @@ export default function InteractiveMapV1() {
     })();
   }, []);
 
+  // Compute BG bounds
   useEffect(() => {
     if (!provincesGeo) return;
     try {
@@ -275,9 +243,7 @@ export default function InteractiveMapV1() {
     } catch {}
   }, [provincesGeo]);
 
-  // ====================================================================
-  // MARKERS
-  // ====================================================================
+  // Markers
   const clearMarkers = () => {
     markers.current.forEach((m) => m.remove());
     markers.current = [];
@@ -300,13 +266,11 @@ export default function InteractiveMapV1() {
   const createLabeledMarkerRoot = (labelText: string) => {
     const root = document.createElement('div');
     root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:100;';
-
     const label = document.createElement('div');
     label.textContent = labelText || '';
     label.style.cssText =
       'position:absolute;left:50%;bottom:8px;transform:translate(-50%,0);padding:2px 6px;border-radius:6px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.14);white-space:nowrap;pointer-events:none;text-align:center;';
     root.appendChild(label);
-
     const bubble = document.createElement('div');
     bubble.style.position = 'absolute';
     bubble.style.left = '50%';
@@ -402,9 +366,7 @@ export default function InteractiveMapV1() {
     });
   }, [selectedLocation]);
 
-  // ====================================================================
-  // EVENT HANDLERS
-  // ====================================================================
+  // Handlers
   const handleProvinceSelect = useCallback(
     (provinceName: string, centerGuess?: [number, number], zoomOverride?: number) => {
       const rec = PROVINCES.find((p) => p.name === provinceName) || PROVINCES.find((p) => p.nameEn === provinceName);
@@ -478,9 +440,7 @@ export default function InteractiveMapV1() {
 
     clearMarkers();
 
-    allCityMarkersRef.current.forEach(marker => {
-      marker.getElement().style.display = '';
-    });
+    allCityMarkersRef.current.forEach(marker => { marker.getElement().style.display = ''; });
 
     if (bulgariaBoundsRef.current) {
       map.current?.fitBounds(bulgariaBoundsRef.current, { padding: 48, duration: 700 });
@@ -499,13 +459,12 @@ export default function InteractiveMapV1() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
-      // IMPORTANT: no maxBounds here to avoid implicit min-zoom clamp
-      zoom: 1,
+      zoom: 7,           // >>> start near Bulgaria (we'll immediately fit)
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 1,
+      minZoom: 1,        // >>> will be raised to fitZoom on load
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -560,11 +519,7 @@ export default function InteractiveMapV1() {
       });
 
       const worldRing: Ring = [
-        [-180, -85],
-        [180, -85],
-        [180, 85],
-        [-180, 85],
-        [-180, -85],
+        [-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85],
       ];
       const placeholder = {
         type: 'Feature',
@@ -574,12 +529,7 @@ export default function InteractiveMapV1() {
 
       map.current!.addSource('world-mask', { type: 'geojson', data: placeholder });
       map.current!.addLayer(
-        {
-          id: 'world-mask-layer',
-          type: 'fill',
-          source: 'world-mask',
-          paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
-        },
+        { id: 'world-mask-layer', type: 'fill', source: 'world-mask', paint: { 'fill-color': '#020817', 'fill-opacity': 1 } },
         'provinces-fill'
       );
 
@@ -642,44 +592,39 @@ export default function InteractiveMapV1() {
         (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
       }
 
-      // ===== Fit to Bulgaria once; store fitZoom; lock panning at/below that zoom
+      // ===== Bulgaria-only view with min zoom at fit =====
       try {
         const bb = turfBbox(provincesGeo) as [number, number, number, number];
         bulgariaBoundsRef.current = new mapboxgl.LngLatBounds([bb[0], bb[1]], [bb[2], bb[3]]);
         const padding = 48;
+
+        // Compute the zoom that exactly fits Bulgaria in the current viewport
         const cam = map.current!.cameraForBounds(bulgariaBoundsRef.current, { padding }) as any;
         const fitZoom = cam && typeof cam.zoom === 'number' ? cam.zoom : map.current!.getZoom();
         fitZoomRef.current = fitZoom;
 
-        // Move to fit immediately (no animation) for a clean baseline
+        // Move to that view immediately (so we don't start below min)
         map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
 
-        const updatePanLock = () => {
-          if (!map.current || !bulgariaBoundsRef.current || fitZoomRef.current == null) return;
-          const z = map.current.getZoom();
-          if (z <= fitZoomRef.current + 0.05) {
-            // At/below fit view: not scrollable (no panning), and no bounds -> no implicit minZoom
-            map.current.dragPan.disable();
-            map.current.setMaxBounds(null);
-          } else {
-            // Zoomed in: allow panning, but fence it within Bulgaria
-            map.current.dragPan.enable();
-            map.current.setMaxBounds(bulgariaBoundsRef.current);
-          }
-        };
+        // Hard limits:
+        map.current!.setMinZoom(fitZoom);                 // >>> min zoom = fit BG
+        map.current!.setMaxBounds(bulgariaBoundsRef.current!); // >>> keep panning inside BG
 
-        // Initialize lock state and keep it in sync as the user zooms
+        // UX: not scrollable (dragPan) at/below fit; scrollable when zoomed in
+        const updatePanLock = () => {
+          if (!map.current || fitZoomRef.current == null) return;
+          const z = map.current.getZoom();
+          if (z <= fitZoomRef.current + 0.05) map.current.dragPan.disable();
+          else map.current.dragPan.enable();
+        };
         updatePanLock();
         map.current!.on('zoomend', updatePanLock);
       } catch {}
-      // ===== end fit/lock
+      // ===== end Bulgaria min-zoom fence =====
     });
 
     return () => {
-      if (hoverTooltipRef.current) {
-        hoverTooltipRef.current.remove();
-        hoverTooltipRef.current = null;
-      }
+      if (hoverTooltipRef.current) { hoverTooltipRef.current.remove(); hoverTooltipRef.current = null; }
       markers.current.forEach((m) => m.remove());
       markers.current = [];
       markerById.current = {};
@@ -690,6 +635,7 @@ export default function InteractiveMapV1() {
     };
   }, [token, provincesGeo]);
 
+  // Paint updates
   useEffect(() => {
     if (!map.current?.getLayer('provinces-fill')) return;
     map.current.setPaintProperty('provinces-fill', 'fill-color', [
@@ -846,10 +792,7 @@ export default function InteractiveMapV1() {
                   </div>
 
                   <div className="pt-1">
-                    <Button
-                      className="w-full"
-                      onClick={() => navigate(`/locations/${selectedLocation.id}`)}
-                    >
+                    <Button className="w-full" onClick={() => navigate(`/locations/${selectedLocation.id}`)}>
                       Виж повече
                     </Button>
                   </div>
