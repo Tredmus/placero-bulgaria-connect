@@ -462,16 +462,13 @@ export default function InteractiveMapV1() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
-      maxBounds: [
-        [22.57, 41.23],  // SW corner [lng, lat]
-        [28.60, 44.21]   // NE corner [lng, lat]
-      ],
       zoom: 1,
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
       minZoom: 1,
+      scrollZoom: { around: 'center' },
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -614,8 +611,8 @@ export default function InteractiveMapV1() {
         bulgariaBoundsRef.current = new mapboxgl.LngLatBounds([bb[0], bb[1]], [bb[2], bb[3]]);
         const padding = 48;
         const cam = map.current!.cameraForBounds(bulgariaBoundsRef.current, { padding }) as any;
-        const minZ = (cam && typeof cam.zoom === 'number') ? cam.zoom : map.current!.getZoom();
-        map.current!.setMinZoom(minZ);
+        const fitZ = (cam && typeof cam.zoom === 'number') ? cam.zoom : map.current!.getZoom();
+        map.current!.setMinZoom(Math.max(1, fitZ - 0.8));
         map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
 
         const updateConstrainedBounds = () => {
@@ -623,21 +620,22 @@ export default function InteractiveMapV1() {
           const view = map.current.getBounds();
           const vw = view.getEast() - view.getWest();
           const vh = view.getNorth() - view.getSouth();
-          const bbounds = bulgariaBoundsRef.current;
-          const minLng = bbounds.getWest() + vw / 2;
-          const maxLng = bbounds.getEast() - vw / 2;
-          const minLat = bbounds.getSouth() + vh / 2;
-          const maxLat = bbounds.getNorth() - vh / 2;
-          let sw: [number, number];
-          let ne: [number, number];
-          if (minLng > maxLng || minLat > maxLat) {
-            const c = bbounds.getCenter();
-            sw = [c.lng, c.lat];
-            ne = [c.lng, c.lat];
-          } else {
-            sw = [minLng, minLat];
-            ne = [maxLng, maxLat];
+          const bw = bulgariaBoundsRef.current.getEast() - bulgariaBoundsRef.current.getWest();
+          const bh = bulgariaBoundsRef.current.getNorth() - bulgariaBoundsRef.current.getSouth();
+
+          // If viewport larger than Bulgaria in either dimension, remove maxBounds to avoid snapping
+          if (vw >= bw || vh >= bh) {
+            map.current.setMaxBounds(null as any);
+            return;
           }
+
+          // Otherwise, constrain center so Bulgaria stays fully visible
+          const minLng = bulgariaBoundsRef.current.getWest() + vw / 2;
+          const maxLng = bulgariaBoundsRef.current.getEast() - vw / 2;
+          const minLat = bulgariaBoundsRef.current.getSouth() + vh / 2;
+          const maxLat = bulgariaBoundsRef.current.getNorth() - vh / 2;
+          const sw: [number, number] = [minLng, minLat];
+          const ne: [number, number] = [maxLng, maxLat];
           map.current.setMaxBounds(new mapboxgl.LngLatBounds(sw, ne));
         };
 
