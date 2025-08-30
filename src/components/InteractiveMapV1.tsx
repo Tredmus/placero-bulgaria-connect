@@ -584,12 +584,16 @@ export default function InteractiveMapV1() {
       container: mapEl.current,                    // DOM container element
       style: 'mapbox://styles/mapbox/dark-v11',    // Dark theme map style
       center: [25.4858, 42.7339],                  // Center on Bulgaria
+      maxBounds: [
+        [22.57, 41.23],  // SW corner [lng, lat] - constrain to Bulgaria area
+        [28.60, 44.21]   // NE corner [lng, lat]
+      ],
       zoom: 1,                                     // Start very zoomed out
       pitch: 0,                                    // No 3D tilt
       bearing: 0,                                  // North up
       renderWorldCopies: false,                    // Don't repeat the world
       maxZoom: 18,                                 // Allow very close zoom for location details
-      minZoom: 1,                                  // Keep global min zoom so buttons and wheel can go to 1
+      minZoom: 0.5,                               // Lower minimum so mouse wheel works like buttons
     });
 
     // Add zoom/pan controls to the map
@@ -737,35 +741,8 @@ export default function InteractiveMapV1() {
         const padding = 48;
         map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
 
-        const updateConstrainedBounds = () => {
-          if (!map.current || !bulgariaBoundsRef.current) return;
-          const view = map.current.getBounds();
-          const vw = view.getEast() - view.getWest();
-          const vh = view.getNorth() - view.getSouth();
-          const bb = bulgariaBoundsRef.current;
-          const bw = bb.getEast() - bb.getWest();
-          const bh = bb.getNorth() - bb.getSouth();
-
-          // If the current viewport is larger than Bulgaria, clear constraints so zoom-out works like buttons
-          if (vw >= bw || vh >= bh) {
-            // Remove max bounds temporarily to avoid forced zoom-in behavior
-            map.current.setMaxBounds(null as any);
-            return;
-          }
-
-          // Otherwise, dynamically constrain the center so the viewport stays within Bulgaria
-          const minLng = bb.getWest() + vw / 2;
-          const maxLng = bb.getEast() - vw / 2;
-          const minLat = bb.getSouth() + vh / 2;
-          const maxLat = bb.getNorth() - vh / 2;
-          const sw: [number, number] = [minLng, minLat];
-          const ne: [number, number] = [maxLng, maxLat];
-          map.current.setMaxBounds(new mapboxgl.LngLatBounds(sw, ne));
-        };
-
-        updateConstrainedBounds();
-        map.current!.on('zoom', updateConstrainedBounds);
-        map.current!.on('resize', updateConstrainedBounds);
+        // Note: maxBounds is now set in constructor to keep Bulgaria always visible
+        // No need for dynamic bounds updates that were causing mouse wheel issues
       } catch {}
     });
 
