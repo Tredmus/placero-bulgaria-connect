@@ -593,7 +593,7 @@ export default function InteractiveMapV1() {
       bearing: 0,                                  // North up
       renderWorldCopies: false,                    // Don't repeat the world
       maxZoom: 18,                                 // Allow very close zoom for location details
-      minZoom: 0.5,                               // Lower minimum so mouse wheel works like buttons
+      minZoom: 1,                                  // Will be updated to fit Bulgaria
     });
 
     // Add zoom/pan controls to the map
@@ -739,10 +739,37 @@ export default function InteractiveMapV1() {
         const bb = turfBbox(provincesGeo) as [number, number, number, number];
         bulgariaBoundsRef.current = new mapboxgl.LngLatBounds([bb[0], bb[1]], [bb[2], bb[3]]);
         const padding = 48;
+        const cam = map.current!.cameraForBounds(bulgariaBoundsRef.current, { padding }) as any;
+        const minZ = (cam && typeof cam.zoom === 'number') ? cam.zoom : map.current!.getZoom();
+        map.current!.setMinZoom(minZ);
         map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
 
-        // Note: maxBounds is now set in constructor to keep Bulgaria always visible
-        // No need for dynamic bounds updates that were causing mouse wheel issues
+        const updateConstrainedBounds = () => {
+          if (!map.current || !bulgariaBoundsRef.current) return;
+          const view = map.current.getBounds();
+          const vw = view.getEast() - view.getWest();
+          const vh = view.getNorth() - view.getSouth();
+          const bbounds = bulgariaBoundsRef.current;
+          const minLng = bbounds.getWest() + vw / 2;
+          const maxLng = bbounds.getEast() - vw / 2;
+          const minLat = bbounds.getSouth() + vh / 2;
+          const maxLat = bbounds.getNorth() - vh / 2;
+          let sw: [number, number];
+          let ne: [number, number];
+          if (minLng > maxLng || minLat > maxLat) {
+            const c = bbounds.getCenter();
+            sw = [c.lng, c.lat];
+            ne = [c.lng, c.lat];
+          } else {
+            sw = [minLng, minLat];
+            ne = [maxLng, maxLat];
+          }
+          map.current.setMaxBounds(new mapboxgl.LngLatBounds(sw, ne));
+        };
+
+        updateConstrainedBounds();
+        map.current!.on('zoom', updateConstrainedBounds);
+        map.current!.on('resize', updateConstrainedBounds);
       } catch {}
     });
 
