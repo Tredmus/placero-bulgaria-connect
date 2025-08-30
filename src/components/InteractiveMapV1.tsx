@@ -322,8 +322,6 @@ export default function InteractiveMapV1() {
 
   const addAllCityMarkers = () => {
     if (!map.current) return;
-    
-    // Clear existing all-city markers
     allCityMarkersRef.current.forEach((m) => m.remove());
     allCityMarkersRef.current = [];
 
@@ -396,8 +394,7 @@ export default function InteractiveMapV1() {
       });
       setProvinceCities(cityMap);
 
-      // Don't clear all city markers, keep them visible
-      clearMarkers(); // Only clear location markers, not city markers
+      clearMarkers();
 
       const targetZoom = zoomOverride ?? 9;
       if (centerGuess) map.current?.flyTo({ center: centerGuess, zoom: targetZoom, pitch: 0, duration: 800 });
@@ -412,7 +409,7 @@ export default function InteractiveMapV1() {
     setSelectedLocation(null);
     setCityLocations(locs);
     addLocationMarkers(locs);
-    
+
     // Hide the city marker for the selected city
     allCityMarkersRef.current.forEach(marker => {
       const element = marker.getElement();
@@ -421,7 +418,7 @@ export default function InteractiveMapV1() {
         element.style.display = 'none';
       }
     });
-    
+
     const valid = locs.filter((l) => l.latitude && l.longitude);
     if (valid.length) {
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
@@ -443,7 +440,7 @@ export default function InteractiveMapV1() {
       hoveredFeatureId.current = null;
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-    clearMarkers(); // Only clear location markers, city markers stay visible
+    clearMarkers();
     // Show all city markers again
     allCityMarkersRef.current.forEach(marker => {
       marker.getElement().style.display = '';
@@ -462,16 +459,14 @@ export default function InteractiveMapV1() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
-      maxBounds: [
-        [22.57, 41.23],  // SW corner [lng, lat]
-        [28.60, 44.21]   // NE corner [lng, lat]
-      ],
+      // >>> FIX: don’t pre-constrain here; we’ll set proper bounds after we compute BG bbox
       zoom: 1,
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
       minZoom: 1,
+      scrollZoom: true,
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -608,43 +603,21 @@ export default function InteractiveMapV1() {
         (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
       }
 
-      // Fit and constrain the view so Bulgaria is always fully visible
+      // >>> FIX: compute Bulgaria bounds once, set a static maxBounds, set minZoom from cameraForBounds, and stop
       try {
         const bb = turfBbox(provincesGeo) as [number, number, number, number];
-        bulgariaBoundsRef.current = new mapboxgl.LngLatBounds([bb[0], bb[1]], [bb[2], bb[3]]);
+        const bulBounds = new mapboxgl.LngLatBounds([bb[0], bb[1]], [bb[2], bb[3]]);
+        bulgariaBoundsRef.current = bulBounds;
+
         const padding = 48;
-        const cam = map.current!.cameraForBounds(bulgariaBoundsRef.current, { padding }) as any;
+        const cam = map.current!.cameraForBounds(bulBounds, { padding }) as any;
         const minZ = (cam && typeof cam.zoom === 'number') ? cam.zoom : map.current!.getZoom();
-        map.current!.setMinZoom(minZ);
-        map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
 
-        const updateConstrainedBounds = () => {
-          if (!map.current || !bulgariaBoundsRef.current) return;
-          const view = map.current.getBounds();
-          const vw = view.getEast() - view.getWest();
-          const vh = view.getNorth() - view.getSouth();
-          const bbounds = bulgariaBoundsRef.current;
-          const minLng = bbounds.getWest() + vw / 2;
-          const maxLng = bbounds.getEast() - vw / 2;
-          const minLat = bbounds.getSouth() + vh / 2;
-          const maxLat = bbounds.getNorth() - vh / 2;
-          let sw: [number, number];
-          let ne: [number, number];
-          if (minLng > maxLng || minLat > maxLat) {
-            const c = bbounds.getCenter();
-            sw = [c.lng, c.lat];
-            ne = [c.lng, c.lat];
-          } else {
-            sw = [minLng, minLat];
-            ne = [maxLng, maxLat];
-          }
-          map.current.setMaxBounds(new mapboxgl.LngLatBounds(sw, ne));
-        };
-
-        updateConstrainedBounds();
-        map.current!.on('zoom', updateConstrainedBounds);
-        map.current!.on('resize', updateConstrainedBounds);
+        map.current!.setMinZoom(minZ);          // can’t zoom out beyond “Bulgaria fits” level
+        map.current!.setMaxBounds(bulBounds);    // static constraint: no dynamic shrinking
+        map.current!.fitBounds(bulBounds, { padding, duration: 0 });
       } catch {}
+      // <<< FIX END
     });
 
     return () => {
@@ -691,7 +664,7 @@ export default function InteractiveMapV1() {
     if (!city) return false;
     const ch = city.trim().charAt(0).toLowerCase();
     return ch === 'в' || ch === 'ф';
-  };
+    };
 
   const getMainImage = (loc: any) =>
     loc?.image || loc?.main_image_url || (Array.isArray(loc?.photos) && loc.photos[0]?.url) || null;
@@ -738,12 +711,8 @@ export default function InteractiveMapV1() {
                 </div>
                 <Badge variant="secondary">
                   {selectedCity
-                    ? `${cityLocations.length} ${pluralize(cityLocations.length, 'помещение', 'помещения')}`
-                    : `${Object.keys(provinceCities).length} ${pluralize(
-                        Object.keys(provinceCities).length,
-                        'град',
-                        'града'
-                      )}, ${provinceLocations.length} ${pluralize(provinceLocations.length, 'помещение', 'помещения')}`}
+                    ? `${cityLocations.length} ${cityLocations.length === 1 ? 'помещение' : 'помещения'}`
+                    : `${Object.keys(provinceCities).length} ${Object.keys(provinceCities).length === 1 ? 'град' : 'града'}, ${provinceLocations.length} ${provinceLocations.length === 1 ? 'помещение' : 'помещения'}`}
                 </Badge>
               </CardContent>
             </Card>
@@ -870,7 +839,7 @@ export default function InteractiveMapV1() {
                     if (isActive) {
                       setSelectedCity(null);
                       setSelectedLocation(null);
-                      clearMarkers(); // Only clear location markers
+                      clearMarkers();
                     } else {
                       handleCitySelect(displayCity, locs);
                     }
