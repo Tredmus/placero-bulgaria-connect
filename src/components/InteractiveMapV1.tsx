@@ -744,32 +744,10 @@ export default function InteractiveMapV1() {
         map.current!.setMinZoom(minZ);
         map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
 
-        const updateConstrainedBounds = () => {
-          if (!map.current || !bulgariaBoundsRef.current) return;
-          const view = map.current.getBounds();
-          const vw = view.getEast() - view.getWest();
-          const vh = view.getNorth() - view.getSouth();
-          const bbounds = bulgariaBoundsRef.current;
-          const minLng = bbounds.getWest() + vw / 2;
-          const maxLng = bbounds.getEast() - vw / 2;
-          const minLat = bbounds.getSouth() + vh / 2;
-          const maxLat = bbounds.getNorth() - vh / 2;
-          let sw: [number, number];
-          let ne: [number, number];
-          if (minLng > maxLng || minLat > maxLat) {
-            const c = bbounds.getCenter();
-            sw = [c.lng, c.lat];
-            ne = [c.lng, c.lat];
-          } else {
-            sw = [minLng, minLat];
-            ne = [maxLng, maxLat];
-          }
-          map.current.setMaxBounds(new mapboxgl.LngLatBounds(sw, ne));
-        };
-
-        updateConstrainedBounds();
-        map.current!.on('zoom', updateConstrainedBounds);
-        map.current!.on('resize', updateConstrainedBounds);
+        // Constrain panning to Bulgaria and prevent zooming out beyond initial fit
+        map.current!.setMaxBounds(bulgariaBoundsRef.current!);
+        // Note: minZoom is already set to the zoom that fits Bulgaria with padding,
+        // so wheel/pinch zoom can't go out further than the default view.
       } catch {}
     });
 
