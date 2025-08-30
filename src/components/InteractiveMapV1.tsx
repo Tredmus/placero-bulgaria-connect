@@ -757,9 +757,9 @@ export default function InteractiveMapV1() {
           let sw: [number, number];
           let ne: [number, number];
           if (minLng > maxLng || minLat > maxLat) {
-            const c = bbounds.getCenter();
-            sw = [c.lng, c.lat];
-            ne = [c.lng, c.lat];
+            // When viewport is larger than Bulgaria, use Bulgaria's full bounds instead of collapsing to a point
+            sw = [bbounds.getWest(), bbounds.getSouth()];
+            ne = [bbounds.getEast(), bbounds.getNorth()];
           } else {
             sw = [minLng, minLat];
             ne = [maxLng, maxLat];
