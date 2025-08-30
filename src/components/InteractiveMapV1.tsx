@@ -462,10 +462,6 @@ export default function InteractiveMapV1() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
-      maxBounds: [
-        [22.57, 41.23],  // SW corner [lng, lat]
-        [28.60, 44.21]   // NE corner [lng, lat]
-      ],
       zoom: 1,
       pitch: 0,
       bearing: 0,
@@ -618,32 +614,41 @@ export default function InteractiveMapV1() {
         map.current!.setMinZoom(minZ);
         map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
 
-        const updateConstrainedBounds = () => {
-          if (!map.current || !bulgariaBoundsRef.current) return;
-          const view = map.current.getBounds();
-          const vw = view.getEast() - view.getWest();
-          const vh = view.getNorth() - view.getSouth();
-          const bbounds = bulgariaBoundsRef.current;
-          const minLng = bbounds.getWest() + vw / 2;
-          const maxLng = bbounds.getEast() - vw / 2;
-          const minLat = bbounds.getSouth() + vh / 2;
-          const maxLat = bbounds.getNorth() - vh / 2;
-          let sw: [number, number];
-          let ne: [number, number];
-          if (minLng > maxLng || minLat > maxLat) {
-            const c = bbounds.getCenter();
-            sw = [c.lng, c.lat];
-            ne = [c.lng, c.lat];
-          } else {
-            sw = [minLng, minLat];
-            ne = [maxLng, maxLat];
-          }
-          map.current.setMaxBounds(new mapboxgl.LngLatBounds(sw, ne));
-        };
+          const updateConstrainedBounds = () => {
+            if (!map.current || !bulgariaBoundsRef.current) return;
 
-        updateConstrainedBounds();
-        map.current!.on('zoom', updateConstrainedBounds);
-        map.current!.on('resize', updateConstrainedBounds);
+            const view = map.current.getBounds();
+            const vw = view.getEast() - view.getWest();
+            const vh = view.getNorth() - view.getSouth();
+
+            const bb = bulgariaBoundsRef.current;
+            const bw = bb.getEast() - bb.getWest();
+            const bh = bb.getNorth() - bb.getSouth();
+
+            // If current viewport (in lng/lat units) is larger than Bulgaria,
+            // do NOT constrain with maxBounds to avoid the snap-zoom-in effect.
+            if (vw >= bw || vh >= bh) {
+              // Clear maxBounds so wheel zoom-out doesn't get forced to zoom-in
+              // due to an invalid/degenerate bounds box.
+              
+              map.current.setMaxBounds(null);
+              return;
+            }
+
+            // Viewport is smaller than Bulgaria: constrain the map center so
+            // Bulgaria always stays fully visible while panning at this zoom.
+            const minLng = bb.getWest() + vw / 2;
+            const maxLng = bb.getEast() - vw / 2;
+            const minLat = bb.getSouth() + vh / 2;
+            const maxLat = bb.getNorth() - vh / 2;
+
+            const bounds = new mapboxgl.LngLatBounds([minLng, minLat], [maxLng, maxLat]);
+            map.current.setMaxBounds(bounds);
+          };
+
+          updateConstrainedBounds();
+          map.current!.on('zoom', updateConstrainedBounds);
+          map.current!.on('resize', updateConstrainedBounds);
       } catch {}
     });
 
