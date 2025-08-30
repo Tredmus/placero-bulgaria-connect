@@ -399,7 +399,7 @@ export default function InteractiveMapV1() {
       // Don't clear all city markers, keep them visible
       clearMarkers(); // Only clear location markers, not city markers
 
-      const targetZoom = zoomOverride ?? 1;
+      const targetZoom = zoomOverride ?? 9;
       if (centerGuess) map.current?.flyTo({ center: centerGuess, zoom: targetZoom, pitch: 0, duration: 800 });
       else if (provinceData[rec.name])
         map.current?.flyTo({ center: provinceData[rec.name].coordinates, zoom: targetZoom, pitch: 0, duration: 800 });
