@@ -6,7 +6,6 @@ import centroid from '@turf/centroid';
 import rewind from '@turf/rewind';
 import cleanCoords from '@turf/clean-coords';
 import union from '@turf/union';
-import { bbox as turfBbox } from '@turf/turf';
 
 import { useLocations } from '@/hooks/useLocations';
 import { supabase } from '@/integrations/supabase/client';
@@ -161,7 +160,6 @@ export default function InteractiveMapV2() {
   const markerById = useRef<Record<string, { marker: mapboxgl.Marker; bubble: HTMLDivElement }>>({});
   const hoverTooltipRef = useRef<HTMLDivElement | null>(null);
   const hoveredFeatureId = useRef<number | string | null>(null);
-  const bulgariaBoundsRef = useRef<mapboxgl.LngLatBounds | null>(null);
 
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const selectedProvinceRef = useRef<string | null>(null);
@@ -242,15 +240,6 @@ export default function InteractiveMapV2() {
       (map.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(newMask as any);
     }
   }, [selectedRawName, provincesGeo]);
-
-  // Compute Bulgaria bounding box once provinces are loaded
-  useEffect(() => {
-    if (!provincesGeo) return;
-    try {
-      const bb = turfBbox(provincesGeo) as [number, number, number, number];
-      bulgariaBoundsRef.current = new mapboxgl.LngLatBounds([bb[0], bb[1]], [bb[2], bb[3]]);
-    } catch {}
-  }, [provincesGeo]);
 
   const clearMarkers = () => {
     markers.current.forEach((m) => m.remove());
@@ -416,11 +405,7 @@ export default function InteractiveMapV2() {
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
     clearMarkers();
-    if (bulgariaBoundsRef.current) {
-      map.current?.fitBounds(bulgariaBoundsRef.current, { padding: 48, duration: 700 });
-    } else {
-      map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
-    }
+    map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
   };
 
   useEffect(() => {
@@ -430,16 +415,12 @@ export default function InteractiveMapV2() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339],
-      maxBounds: [
-        [21.0, 40.8],   // Expanded SW corner [lng, lat]
-        [29.0, 44.5]    // Expanded NE corner [lng, lat]
-      ],
-      zoom: 7,
+      zoom: 6.5,
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 6.2,
+      minZoom: 5.5,
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -572,49 +553,6 @@ export default function InteractiveMapV2() {
       if (worldMask) {
         (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
       }
-
-      // Fit and constrain the view so Bulgaria is always fully visible
-      try {
-        const bb = turfBbox(provincesGeo) as [number, number, number, number];
-        bulgariaBoundsRef.current = new mapboxgl.LngLatBounds([bb[0], bb[1]], [bb[2], bb[3]]);
-        const padding = 48;
-        const cam = map.current!.cameraForBounds(bulgariaBoundsRef.current, { padding }) as any;
-        const fittedZoom = (cam && typeof cam.zoom === 'number') ? cam.zoom : map.current!.getZoom();
-
-        // First, fit to the full Bulgaria view
-        map.current!.fitBounds(bulgariaBoundsRef.current, { padding, duration: 0 });
-
-        // Allow a small margin below the fitted zoom so users can zoom out a bit and back
-        const minZoomMargin = 0.5;
-        map.current!.setMinZoom(Math.max(fittedZoom - minZoomMargin, 4));
-
-        const updateConstrainedBounds = () => {
-          if (!map.current || !bulgariaBoundsRef.current) return;
-          const view = map.current.getBounds();
-          const vw = view.getEast() - view.getWest();
-          const vh = view.getNorth() - view.getSouth();
-          const bbounds = bulgariaBoundsRef.current;
-          const minLng = bbounds.getWest() + vw / 2;
-          const maxLng = bbounds.getEast() - vw / 2;
-          const minLat = bbounds.getSouth() + vh / 2;
-          const maxLat = bbounds.getNorth() - vh / 2;
-          let sw: [number, number];
-          let ne: [number, number];
-          if (minLng > maxLng || minLat > maxLat) {
-            const c = bbounds.getCenter();
-            sw = [c.lng, c.lat];
-            ne = [c.lng, c.lat];
-          } else {
-            sw = [minLng, minLat];
-            ne = [maxLng, maxLat];
-          }
-          map.current.setMaxBounds(new mapboxgl.LngLatBounds(sw, ne));
-        };
-
-        updateConstrainedBounds();
-        map.current!.on('zoom', updateConstrainedBounds);
-        map.current!.on('resize', updateConstrainedBounds);
-      } catch {}
     });
 
     return () => {
