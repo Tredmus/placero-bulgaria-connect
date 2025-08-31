@@ -596,8 +596,8 @@ export default function InteractiveMapV2() {
       maxZoom: 18,
       scrollZoom: { around: 'center' }, // keeps zoom symmetric
       maxBounds: [
-        [7.247, 30.124],
-        [43.597, 54.213]
+        [22.2, 41.1],
+        [28.8, 44.4]
       ]
     });
 
