@@ -595,10 +595,9 @@ export default function InteractiveMapV2() {
       renderWorldCopies: false, // Prevent world wrapping
       maxZoom: 18,
       minZoom: 6.5,
-      scrollZoom: { around: 'center' },   // <-- key change
       maxBounds: [
-        [22.2, 41.1],  // give yourself a small buffer
-        [28.8, 44.4]
+        [22.37, 41.24],   // Southwest corner [lng, lat]
+        [28.61, 44.22]    // Northeast corner [lng, lat]
       ],
     });
 
