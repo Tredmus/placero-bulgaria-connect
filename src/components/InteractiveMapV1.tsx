@@ -399,14 +399,10 @@ export default function InteractiveMapV1() {
     }
   };
 
+  // Fit for centering only (no minZoom changes)
   const fitToBulgaria = (animate = false) => {
     if (!map.current) return;
     const bounds = new mapboxgl.LngLatBounds(BG_BOUNDS[0], BG_BOUNDS[1]);
-    const camera = map.current.cameraForBounds(bounds, { padding: BG_PADDING });
-    if (camera?.zoom != null) {
-      // Enforce exact min zoom from bounds so you can't scroll out past BG
-      map.current.setMinZoom(camera.zoom);
-    }
     map.current.fitBounds(bounds, { padding: BG_PADDING, duration: animate ? 600 : 0 });
   };
 
@@ -424,7 +420,8 @@ export default function InteractiveMapV1() {
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
     clearMarkers();
-    fitToBulgaria(true);
+    // Return to default center/zoom (matches fixed minZoom)
+    map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
   };
 
   useEffect(() => {
@@ -435,25 +432,20 @@ export default function InteractiveMapV1() {
     map.current = new mapboxgl.Map({
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      // center/zoom are immediately overridden by fitToBulgaria below
+      // initial center/zoom
       center: [25.4858, 42.7339],
       zoom: 6.5,
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      // minZoom will be computed from BG_BOUNDS to guarantee only BG is visible
+      minZoom: 6.5,          // <-- fixed min zoom
       dragRotate: false,
       pitchWithRotate: false,
-      maxBounds: bounds, // <-- hard pan limit
+      maxBounds: bounds,     // <-- hard pan limit to Bulgaria
     });
 
-    // If someone tries to wheel past minZoom, clamp it back
-    map.current.on('zoomend', () => {
-      const z = map.current!.getZoom();
-      const minZ = (map.current! as any).minZoom || map.current!.getMinZoom();
-      if (z < minZ) map.current!.setZoom(minZ);
-    });
+    // (Removed the zoomend clamp entirely)
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
@@ -471,7 +463,7 @@ export default function InteractiveMapV1() {
     mapEl.current.appendChild(tooltip);
 
     map.current.on('load', () => {
-      // Compute and enforce min zoom from Bulgaria bounds, then fit
+      // Just center nicely; minZoom is already fixed
       fitToBulgaria(false);
 
       map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
@@ -599,7 +591,7 @@ export default function InteractiveMapV1() {
       }
     });
 
-    // Keep map clamped after resizes too
+    // Keep map centered nicely after resizes
     const onResize = () => fitToBulgaria(false);
     map.current.on('resize', onResize);
 
@@ -648,7 +640,7 @@ export default function InteractiveMapV1() {
     if (!city) return false;
     const ch = city.trim().charAt(0).toLowerCase();
     return ch === 'в' || ch === 'ф';
-    };
+  };
 
   const getMainImage = (loc: any) =>
     loc?.image || loc?.main_image_url || (Array.isArray(loc?.photos) && loc.photos[0]?.url) || null;
