@@ -589,14 +589,15 @@ export default function InteractiveMapV2() {
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [25.4858, 42.7339], // Center of Bulgaria
+      zoom: 6.5,
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false, // Prevent world wrapping
       maxZoom: 18,
       scrollZoom: { around: 'center' }, // keeps zoom symmetric
       maxBounds: [
-        [22.2, 41.1],
-        [28.8, 44.4]
+        [22.247, 41.124],
+        [28.597, 44.213]
       ]
     });
 
