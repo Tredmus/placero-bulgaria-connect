@@ -594,7 +594,7 @@ export default function InteractiveMapV2() {
       bearing: 0,
       renderWorldCopies: false, // Prevent world wrapping
       maxZoom: 18,
-      minZoom: 5.5,
+      minZoom: 6.5,
     });
 
     // Add navigation controls (zoom/rotate buttons)
