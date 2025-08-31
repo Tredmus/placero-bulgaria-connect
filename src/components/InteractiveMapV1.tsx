@@ -156,8 +156,12 @@ export default function InteractiveMapV1() {
 
   const mapEl = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const markers = useRef<mapboxgl.Marker[]>([]);
+
+  // Keep CITY markers separate from LOCATION markers
+  const cityMarkersRef = useRef<Record<string, mapboxgl.Marker>>({});
+  const locationMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const markerById = useRef<Record<string, { marker: mapboxgl.Marker; bubble: HTMLDivElement }>>({});
+
   const hoverTooltipRef = useRef<HTMLDivElement | null>(null);
   const hoveredFeatureId = useRef<number | string | null>(null);
 
@@ -184,8 +188,19 @@ export default function InteractiveMapV1() {
   const [provincesGeo, setProvincesGeo] = useState<any>(null);
   const [worldMask, setWorldMask] = useState<any>(null);
 
+  // Build a global city -> locations map (for all cities countrywide)
+  const allCityMap = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    locations.forEach((l) => {
+      const c = cleanCity(l.city || '');
+      if (!c) return;
+      (map[c] ||= []).push(l);
+    });
+    return map;
+  }, [locations]);
+
   const provinceData = useMemo(() => {
-    const map: Record<string, { locations: any[]; coordinates: [number, number] }> = {};
+    const m: Record<string, { locations: any[]; coordinates: [number, number] }> = {};
     PROVINCES.forEach((p) => {
       const locs = locations.filter((l) => {
         const c = cleanCity(l.city || '');
@@ -195,10 +210,10 @@ export default function InteractiveMapV1() {
       if (valid.length) {
         const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
         const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
-        map[p.name] = { locations: locs, coordinates: [lng, lat] };
+        m[p.name] = { locations: locs, coordinates: [lng, lat] };
       }
     });
-    return map;
+    return m;
   }, [locations]);
 
   useEffect(() => {
@@ -241,9 +256,10 @@ export default function InteractiveMapV1() {
     }
   }, [selectedRawName, provincesGeo]);
 
-  const clearMarkers = () => {
-    markers.current.forEach((m) => m.remove());
-    markers.current = [];
+  // ---- Marker helpers ----
+  const clearLocationMarkers = () => {
+    locationMarkersRef.current.forEach((m) => m.remove());
+    locationMarkersRef.current = [];
     markerById.current = {};
   };
 
@@ -279,7 +295,7 @@ export default function InteractiveMapV1() {
 
   const addLocationMarkers = (locs: any[]) => {
     if (!map.current) return;
-    clearMarkers();
+    clearLocationMarkers();
     locs.forEach((l) => {
       if (!l.latitude || !l.longitude) return;
       const { root, bubble } = createLabeledMarkerRoot(l.name || '');
@@ -299,16 +315,19 @@ export default function InteractiveMapV1() {
       const mk = new mapboxgl.Marker({ element: root, anchor: 'center' })
         .setLngLat([+l.longitude, +l.latitude])
         .addTo(map.current!);
-      markers.current.push(mk);
+      locationMarkersRef.current.push(mk);
       if (l.id != null) markerById.current[String(l.id)] = { marker: mk, bubble };
     });
   };
 
-  const addCityMarkers = (cityMap: Record<string, any[]>) => {
+  // Create/refresh GLOBAL city markers once (always visible)
+  const ensureGlobalCityMarkers = useCallback(() => {
     if (!map.current) return;
-    clearMarkers();
+    // Remove any existing city markers (we're rebuilding from allCityMap)
+    Object.values(cityMarkersRef.current).forEach((mk) => mk.remove());
+    cityMarkersRef.current = {};
 
-    Object.entries(cityMap).forEach(([key, locs]) => {
+    Object.entries(allCityMap).forEach(([key, locs]) => {
       const valid = locs.filter((l) => l.latitude && l.longitude);
       if (!valid.length) return;
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
@@ -329,12 +348,27 @@ export default function InteractiveMapV1() {
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
-        handleCitySelect(displayCity, locs);
+        handleCitySelect(formatCity(key), locs);
       });
 
       const mk = new mapboxgl.Marker({ element: root, anchor: 'center' }).setLngLat([lng, lat]).addTo(map.current!);
-      markers.current.push(mk);
+      cityMarkersRef.current[key] = mk;
     });
+
+    // Apply current selectedCity visibility rule right away
+    updateCityMarkerVisibility(selectedCity);
+  }, [allCityMap, selectedCity]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Hide only the selected city's pin; show all others
+  const updateCityMarkerVisibility = (city: string | null) => {
+    Object.entries(cityMarkersRef.current).forEach(([key, mk]) => {
+      mk.getElement().style.display = '';
+    });
+    if (city) {
+      const key = cleanCity(city);
+      const mk = cityMarkersRef.current[key];
+      if (mk) mk.getElement().style.display = 'none';
+    }
   };
 
   useEffect(() => {
@@ -368,7 +402,9 @@ export default function InteractiveMapV1() {
       });
       setProvinceCities(cityMap);
 
-      addCityMarkers(cityMap);
+      // IMPORTANT: Do NOT rebuild city markers here.
+      // City pins remain globally visible; only locations appear when city is selected.
+      clearLocationMarkers();
 
       const targetZoom = zoomOverride ?? 9;
       if (centerGuess) map.current?.flyTo({ center: centerGuess, zoom: targetZoom, pitch: 0, duration: 800 });
@@ -383,6 +419,8 @@ export default function InteractiveMapV1() {
     setSelectedLocation(null);
     setCityLocations(locs);
     addLocationMarkers(locs);
+    updateCityMarkerVisibility(city);
+
     const valid = locs.filter((l) => l.latitude && l.longitude);
     if (valid.length) {
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
@@ -404,7 +442,11 @@ export default function InteractiveMapV1() {
       hoveredFeatureId.current = null;
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-    clearMarkers();
+
+    // Only clear location markers; keep city pins
+    clearLocationMarkers();
+    updateCityMarkerVisibility(null);
+
     map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
   };
 
@@ -441,14 +483,8 @@ export default function InteractiveMapV1() {
     map.current.on('load', () => {
       map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
 
-      // Add city markers initially
-      const allCityMap: Record<string, any[]> = {};
-      locations.forEach((l) => {
-        const c = cleanCity(l.city || '');
-        if (!c) return;
-        (allCityMap[c] ||= []).push(l);
-      });
-      addCityMarkers(allCityMap);
+      // Create GLOBAL city markers once on load
+      ensureGlobalCityMarkers();
 
       map.current!.addLayer({
         id: 'provinces-fill',
@@ -556,7 +592,7 @@ export default function InteractiveMapV1() {
         setSelectedProvince(displayName);
         setSelectedRawName(rawName);
         const c = centroid(feat as any).geometry.coordinates as [number, number];
-        handleProvinceSelect(displayName, c, 9); 
+        handleProvinceSelect(displayName, c, 9);
       });
 
       if (worldMask) {
@@ -569,14 +605,22 @@ export default function InteractiveMapV1() {
         hoverTooltipRef.current.remove();
         hoverTooltipRef.current = null;
       }
-      markers.current.forEach((m) => m.remove());
-      markers.current = [];
-      markerById.current = {};
+      // Clean up both marker sets on unmount
+      clearLocationMarkers();
+      Object.values(cityMarkersRef.current).forEach((mk) => mk.remove());
+      cityMarkersRef.current = {};
       map.current?.remove();
       map.current = null;
     };
-  }, [token, provincesGeo]);
+  }, [token, provincesGeo, ensureGlobalCityMarkers]);
 
+  // Rebuild global city markers if the data changes
+  useEffect(() => {
+    if (!map.current) return;
+    ensureGlobalCityMarkers();
+  }, [ensureGlobalCityMarkers, allCityMap]);
+
+  // Apply the fill style when selection changes
   useEffect(() => {
     if (!map.current?.getLayer('provinces-fill')) return;
     map.current.setPaintProperty('provinces-fill', 'fill-color', [
@@ -600,6 +644,14 @@ export default function InteractiveMapV1() {
     const src = map.current.getSource('world-mask') as mapboxgl.GeoJSONSource | undefined;
     if (src) src.setData(worldMask as any);
   }, [worldMask]);
+
+  useEffect(() => {
+    // keep city markers visible state in sync when selectedCity changes
+    updateCityMarkerVisibility(selectedCity);
+    if (!selectedCity) {
+      clearLocationMarkers();
+    }
+  }, [selectedCity]);
 
   const pluralize = (n: number, one: string, many: string) => (n === 1 ? one : many);
   const needsVav = (city: string | null) => {
@@ -783,9 +835,10 @@ export default function InteractiveMapV1() {
                   key={cityKey}
                   onClick={() => {
                     if (isActive) {
+                      // Deselect city: show its city pin again; remove location markers
                       setSelectedCity(null);
                       setSelectedLocation(null);
-                      addCityMarkers(provinceCities);
+                      clearLocationMarkers();
                     } else {
                       handleCitySelect(displayCity, locs);
                     }
