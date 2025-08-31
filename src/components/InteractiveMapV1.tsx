@@ -556,7 +556,7 @@ export default function InteractiveMapV1() {
         setSelectedProvince(displayName);
         setSelectedRawName(rawName);
         const c = centroid(feat as any).geometry.coordinates as [number, number];
-        handleProvinceSelect(displayName, c, 9);
+        handleProvinceSelect(displayName, c, 9); 
       });
 
       if (worldMask) {
