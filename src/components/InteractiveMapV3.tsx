@@ -595,6 +595,10 @@ export default function InteractiveMapV2() {
       renderWorldCopies: false, // Prevent world wrapping
       maxZoom: 18,
       minZoom: 6.5,
+      maxBounds: [
+        [22.37, 41.24],   // Southwest corner [lng, lat]
+        [28.61, 44.22]    // Northeast corner [lng, lat]
+      ],
     });
 
     // Add navigation controls (zoom/rotate buttons)
