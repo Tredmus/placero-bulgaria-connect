@@ -16,6 +16,14 @@ import { MapPin, Building2, RotateCcw, Star, Wifi, Coffee, Car, Users } from 'lu
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
 
+// --- HARD LIMIT: Bulgaria bounds (SW/NE) ---
+const BG_BOUNDS: [[number, number], [number, number]] = [
+  [22.37, 41.24],
+  [28.61, 44.22],
+];
+// Padding inside bounds so the country fills the view nicely
+const BG_PADDING = 24;
+
 const PROVINCES = [
   { name: 'София Град', nameEn: 'Sofia Grad', searchTerms: ['софия', 'sofia'] },
   { name: 'София Област', nameEn: 'Sofia Oblast', searchTerms: ['софия', 'sofia'] },
@@ -391,6 +399,17 @@ export default function InteractiveMapV1() {
     }
   };
 
+  const fitToBulgaria = (animate = false) => {
+    if (!map.current) return;
+    const bounds = new mapboxgl.LngLatBounds(BG_BOUNDS[0], BG_BOUNDS[1]);
+    const camera = map.current.cameraForBounds(bounds, { padding: BG_PADDING });
+    if (camera?.zoom != null) {
+      // Enforce exact min zoom from bounds so you can't scroll out past BG
+      map.current.setMinZoom(camera.zoom);
+    }
+    map.current.fitBounds(bounds, { padding: BG_PADDING, duration: animate ? 600 : 0 });
+  };
+
   const resetView = () => {
     setSelectedProvince(null);
     setSelectedRawName(null);
@@ -405,22 +424,35 @@ export default function InteractiveMapV1() {
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
     clearMarkers();
-    map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
+    fitToBulgaria(true);
   };
 
   useEffect(() => {
     if (!mapEl.current || !token || !provincesGeo) return;
 
+    const bounds = new mapboxgl.LngLatBounds(BG_BOUNDS[0], BG_BOUNDS[1]);
+
     map.current = new mapboxgl.Map({
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
+      // center/zoom are immediately overridden by fitToBulgaria below
       center: [25.4858, 42.7339],
       zoom: 6.5,
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 6.5,
+      // minZoom will be computed from BG_BOUNDS to guarantee only BG is visible
+      dragRotate: false,
+      pitchWithRotate: false,
+      maxBounds: bounds, // <-- hard pan limit
+    });
+
+    // If someone tries to wheel past minZoom, clamp it back
+    map.current.on('zoomend', () => {
+      const z = map.current!.getZoom();
+      const minZ = (map.current! as any).minZoom || map.current!.getMinZoom();
+      if (z < minZ) map.current!.setZoom(minZ);
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -439,6 +471,9 @@ export default function InteractiveMapV1() {
     mapEl.current.appendChild(tooltip);
 
     map.current.on('load', () => {
+      // Compute and enforce min zoom from Bulgaria bounds, then fit
+      fitToBulgaria(false);
+
       map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
 
       // Add city markers initially
@@ -556,13 +591,17 @@ export default function InteractiveMapV1() {
         setSelectedProvince(displayName);
         setSelectedRawName(rawName);
         const c = centroid(feat as any).geometry.coordinates as [number, number];
-        handleProvinceSelect(displayName, c, 9); 
+        handleProvinceSelect(displayName, c, 9);
       });
 
       if (worldMask) {
         (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
       }
     });
+
+    // Keep map clamped after resizes too
+    const onResize = () => fitToBulgaria(false);
+    map.current.on('resize', onResize);
 
     return () => {
       if (hoverTooltipRef.current) {
@@ -572,7 +611,10 @@ export default function InteractiveMapV1() {
       markers.current.forEach((m) => m.remove());
       markers.current = [];
       markerById.current = {};
-      map.current?.remove();
+      if (map.current) {
+        map.current.off('resize', onResize);
+        map.current.remove();
+      }
       map.current = null;
     };
   }, [token, provincesGeo]);
@@ -606,7 +648,7 @@ export default function InteractiveMapV1() {
     if (!city) return false;
     const ch = city.trim().charAt(0).toLowerCase();
     return ch === 'в' || ch === 'ф';
-  };
+    };
 
   const getMainImage = (loc: any) =>
     loc?.image || loc?.main_image_url || (Array.isArray(loc?.photos) && loc.photos[0]?.url) || null;
