@@ -226,6 +226,7 @@ export default function InteractiveMapV1() {
   const [provincesGeo, setProvincesGeo] = useState<any>(null);
   const [worldMask, setWorldMask] = useState<any>(null);
   const [mapReady, setMapReady] = useState<boolean>(false);
+  const [isCityHovered, setIsCityHovered] = useState<boolean>(false);
 
   // Precompute province data from locations
   const provinceData = useMemo(() => {
@@ -321,13 +322,13 @@ export default function InteractiveMapV1() {
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
 
-  // Center-safe marker DOM: pin centered on coordinate, label positioned below
+  // Center-safe marker DOM: pin centered on coordinate, label positioned above
   const createLabeledMarkerRoot = (labelText: string, countText?: string, labelAlwaysVisible = false) => {
     const root = document.createElement('div');
     // Root remains size-less so Mapbox's anchor math doesn't interfere
     root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
 
-    // An inner wrapper that positions the bubble centered, with label flowing below
+    // An inner wrapper that positions the bubble centered, with label flowing above
     const inner = document.createElement('div');
     inner.style.cssText = [
       'position:absolute',
@@ -335,8 +336,8 @@ export default function InteractiveMapV1() {
       'top:0',
       'transform:translate(-50%,-14px)', // Center horizontally, offset vertically so bubble sits on coordinate
       'display:flex',
-      'flex-direction:column',
-      'align-items:center',             // keeps label perfectly centered under bubble  
+      'flex-direction:column-reverse', // Reverse to put label above bubble
+      'align-items:center',             // keeps label perfectly centered above bubble  
       'pointer-events:auto',
     ].join(';');
 
@@ -357,11 +358,11 @@ export default function InteractiveMapV1() {
       ].join(';');
     }
 
-    // Label (flows naturally below bubble with margin)
+    // Label (flows naturally above bubble with margin)
     const label = document.createElement('div');
     label.textContent = labelText || '';
     label.style.cssText = [
-      'margin-top:8px',
+      'margin-bottom:8px', // Changed from margin-top to margin-bottom
       'padding:2px 6px',
       'border-radius:6px',
       'font-size:12px',
@@ -453,6 +454,7 @@ export default function InteractiveMapV1() {
         // Always show label on hover and make background solid for better readability
         label.style.opacity = '1';
         label.style.background = 'rgba(0,0,0,.9)';
+        setIsCityHovered(true);
       };
       root.onmouseleave = () => {
         bubble.style.transform = 'scale(1)';
@@ -460,6 +462,7 @@ export default function InteractiveMapV1() {
         // Restore original opacity based on whether label should be always visible
         label.style.opacity = labelAlwaysVisible ? '1' : '0';
         label.style.background = 'rgba(0,0,0,.65)';
+        setIsCityHovered(false);
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -796,6 +799,12 @@ export default function InteractiveMapV1() {
             PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
 
           if (selectedRawNameRef.current && rawName === selectedRawNameRef.current) {
+            if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
+            return;
+          }
+          
+          // Hide province tooltip when a city is being hovered to avoid label clash
+          if (isCityHovered) {
             if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
             return;
           }
