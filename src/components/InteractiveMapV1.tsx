@@ -310,7 +310,21 @@ export default function InteractiveMapV1() {
 
   const addLocationMarkers = (locs: any[]) => {
     if (!map.current) return;
-    clearMarkers();
+    
+    // Remove existing location markers but keep city markers
+    markers.current = markers.current.filter((marker) => {
+      const element = marker.getElement();
+      const isCityMarker = element.querySelector('div[style*="34px"]'); // city markers are 34px
+      if (!isCityMarker) {
+        marker.remove();
+        return false;
+      }
+      return true;
+    });
+    
+    // Clear location marker references
+    markerById.current = {};
+    
     locs.forEach((l) => {
       if (!l.latitude || !l.longitude) return;
       const { root, bubble } = createLabeledMarkerRoot(l.name || '');
@@ -337,7 +351,22 @@ export default function InteractiveMapV1() {
 
   const addCityMarkers = (cityMap: Record<string, any[]>, hideSelectedCity = false) => {
     if (!map.current) return;
-    clearMarkers();
+    // Only clear markers if we're not preserving location markers
+    if (!hideSelectedCity || !selectedCityRef.current) {
+      clearMarkers();
+    } else {
+      // Remove only city markers, keep location markers
+      markers.current = markers.current.filter((marker) => {
+        const element = marker.getElement();
+        const hasLocationMarker = element.querySelector('div[style*="28px"]'); // location markers are 28px
+        if (!hasLocationMarker) {
+          marker.remove();
+          return false;
+        }
+        return true;
+      });
+    }
+    
     Object.entries(cityMap).forEach(([key, locs]) => {
       const displayCity = formatCity(key);
       
@@ -426,9 +455,8 @@ export default function InteractiveMapV1() {
     setSelectedCity(city);
     setSelectedLocation(null);
     setCityLocations(locs);
-    addLocationMarkers(locs);
     
-    // Show appropriate city markers but hide the selected one
+    // First show appropriate city markers but hide the selected one
     if (selectedProvince) {
       // If province is selected, show province cities but hide selected
       addCityMarkers(provinceCities, true);
@@ -442,6 +470,9 @@ export default function InteractiveMapV1() {
       });
       addCityMarkers(allCityMap, true);
     }
+    
+    // Then add location markers (after city markers so they don't get cleared)
+    addLocationMarkers(locs);
     
     const valid = locs.filter((l) => l.latitude && l.longitude);
     if (valid.length) {
