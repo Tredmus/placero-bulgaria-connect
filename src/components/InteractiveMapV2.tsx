@@ -611,19 +611,7 @@ export default function InteractiveMapV1() {
     // Controls
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // Tooltip element
-    const tooltip = document.createElement('div');
-    tooltip.className = 'map-province-tooltip';
-    tooltip.style.cssText = `
-      position:absolute;pointer-events:none;z-index:30;
-      background:rgba(0,0,0,.7);color:#fff;padding:6px 8px;
-      border-radius:6px;font-size:12px;transform:translate(-50%, -120%);
-      white-space:nowrap;opacity:0;transition:opacity .12s ease;
-      border:1px solid rgba(255,255,255,.15);
-      backdrop-filter:saturate(140%) blur(2px);
-    `;
-    hoverTooltipRef.current = tooltip;
-    mapEl.current.appendChild(tooltip);
+    // No tooltip needed - province labels are always visible on the map
 
     // Wheel behavior (around center + gentle step)
     map.current.scrollZoom.enable();
@@ -720,6 +708,27 @@ export default function InteractiveMapV1() {
         paint: { 'line-color': '#ffffff', 'line-width': 2 },
       });
 
+      // Add province labels that are always visible
+      map.current!.addLayer({
+        id: 'province-labels',
+        type: 'symbol',
+        source: 'provinces',
+        layout: {
+          'text-field': ['coalesce', ['get', 'name'], ['get', 'name_en']],
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': 13,
+          'text-anchor': 'center',
+          'text-offset': [0, 0],
+          'text-allow-overlap': false,
+          'text-ignore-placement': false,
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0, 0, 0, 0.8)',
+          'text-halo-width': 2,
+        },
+      });
+
       // Invisible hit layer on top for reliable interactions
       map.current!.addLayer({
         id: 'provinces-hit',
@@ -778,23 +787,6 @@ export default function InteractiveMapV1() {
 
           hoveredFeatureId.current = f.id as number | string;
           map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: true });
-
-          const rawName = (f.properties as any).name || (f.properties as any).name_en;
-          const displayName =
-            PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
-
-          if (selectedRawNameRef.current && rawName === selectedRawNameRef.current) {
-            if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-            return;
-          }
-
-          if (hoverTooltipRef.current) {
-            const { point } = e;
-            hoverTooltipRef.current.textContent = displayName;
-            hoverTooltipRef.current.style.left = `${point.x}px`;
-            hoverTooltipRef.current.style.top = `${point.y}px`;
-            hoverTooltipRef.current.style.opacity = '1';
-          }
         });
       });
 
@@ -803,7 +795,6 @@ export default function InteractiveMapV1() {
           map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
         }
         hoveredFeatureId.current = null;
-        if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
       });
 
       map.current!.on('click', 'provinces-hit', (e) => {
@@ -858,10 +849,6 @@ export default function InteractiveMapV1() {
     map.current.on('resize', onResize);
 
     return () => {
-      if (hoverTooltipRef.current) {
-        hoverTooltipRef.current.remove();
-        hoverTooltipRef.current = null;
-      }
       clearAllMarkers();
       if (map.current) {
         map.current.off('resize', onResize);
