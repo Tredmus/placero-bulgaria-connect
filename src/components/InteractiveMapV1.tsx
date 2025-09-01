@@ -272,160 +272,136 @@ export default function InteractiveMapV1() {
     }
   };
 
- // Center-safe marker DOM: bubble centered on the point; label sits below with fixed gap
-const createLabeledMarkerRoot = (labelText: string) => {
-  const root = document.createElement('div');
-  root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
+  // Center-safe marker DOM: bubble is centered exactly on the point; label sits below
+  const createLabeledMarkerRoot = (labelText: string) => {
+    const root = document.createElement('div');
+    root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
 
-  // Bubble (exactly at the map coordinate)
-  const bubble = document.createElement('div');
-  bubble.style.position = 'absolute';
-  bubble.style.left = '0';
-  bubble.style.top = '0';
-  bubble.style.transform = 'translate(-50%,-50%)';
+    // Bubble (exactly centered on the coordinate)
+    const bubble = document.createElement('div');
+    bubble.style.position = 'absolute';
+    bubble.style.left = '0';
+    bubble.style.top = '0';
+    bubble.style.transform = 'translate(-50%,-50%)';
 
-  // Label (centered horizontally; vertical offset computed in updateLabelOffset)
-  const label = document.createElement('div');
-  label.textContent = labelText || '';
-  label.style.position = 'absolute';
-  label.style.left = '50%';
-  label.style.transform = 'translateX(-50%)';
-  label.style.top = '0px'; // placeholder; we set real offset after sizing
-  label.style.padding = '2px 6px';
-  label.style.borderRadius = '6px';
-  label.style.fontSize = '12px';
-  label.style.fontWeight = '700';
-  label.style.color = '#fff';
-  label.style.background = 'rgba(0,0,0,.65)';
-  label.style.border = '1px solid rgba(255,255,255,.14)';
-  label.style.whiteSpace = 'nowrap';
-  label.style.pointerEvents = 'none';
-  label.style.textAlign = 'center';
+    // Label (centered horizontally under the bubble)
+    const label = document.createElement('div');
+    label.textContent = labelText || '';
+    label.style.position = 'absolute';
+    label.style.left = '50%';
+    label.style.transform = 'translateX(-50%)';
+    label.style.marginTop = '0';
+    label.style.padding = '2px 6px';
+    label.style.borderRadius = '6px';
+    label.style.fontSize = '12px';
+    label.style.fontWeight = '700';
+    label.style.color = '#fff';
+    label.style.background = 'rgba(0,0,0,.65)';
+    label.style.border = '1px solid rgba(255,255,255,.14)';
+    label.style.whiteSpace = 'nowrap';
+    label.style.pointerEvents = 'none';
+    label.style.textAlign = 'center';
 
-  // Solid background on hover for readability
-  root.onmouseenter = () => { label.style.background = 'rgba(0,0,0,0.98)'; };
-  root.onmouseleave = () => { label.style.background = 'rgba(0,0,0,0.65)'; };
+    root.appendChild(bubble);
+    root.appendChild(label);
 
-  root.appendChild(bubble);
-  root.appendChild(label);
-  return { root, bubble, label };
-};
+    // Solid background on hover for readability
+    root.onmouseenter = () => { label.style.background = 'rgba(0,0,0,0.98)'; };
+    root.onmouseleave = () => { label.style.background = 'rgba(0,0,0,0.65)'; };
 
-// Helper to update label offset based on bubble size
-const updateLabelOffset = (bubble: HTMLDivElement, label: HTMLDivElement, gap = 8) => {
-  const bubbleSize = parseFloat(bubble.style.width) || 28;
-  label.style.top = `${bubbleSize / 2 + gap}px`;
-};
+    return { root, bubble, label };
+  };
 
-const addCityMarkers = (cityMap: Record<string, any[]>, selectedCity?: string) => {
-  if (!map.current) return;
+  const addLocationMarkers = (locs: any[]) => {
+    if (!map.current) return;
 
-  // Keep location markers; drop previous city markers
-  markers.current = markers.current.filter((marker) => {
-    const el = marker.getElement() as HTMLElement;
-    const keep = el.dataset.type === 'location';
-    if (!keep) marker.remove();
-    return keep;
-  });
-
-  Object.entries(cityMap).forEach(([city, locs]) => {
-    // Skip selected city marker
-    if (selectedCity && city === selectedCity) return;
-
-    const valid = locs.filter((l) => l.latitude && l.longitude);
-    if (!valid.length) return;
-
-    const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
-    const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
-
-    const displayCity = formatCity(city);
-    const { root, bubble, label } = createLabeledMarkerRoot(displayCity);
-    root.dataset.type = 'city';
-
-    const isSel = selectedCity === city;
-    styleMarker(bubble, isSel, 28, false, label);
-
-    // Hover: scale bubble and keep the label gap correct
-    root.onmouseenter = () => {
-      if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-      if (!isSel) bubble.style.transform = 'scale(1.15)';
-      updateLabelOffset(bubble, label, 10);
-      root.style.zIndex = '100';
-    };
-    root.onmouseleave = () => {
-      if (!isSel) bubble.style.transform = 'scale(1)';
-      updateLabelOffset(bubble, label, 10);
-      root.style.zIndex = '2';
-    };
-
-    root.addEventListener('click', (e) => {
-      e.stopPropagation();
-      handleCitySelect(city, locs);
+    // Keep city markers; drop previous location markers
+    markers.current = markers.current.filter((marker) => {
+      const el = marker.getElement() as HTMLElement;
+      const keep = el.dataset.type === 'city';
+      if (!keep) marker.remove();
+      return keep;
     });
+    markerById.current = {};
 
-    const mk = new mapboxgl.Marker({ element: root, anchor: 'center' })
-      .setLngLat([lng, lat])
-      .addTo(map.current!);
+    locs.forEach((l) => {
+      if (!l.latitude || !l.longitude) return;
+      const { root, bubble, label } = createLabeledMarkerRoot(l.name || '');
+      root.dataset.type = 'location';
 
-    // Ensure the label offset is perfect after the element is in the DOM
-    requestAnimationFrame(() => updateLabelOffset(bubble, label, 10));
+      const isSel = !!(selectedLocation && selectedLocation.id === l.id);
+      styleMarker(bubble, isSel, 28, true, label);
 
-    markers.current.push(mk);
-  });
-};
+      root.onmouseenter = () => {
+        if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
+        if (!isSel) bubble.style.transform = 'scale(1.15)';
+        root.style.zIndex = '100';
+      };
+      root.onmouseleave = () => {
+        if (!isSel) bubble.style.transform = 'scale(1)';
+        root.style.zIndex = '2';
+      };
+      root.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setSelectedLocation(l);
+      });
 
-const addLocationMarkers = (locs: any[]) => {
-  if (!map.current) return;
+      const mk = new mapboxgl.Marker({ element: root, anchor: 'center' })
+        .setLngLat([+l.longitude, +l.latitude])
+        .addTo(map.current!);
 
-  // Keep city markers; drop previous location markers
-  markers.current = markers.current.filter((marker) => {
-    const el = marker.getElement() as HTMLElement;
-    const keep = el.dataset.type === 'city';
-    if (!keep) marker.remove();
-    return keep;
-  });
-  markerById.current = {};
-
-  locs.forEach((l) => {
-    if (!l.latitude || !l.longitude) return;
-
-    const { root, bubble, label } = createLabeledMarkerRoot(l.name || '');
-    root.dataset.type = 'location';
-
-    const isSel = !!(selectedLocation && selectedLocation.id === l.id);
-    // styles + initial label offset (uses bubble size)
-    styleMarker(bubble, isSel, 28, true, label);
-
-    // Hover: scale bubble and keep the label gap correct
-    root.onmouseenter = () => {
-      if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-      if (!isSel) bubble.style.transform = 'scale(1.15)';
-      updateLabelOffset(bubble, label, 10);
-      root.style.zIndex = '100';
-    };
-    root.onmouseleave = () => {
-      if (!isSel) bubble.style.transform = 'scale(1)';
-      updateLabelOffset(bubble, label, 10);
-      root.style.zIndex = '2';
-    };
-
-    root.addEventListener('click', (e) => {
-      e.stopPropagation();
-      setSelectedLocation(l);
+      markers.current.push(mk);
+      if (l.id != null) markerById.current[String(l.id)] = { marker: mk, bubble, label };
     });
+  };
 
-    const mk = new mapboxgl.Marker({ element: root, anchor: 'center' })
-      .setLngLat([+l.longitude, +l.latitude])
-      .addTo(map.current!);
+  const addCityMarkers = (cityMap: Record<string, any[]>, hiddenCityName?: string) => {
+    if (!map.current) return;
 
-    // Ensure the label offset is perfect after the element is in the DOM
-    requestAnimationFrame(() => updateLabelOffset(bubble, label, 10));
+    if (!hiddenCityName) {
+      clearMarkers();
+    } else {
+      // Remove only city markers; keep any location markers
+      markers.current = markers.current.filter((marker) => {
+        const el = marker.getElement() as HTMLElement;
+        const keep = el.dataset.type === 'location';
+        if (!keep) marker.remove();
+        return keep;
+      });
+    }
 
-    markers.current.push(mk);
-    if (l.id != null) markerById.current[String(l.id)] = { marker: mk, bubble, label };
-  });
-};
+    Object.entries(cityMap).forEach(([key, locs]) => {
+      const displayCity = formatCity(key);
 
+      if (hiddenCityName && hiddenCityName === displayCity) return;
+
+      const valid = locs.filter((l) => l.latitude && l.longitude);
+      if (!valid.length) return;
+
+      const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
+      const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
+
+      const labelText = `${displayCity} - ${locs.length}`;
+      const { root, bubble, label } = createLabeledMarkerRoot(labelText);
+      root.dataset.type = 'city';
+
+      styleMarker(bubble, false, 34, false, label);
+      label.style.fontSize = '13px';
+
+      root.onmouseenter = () => { bubble.style.transform = 'scale(1.12)'; root.style.zIndex = '100'; };
+      root.onmouseleave = () => { bubble.style.transform = 'scale(1)'; root.style.zIndex = '2'; };
+      root.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleCitySelect(displayCity, locs);
+      });
+
+      const mk = new mapboxgl.Marker({ element: root, anchor: 'center' })
+        .setLngLat([lng, lat])
+        .addTo(map.current!);
+
+      markers.current.push(mk);
+    });
+  };
 
   useEffect(() => {
     Object.entries(markerById.current).forEach(([id, { bubble, label }]) => {
