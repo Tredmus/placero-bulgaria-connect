@@ -1,7 +1,13 @@
+// ================================================================================================
+// IMPORTS AND EXTERNAL DEPENDENCIES
+// ================================================================================================
+
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+
 import centroid from '@turf/centroid';
 import rewind from '@turf/rewind';
 import cleanCoords from '@turf/clean-coords';
@@ -14,13 +20,18 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Building2, RotateCcw, Star, Wifi, Coffee, Car, Users } from 'lucide-react';
 
+// ================================================================================================
+// CONSTANTS AND CONFIGURATION
+// ================================================================================================
+
 const GEOJSON_URL = '/data/bg_provinces.geojson';
+const BG_BOUNDS = new mapboxgl.LngLatBounds([22.2, 41.1], [28.8, 44.4]);
 
 const PROVINCES = [
   { name: 'София Град', nameEn: 'Sofia Grad', searchTerms: ['софия', 'sofia'] },
   { name: 'София Област', nameEn: 'Sofia Oblast', searchTerms: ['софия', 'sofia'] },
   { name: 'Пловдив', nameEn: 'Plovdiv', searchTerms: ['пловдив', 'plovdiv'] },
-  { name: 'Варна', nameEn: 'Varna', searchTerms: ['варна', 'varna', 'белослав', 'beloslav', 'девня', 'devnya'] },
+  { name: 'Варна', nameEn: 'Varna', searchTerms: ['варна', 'varna', 'белослав', 'beloslav', 'девня', 'devnya', 'суворово', 'suvorovo'] },
   { name: 'Бургас', nameEn: 'Burgas', searchTerms: ['бургас', 'burgas'] },
   { name: 'Русе', nameEn: 'Ruse', searchTerms: ['русе', 'ruse'] },
   { name: 'Стара Загора', nameEn: 'Stara Zagora', searchTerms: ['стара загора', 'stara zagora'] },
@@ -47,6 +58,10 @@ const PROVINCES = [
   { name: 'Ямбол', nameEn: 'Yambol', searchTerms: ['ямбол', 'yambol'] },
 ];
 
+// ================================================================================================
+// UTILITY
+// ================================================================================================
+
 const cleanCity = (s = '') =>
   s.toLowerCase().replace(/област$/, '').replace(/region$/, '').replace(/,.*$/, '').trim();
 
@@ -58,7 +73,9 @@ const formatCity = (s = '') =>
 
 const amenityIcons = { wifi: Wifi, coffee: Coffee, parking: Car, meeting: Users } as const;
 
-/* ---------------- geometry helpers ---------------- */
+// ================================================================================================
+// GEOMETRY HELPERS
+// ================================================================================================
 
 type Ring = [number, number][];
 
@@ -148,22 +165,25 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
   return mask;
 }
 
-/* -------------------------------------------------- */
+// ================================================================================================
+// MAIN COMPONENT
+// ================================================================================================
 
-export default function InteractiveMapV1() {
+export default function InteractiveMapV2() {
   const { locations } = useLocations();
   const navigate = useNavigate();
 
   const mapEl = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-
-  // Keep CITY markers separate from LOCATION markers
-  const cityMarkersRef = useRef<Record<string, mapboxgl.Marker>>({});
-  const locationMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const markers = useRef<mapboxgl.Marker[]>([]);
   const markerById = useRef<Record<string, { marker: mapboxgl.Marker; bubble: HTMLDivElement }>>({});
-
   const hoverTooltipRef = useRef<HTMLDivElement | null>(null);
   const hoveredFeatureId = useRef<number | string | null>(null);
+
+  // min-zoom “floor” state (computed from viewport)
+  const defaultMinZoomRef = useRef<number>(6.5);
+  const defaultCenterRef = useRef<mapboxgl.LngLatLike>({ lng: 25.4858, lat: 42.7339 });
+  const defaultViewBoundsRef = useRef<mapboxgl.LngLatBoundsLike | null>(null);
 
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const selectedProvinceRef = useRef<string | null>(null);
@@ -178,6 +198,11 @@ export default function InteractiveMapV1() {
   }, [selectedRawName]);
 
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const selectedCityRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedCityRef.current = selectedCity;
+  }, [selectedCity]);
+
   const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
 
   const [provinceCities, setProvinceCities] = useState<Record<string, any[]>>({});
@@ -188,19 +213,9 @@ export default function InteractiveMapV1() {
   const [provincesGeo, setProvincesGeo] = useState<any>(null);
   const [worldMask, setWorldMask] = useState<any>(null);
 
-  // Build a global city -> locations map (for all cities countrywide)
-  const allCityMap = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    locations.forEach((l) => {
-      const c = cleanCity(l.city || '');
-      if (!c) return;
-      (map[c] ||= []).push(l);
-    });
-    return map;
-  }, [locations]);
-
+  // COMPUTED
   const provinceData = useMemo(() => {
-    const m: Record<string, { locations: any[]; coordinates: [number, number] }> = {};
+    const map: Record<string, { locations: any[]; coordinates: [number, number] }> = {};
     PROVINCES.forEach((p) => {
       const locs = locations.filter((l) => {
         const c = cleanCity(l.city || '');
@@ -210,12 +225,13 @@ export default function InteractiveMapV1() {
       if (valid.length) {
         const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
         const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
-        m[p.name] = { locations: locs, coordinates: [lng, lat] };
+        map[p.name] = { locations: locs, coordinates: [lng, lat] };
       }
     });
-    return m;
+    return map;
   }, [locations]);
 
+  // INIT: token + geojson
   useEffect(() => {
     (async () => {
       try {
@@ -239,7 +255,6 @@ export default function InteractiveMapV1() {
       const raw = await fetch(GEOJSON_URL).then((r) => r.json());
       const normalized = normalizeFC(raw);
       setProvincesGeo(normalized);
-
       const initialMask = buildProvinceDonutMask(normalized, null);
       setWorldMask(initialMask);
     })();
@@ -250,16 +265,15 @@ export default function InteractiveMapV1() {
     const newMask = buildProvinceDonutMask(provincesGeo, selectedRawName);
     if (!newMask) return;
     setWorldMask(newMask);
-
     if (map.current?.getSource('world-mask')) {
       (map.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(newMask as any);
     }
   }, [selectedRawName, provincesGeo]);
 
-  // ---- Marker helpers ----
-  const clearLocationMarkers = () => {
-    locationMarkersRef.current.forEach((m) => m.remove());
-    locationMarkersRef.current = [];
+  // MARKERS
+  const clearMarkers = () => {
+    markers.current.forEach((m) => m.remove());
+    markers.current = [];
     markerById.current = {};
   };
 
@@ -268,11 +282,11 @@ export default function InteractiveMapV1() {
     bubble.style.height = `${size}px`;
     bubble.style.borderRadius = '50%';
     bubble.style.border = '2px solid #fff';
-    bubble.style.boxShadow = '0 2px 8px rgba(220,38,38,.35)';
+    bubble.style.boxShadow = '0 2px 8px rgba(16,185,129,.35)';
     bubble.style.cursor = 'pointer';
     bubble.style.transition = 'transform .12s ease';
     bubble.style.transformOrigin = 'center';
-    bubble.style.background = isSelected ? '#ef4444' : '#dc2626';
+    bubble.style.background = isSelected ? '#22d3ee' : '#10b981';
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
 
@@ -295,7 +309,7 @@ export default function InteractiveMapV1() {
 
   const addLocationMarkers = (locs: any[]) => {
     if (!map.current) return;
-    clearLocationMarkers();
+    clearMarkers();
     locs.forEach((l) => {
       if (!l.latitude || !l.longitude) return;
       const { root, bubble } = createLabeledMarkerRoot(l.name || '');
@@ -315,31 +329,24 @@ export default function InteractiveMapV1() {
       const mk = new mapboxgl.Marker({ element: root, anchor: 'center' })
         .setLngLat([+l.longitude, +l.latitude])
         .addTo(map.current!);
-      locationMarkersRef.current.push(mk);
+      markers.current.push(mk);
       if (l.id != null) markerById.current[String(l.id)] = { marker: mk, bubble };
     });
   };
 
-  // Create/refresh GLOBAL city markers once (always visible)
-  const ensureGlobalCityMarkers = useCallback(() => {
+  const addCityMarkers = (cityMap: Record<string, any[]>) => {
     if (!map.current) return;
-    // Remove any existing city markers (we're rebuilding from allCityMap)
-    Object.values(cityMarkersRef.current).forEach((mk) => mk.remove());
-    cityMarkersRef.current = {};
-
-    Object.entries(allCityMap).forEach(([key, locs]) => {
+    clearMarkers();
+    Object.entries(cityMap).forEach(([key, locs]) => {
       const valid = locs.filter((l) => l.latitude && l.longitude);
       if (!valid.length) return;
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
       const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
-
       const displayCity = formatCity(key);
       const labelText = `${displayCity} — ${locs.length} ${locs.length === 1 ? 'помещение' : 'помещения'}`;
-
       const { root, bubble, label } = createLabeledMarkerRoot(labelText);
       styleMarker(bubble, false, 34);
       label.style.fontSize = '13px';
-
       root.onmouseenter = () => {
         bubble.style.transform = 'scale(1.12)';
       };
@@ -348,27 +355,11 @@ export default function InteractiveMapV1() {
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
-        handleCitySelect(formatCity(key), locs);
+        handleCitySelect(displayCity, locs);
       });
-
       const mk = new mapboxgl.Marker({ element: root, anchor: 'center' }).setLngLat([lng, lat]).addTo(map.current!);
-      cityMarkersRef.current[key] = mk;
+      markers.current.push(mk);
     });
-
-    // Apply current selectedCity visibility rule right away
-    updateCityMarkerVisibility(selectedCity);
-  }, [allCityMap, selectedCity]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Hide only the selected city's pin; show all others
-  const updateCityMarkerVisibility = (city: string | null) => {
-    Object.entries(cityMarkersRef.current).forEach(([key, mk]) => {
-      mk.getElement().style.display = '';
-    });
-    if (city) {
-      const key = cleanCity(city);
-      const mk = cityMarkersRef.current[key];
-      if (mk) mk.getElement().style.display = 'none';
-    }
   };
 
   useEffect(() => {
@@ -378,16 +369,15 @@ export default function InteractiveMapV1() {
     });
   }, [selectedLocation]);
 
+  // PROVINCE / CITY HANDLERS
   const handleProvinceSelect = useCallback(
     (provinceName: string, centerGuess?: [number, number], zoomOverride?: number) => {
       const rec = PROVINCES.find((p) => p.name === provinceName) || PROVINCES.find((p) => p.nameEn === provinceName);
       if (!rec) return;
-
       const locs = locations.filter((l) => {
         const c = cleanCity(l.city || '');
         return rec.searchTerms.some((t) => c.includes(t) || t.includes(c));
       });
-
       setSelectedProvince(rec.name);
       setSelectedRawName(rec.nameEn ?? rec.name);
       setSelectedCity(null);
@@ -401,10 +391,7 @@ export default function InteractiveMapV1() {
         (cityMap[c] ||= []).push(l);
       });
       setProvinceCities(cityMap);
-
-      // IMPORTANT: Do NOT rebuild city markers here.
-      // City pins remain globally visible; only locations appear when city is selected.
-      clearLocationMarkers();
+      addCityMarkers(cityMap);
 
       const targetZoom = zoomOverride ?? 9;
       if (centerGuess) map.current?.flyTo({ center: centerGuess, zoom: targetZoom, pitch: 0, duration: 800 });
@@ -419,8 +406,6 @@ export default function InteractiveMapV1() {
     setSelectedLocation(null);
     setCityLocations(locs);
     addLocationMarkers(locs);
-    updateCityMarkerVisibility(city);
-
     const valid = locs.filter((l) => l.latitude && l.longitude);
     if (valid.length) {
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
@@ -442,37 +427,56 @@ export default function InteractiveMapV1() {
       hoveredFeatureId.current = null;
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-
-    // Only clear location markers; keep city pins
-    clearLocationMarkers();
-    updateCityMarkerVisibility(null);
-
-    map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
+    clearMarkers();
+    // snap to the computed floor
+    map.current?.easeTo({
+      center: defaultCenterRef.current as mapboxgl.LngLatLike,
+      zoom: defaultMinZoomRef.current,
+      pitch: 0,
+      bearing: 0,
+      duration: 500
+    });
   };
 
+  // MAP INIT + CAMERA LOCK
   useEffect(() => {
     if (!mapEl.current || !token || !provincesGeo) return;
 
     map.current = new mapboxgl.Map({
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [25.4858, 42.7339],
-      zoom: 6.5,
+      center: [25.4858, 42.7339], // temporary, will be overridden immediately below
+      zoom: 6.5,                  // temporary
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
       maxZoom: 18,
-      minZoom: 6.5,
+      fadeDuration: 0
     });
 
+    // --- Compute and apply the exact “floor” BEFORE first paint ---
+    const cam = map.current.cameraForBounds(BG_BOUNDS, { padding: 24 })!;
+    defaultMinZoomRef.current = cam.zoom;
+    defaultCenterRef.current = cam.center as mapboxgl.LngLatLike;
+    map.current.jumpTo({ center: cam.center, zoom: cam.zoom, bearing: 0, pitch: 0 });
+    map.current.setMinZoom(cam.zoom);
+    // store the exact min-zoom viewport as the panning box when zoomed in
+    const vb = map.current.getBounds().toArray();
+    defaultViewBoundsRef.current = [
+      [vb[0][0], vb[0][1]],
+      [vb[1][0], vb[1][1]]
+    ];
+
+    // Controls
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
+    // Tooltip element
     const tooltip = document.createElement('div');
     tooltip.className = 'map-province-tooltip';
     tooltip.style.cssText = `
       position:absolute;pointer-events:none;z-index:30;
       background:rgba(0,0,0,.7);color:#fff;padding:6px 8px;
-      border-radius:6px;font-size:12px;transform:translate(-50%,-120%);
+      border-radius:6px;font-size:12px;transform:translate(-50%, -120%);
       white-space:nowrap;opacity:0;transition:opacity .12s ease;
       border:1px solid rgba(255,255,255,.15);
       backdrop-filter:saturate(140%) blur(2px);
@@ -480,11 +484,40 @@ export default function InteractiveMapV1() {
     hoverTooltipRef.current = tooltip;
     mapEl.current.appendChild(tooltip);
 
+    // Wheel behavior (around center + gentle step)
+    map.current.scrollZoom.enable();
+    (map.current.scrollZoom as any).setAround?.('center');
+    (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 600);
+
+    // Keep the camera constraints consistent with zoom level
+    const applyConstraints = () => {
+      const z = map.current!.getZoom();
+      const MIN = defaultMinZoomRef.current;
+      if (z <= MIN + 1e-6) {
+        map.current!.dragPan.disable();
+        (map.current!.keyboard as any)?.disable?.();
+        map.current!.setMaxBounds(null);
+        // Always snap to the exact floor so you never get stuck on a slice
+        map.current!.jumpTo({
+          center: defaultCenterRef.current as mapboxgl.LngLatLike,
+          zoom: MIN,
+          pitch: 0,
+          bearing: 0
+        });
+      } else {
+        map.current!.dragPan.enable();
+        (map.current!.keyboard as any)?.enable?.();
+        if (defaultViewBoundsRef.current) {
+          map.current!.setMaxBounds(defaultViewBoundsRef.current);
+        }
+      }
+    };
+    applyConstraints();
+    map.current.on('zoomend', applyConstraints);
+
+    // Layers & sources on load
     map.current.on('load', () => {
       map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
-
-      // Create GLOBAL city markers once on load
-      ensureGlobalCityMarkers();
 
       map.current!.addLayer({
         id: 'provinces-fill',
@@ -516,6 +549,15 @@ export default function InteractiveMapV1() {
         paint: { 'line-color': '#ffffff', 'line-width': 2 },
       });
 
+      // Invisible hit layer on top for reliable interactions
+      map.current!.addLayer({
+        id: 'provinces-hit',
+        type: 'fill',
+        source: 'provinces',
+        paint: { 'fill-color': '#000000', 'fill-opacity': 0.001 }
+      });
+
+      // World mask (under provinces)
       const worldRing: Ring = [
         [-180, -85],
         [180, -85],
@@ -537,13 +579,18 @@ export default function InteractiveMapV1() {
           source: 'world-mask',
           paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
         },
-        'provinces-fill'
+        'provinces-fill' // mask below provinces
       );
 
-      map.current!.on('mouseenter', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = 'pointer'));
-      map.current!.on('mouseleave', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = ''));
+      if (worldMask) {
+        (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
+      }
 
-      map.current!.on('mousemove', 'provinces-fill', (e: mapboxgl.MapLayerMouseEvent) => {
+      // Interactions (bind to hit layer)
+      map.current!.on('mouseenter', 'provinces-hit', () => (map.current!.getCanvas().style.cursor = 'pointer'));
+      map.current!.on('mouseleave', 'provinces-hit', () => (map.current!.getCanvas().style.cursor = ''));
+
+      map.current!.on('mousemove', 'provinces-hit', (e: mapboxgl.MapLayerMouseEvent) => {
         const f = e.features?.[0];
         if (!f) return;
 
@@ -572,7 +619,7 @@ export default function InteractiveMapV1() {
         }
       });
 
-      map.current!.on('mouseleave', 'provinces-fill', () => {
+      map.current!.on('mouseleave', 'provinces-hit', () => {
         if (hoveredFeatureId.current !== null) {
           map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
         }
@@ -580,47 +627,74 @@ export default function InteractiveMapV1() {
         if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
       });
 
-      map.current!.on('click', 'provinces-fill', (e) => {
+      map.current!.on('click', 'provinces-hit', (e) => {
         const feat = e.features?.[0];
         if (!feat) return;
         const rawName = (feat.properties as any).name || (feat.properties as any).name_en;
         const displayName = PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName;
+
         if (selectedRawNameRef.current && selectedRawNameRef.current === rawName) {
           resetView();
           return;
         }
+
         setSelectedProvince(displayName);
         setSelectedRawName(rawName);
         const c = centroid(feat as any).geometry.coordinates as [number, number];
         handleProvinceSelect(displayName, c, 9);
       });
-
-      if (worldMask) {
-        (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
-      }
     });
+
+    // Recalculate camera floor on resize (no flicker)
+    const onResize = () => {
+      if (!map.current) return;
+      const cam2 = map.current.cameraForBounds(BG_BOUNDS, { padding: 24 })!;
+      defaultMinZoomRef.current = cam2.zoom;
+      defaultCenterRef.current = cam2.center as mapboxgl.LngLatLike;
+      map.current.setMinZoom(cam2.zoom);
+
+      // recompute the min-zoom viewport bounds without changing user zoom if > min
+      const wasZoom = map.current.getZoom();
+      const wasCenter = map.current.getCenter();
+
+      // temporarily jump to min view to read its bounds
+      map.current.jumpTo({ center: cam2.center, zoom: cam2.zoom, bearing: 0, pitch: 0 });
+      const rb = map.current.getBounds().toArray();
+      defaultViewBoundsRef.current = [
+        [rb[0][0], rb[0][1]],
+        [rb[1][0], rb[1][1]]
+      ];
+
+      // restore previous camera if user was zoomed in
+      if (wasZoom > cam2.zoom + 1e-6) {
+        map.current.jumpTo({ center: wasCenter, zoom: wasZoom, bearing: 0, pitch: 0 });
+        if (defaultViewBoundsRef.current) {
+          map.current.setMaxBounds(defaultViewBoundsRef.current);
+        }
+      } else {
+        // if at floor, ensure perfect snap
+        map.current.jumpTo({ center: cam2.center, zoom: cam2.zoom, bearing: 0, pitch: 0 });
+      }
+    };
+    map.current.on('resize', onResize);
 
     return () => {
       if (hoverTooltipRef.current) {
         hoverTooltipRef.current.remove();
         hoverTooltipRef.current = null;
       }
-      // Clean up both marker sets on unmount
-      clearLocationMarkers();
-      Object.values(cityMarkersRef.current).forEach((mk) => mk.remove());
-      cityMarkersRef.current = {};
-      map.current?.remove();
+      markers.current.forEach((m) => m.remove());
+      markers.current = [];
+      markerById.current = {};
+      if (map.current) {
+        map.current.off('resize', onResize);
+        map.current.remove();
+      }
       map.current = null;
     };
-  }, [token, provincesGeo, ensureGlobalCityMarkers]);
+  }, [token, provincesGeo]);
 
-  // Rebuild global city markers if the data changes
-  useEffect(() => {
-    if (!map.current) return;
-    ensureGlobalCityMarkers();
-  }, [ensureGlobalCityMarkers, allCityMap]);
-
-  // Apply the fill style when selection changes
+  // DYNAMIC STYLE
   useEffect(() => {
     if (!map.current?.getLayer('provinces-fill')) return;
     map.current.setPaintProperty('provinces-fill', 'fill-color', [
@@ -645,21 +719,13 @@ export default function InteractiveMapV1() {
     if (src) src.setData(worldMask as any);
   }, [worldMask]);
 
-  useEffect(() => {
-    // keep city markers visible state in sync when selectedCity changes
-    updateCityMarkerVisibility(selectedCity);
-    if (!selectedCity) {
-      clearLocationMarkers();
-    }
-  }, [selectedCity]);
-
+  // UI HELPERS
   const pluralize = (n: number, one: string, many: string) => (n === 1 ? one : many);
   const needsVav = (city: string | null) => {
     if (!city) return false;
     const ch = city.trim().charAt(0).toLowerCase();
     return ch === 'в' || ch === 'ф';
   };
-
   const getMainImage = (loc: any) =>
     loc?.image || loc?.main_image_url || (Array.isArray(loc?.photos) && loc.photos[0]?.url) || null;
 
@@ -671,6 +737,7 @@ export default function InteractiveMapV1() {
     );
   }
 
+  // RENDER
   return (
     <div className="bg-secondary/50 rounded-lg p-8">
       <div className="flex items-center justify-between mb-6">
@@ -835,10 +902,9 @@ export default function InteractiveMapV1() {
                   key={cityKey}
                   onClick={() => {
                     if (isActive) {
-                      // Deselect city: show its city pin again; remove location markers
                       setSelectedCity(null);
                       setSelectedLocation(null);
-                      clearLocationMarkers();
+                      addCityMarkers(provinceCities);
                     } else {
                       handleCitySelect(displayCity, locs);
                     }
