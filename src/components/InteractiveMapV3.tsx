@@ -2,35 +2,29 @@
 // IMPORTS AND EXTERNAL DEPENDENCIES
 // ================================================================================================
 
-// React hooks for component state and lifecycle management
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// Mapbox GL JS for interactive map functionality
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-// Turf.js geometry processing utilities
-import centroid from '@turf/centroid'; // Calculate geometric center of features
-import rewind from '@turf/rewind'; // Fix polygon winding order
-import cleanCoords from '@turf/clean-coords'; // Remove duplicate/invalid coordinates
-import union from '@turf/union'; // Merge overlapping polygons
+import centroid from '@turf/centroid';
+import rewind from '@turf/rewind';
+import cleanCoords from '@turf/clean-coords';
+import union from '@turf/union';
 
-// Internal hooks and utilities
-import { useLocations } from '@/hooks/useLocations'; // Custom hook for fetching location data
-import { supabase } from '@/integrations/supabase/client'; // Supabase client for API calls
+import { useLocations } from '@/hooks/useLocations';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Building2, RotateCcw, Star, Wifi, Coffee, Car, Users } from 'lucide-react';
 
 // ================================================================================================
-/** CONSTANTS AND CONFIGURATION */
+// CONSTANTS AND CONFIGURATION
 // ================================================================================================
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
-
-// Bounds that tightly contain Bulgaria (we'll use them to *derive* the true min zoom)
 const BG_BOUNDS = new mapboxgl.LngLatBounds([22.2, 41.1], [28.8, 44.4]);
 
 const PROVINCES = [
@@ -65,7 +59,7 @@ const PROVINCES = [
 ];
 
 // ================================================================================================
-// UTILITY FUNCTIONS
+// UTILITY
 // ================================================================================================
 
 const cleanCity = (s = '') =>
@@ -80,7 +74,7 @@ const formatCity = (s = '') =>
 const amenityIcons = { wifi: Wifi, coffee: Coffee, parking: Car, meeting: Users } as const;
 
 // ================================================================================================
-// GEOMETRY PROCESSING HELPER FUNCTIONS
+// GEOMETRY HELPERS
 // ================================================================================================
 
 type Ring = [number, number][];
@@ -172,13 +166,10 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
 }
 
 // ================================================================================================
-// MAIN INTERACTIVE MAP COMPONENT
+// MAIN COMPONENT
 // ================================================================================================
 
 export default function InteractiveMapV2() {
-  // ----------------------------------------------------------------------------------------------
-  // HOOKS AND STATE MANAGEMENT
-  // ----------------------------------------------------------------------------------------------
   const { locations } = useLocations();
   const navigate = useNavigate();
 
@@ -217,9 +208,7 @@ export default function InteractiveMapV2() {
   const [provincesGeo, setProvincesGeo] = useState<any>(null);
   const [worldMask, setWorldMask] = useState<any>(null);
 
-  // ----------------------------------------------------------------------------------------------
-  // COMPUTED VALUES
-  // ----------------------------------------------------------------------------------------------
+  // COMPUTED
   const provinceData = useMemo(() => {
     const map: Record<string, { locations: any[]; coordinates: [number, number] }> = {};
     PROVINCES.forEach((p) => {
@@ -237,9 +226,7 @@ export default function InteractiveMapV2() {
     return map;
   }, [locations]);
 
-  // ----------------------------------------------------------------------------------------------
-  // INITIALIZATION EFFECTS
-  // ----------------------------------------------------------------------------------------------
+  // INIT: token + geojson
   useEffect(() => {
     (async () => {
       try {
@@ -278,9 +265,7 @@ export default function InteractiveMapV2() {
     }
   }, [selectedRawName, provincesGeo]);
 
-  // ----------------------------------------------------------------------------------------------
-  // MARKER MANAGEMENT
-  // ----------------------------------------------------------------------------------------------
+  // MARKERS
   const clearMarkers = () => {
     markers.current.forEach((m) => m.remove());
     markers.current = [];
@@ -379,9 +364,7 @@ export default function InteractiveMapV2() {
     });
   }, [selectedLocation]);
 
-  // ----------------------------------------------------------------------------------------------
   // PROVINCE / CITY HANDLERS
-  // ----------------------------------------------------------------------------------------------
   const handleProvinceSelect = useCallback(
     (provinceName: string, centerGuess?: [number, number], zoomOverride?: number) => {
       const rec = PROVINCES.find((p) => p.name === provinceName) || PROVINCES.find((p) => p.nameEn === provinceName);
@@ -443,13 +426,10 @@ export default function InteractiveMapV2() {
     map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
   };
 
-  // ----------------------------------------------------------------------------------------------
-  // MAP INITIALIZATION + CAMERA LOCK PATTERN
-  // ----------------------------------------------------------------------------------------------
+  // MAP INIT + CAMERA LOCK
   useEffect(() => {
     if (!mapEl.current || !token || !provincesGeo) return;
 
-    // 1) Initialize WITHOUT maxBounds/minZoom (let us compute them precisely)
     map.current = new mapboxgl.Map({
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
@@ -463,7 +443,7 @@ export default function InteractiveMapV2() {
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // Province hover tooltip
+    // Tooltip
     const tooltip = document.createElement('div');
     tooltip.className = 'map-province-tooltip';
     tooltip.style.cssText = `
@@ -478,22 +458,20 @@ export default function InteractiveMapV2() {
     mapEl.current.appendChild(tooltip);
 
     map.current.on('load', () => {
-      // 2) Camera lock: fit Bulgaria, then freeze minZoom and bounds based on the resulting viewport
+      // Camera lock sequence
       map.current!.fitBounds(BG_BOUNDS, { padding: 24, duration: 0 });
 
       map.current!.once('idle', () => {
-        // Force wheel zoom to behave like the minus button (center-based)
+        // Center-based wheel zoom + finer wheel step
         map.current!.scrollZoom.enable();
-        // @ts-ignore older mapbox versions
-        if ((map.current!.scrollZoom as any).setAround) {
-          (map.current!.scrollZoom as any).setAround('center');
-        }
+        (map.current!.scrollZoom as any).setAround?.('center');
+        (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 600); // slightly finer than default
 
-        // Lock the *exact* min zoom that keeps Bulgaria fully visible
+        // Headroom so wheel can reach the fitted view (prevents 0.1–0.2 gap)
         const fittedZoom = map.current!.getZoom();
-        map.current!.setMinZoom(fittedZoom - 0.0001); // epsilon avoids last-step rounding block
+        map.current!.setMinZoom(fittedZoom - 0.3);
 
-        // Lock panning: use the CURRENT VIEWPORT as bounds, with a tiny pad to prevent jitter
+        // Tight panning lock around the current view (tiny pad to prevent jitter)
         const v = map.current!.getBounds().toArray();
         const pad = 0.01;
         map.current!.setMaxBounds([
@@ -535,6 +513,15 @@ export default function InteractiveMapV2() {
         paint: { 'line-color': '#ffffff', 'line-width': 2 },
       });
 
+      // 🔹 Invisible hit layer on top for reliable interactions
+      map.current!.addLayer({
+        id: 'provinces-hit',
+        type: 'fill',
+        source: 'provinces',
+        paint: { 'fill-color': '#000000', 'fill-opacity': 0.001 }
+      }); // added after outline => on top
+
+      // World mask (under provinces)
       const worldRing: Ring = [
         [-180, -85],
         [180, -85],
@@ -556,31 +543,90 @@ export default function InteractiveMapV2() {
           source: 'world-mask',
           paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
         },
-        'provinces-fill'
+        'provinces-fill' // ensure mask sits below provinces
       );
 
       if (worldMask) {
         (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
       }
+
+      // --- interactions (bind to HIT layer) ---
+      map.current!.on('mouseenter', 'provinces-hit', () => (map.current!.getCanvas().style.cursor = 'pointer'));
+      map.current!.on('mouseleave', 'provinces-hit', () => (map.current!.getCanvas().style.cursor = ''));
+
+      map.current!.on('mousemove', 'provinces-hit', (e: mapboxgl.MapLayerMouseEvent) => {
+        const f = e.features?.[0];
+        if (!f) return;
+
+        if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== f.id) {
+          map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
+        }
+
+        hoveredFeatureId.current = f.id as number | string;
+        map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: true });
+
+        const rawName = (f.properties as any).name || (f.properties as any).name_en;
+        const displayName =
+          PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
+
+        if (selectedRawNameRef.current && rawName === selectedRawNameRef.current) {
+          if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
+          return;
+        }
+
+        if (hoverTooltipRef.current) {
+          const { point } = e;
+          hoverTooltipRef.current.textContent = displayName;
+          hoverTooltipRef.current.style.left = `${point.x}px`;
+          hoverTooltipRef.current.style.top = `${point.y}px`;
+          hoverTooltipRef.current.style.opacity = '1';
+        }
+      });
+
+      map.current!.on('mouseleave', 'provinces-hit', () => {
+        if (hoveredFeatureId.current !== null) {
+          map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
+        }
+        hoveredFeatureId.current = null;
+        if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
+      });
+
+      map.current!.on('click', 'provinces-hit', (e) => {
+        const feat = e.features?.[0];
+        if (!feat) return;
+        const rawName = (feat.properties as any).name || (feat.properties as any).name_en;
+        const displayName = PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName;
+
+        if (selectedRawNameRef.current && selectedRawNameRef.current === rawName) {
+          resetView();
+          return;
+        }
+
+        setSelectedProvince(displayName);
+        setSelectedRawName(rawName);
+        const c = centroid(feat as any).geometry.coordinates as [number, number];
+        handleProvinceSelect(displayName, c, 9);
+      });
     });
 
-    // Recompute on resize ONLY if we're on the full-country view
+    // Recompute lock on resize only when at full-country view
     const onResize = () => {
       if (!map.current) return;
-      if (selectedProvinceRef.current || selectedCityRef.current) return; // don't disrupt focused views
+      if (selectedProvinceRef.current || selectedCityRef.current) return;
       map.current.fitBounds(BG_BOUNDS, { padding: 24, duration: 0 });
       const fittedZoom = map.current.getZoom();
-      map.current.setMinZoom(fittedZoom - 0.0001);
+      map.current.setMinZoom(fittedZoom - 0.3);
       const v = map.current.getBounds().toArray();
       const pad = 0.01;
       map.current.setMaxBounds([
         [v[0][0] - pad, v[0][1] - pad],
         [v[1][0] + pad, v[1][1] + pad]
       ]);
+      (map.current.scrollZoom as any).setAround?.('center');
+      (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 600);
     };
     map.current.on('resize', onResize);
 
-    // Cleanup
     return () => {
       if (hoverTooltipRef.current) {
         hoverTooltipRef.current.remove();
@@ -597,9 +643,7 @@ export default function InteractiveMapV2() {
     };
   }, [token, provincesGeo]);
 
-  // ----------------------------------------------------------------------------------------------
-  // DYNAMIC STYLE UPDATES
-  // ----------------------------------------------------------------------------------------------
+  // DYNAMIC STYLE
   useEffect(() => {
     if (!map.current?.getLayer('provinces-fill')) return;
     map.current.setPaintProperty('provinces-fill', 'fill-color', [
@@ -624,15 +668,13 @@ export default function InteractiveMapV2() {
     if (src) src.setData(worldMask as any);
   }, [worldMask]);
 
-  // ----------------------------------------------------------------------------------------------
   // UI HELPERS
-  // ----------------------------------------------------------------------------------------------
   const pluralize = (n: number, one: string, many: string) => (n === 1 ? one : many);
   const needsVav = (city: string | null) => {
     if (!city) return false;
     const ch = city.trim().charAt(0).toLowerCase();
     return ch === 'в' || ch === 'ф';
-    };
+  };
   const getMainImage = (loc: any) =>
     loc?.image || loc?.main_image_url || (Array.isArray(loc?.photos) && loc.photos[0]?.url) || null;
 
@@ -644,9 +686,7 @@ export default function InteractiveMapV2() {
     );
   }
 
-  // ----------------------------------------------------------------------------------------------
   // RENDER
-  // ----------------------------------------------------------------------------------------------
   return (
     <div className="bg-secondary/50 rounded-lg p-8">
       <div className="flex items-center justify-between mb-6">
