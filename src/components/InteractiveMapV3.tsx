@@ -322,7 +322,7 @@ export default function InteractiveMapV1() {
   };
 
   // Center-safe marker DOM: pin centered on coordinate, label positioned below
-  const createLabeledMarkerRoot = (labelText: string, countText?: string) => {
+  const createLabeledMarkerRoot = (labelText: string, countText?: string, labelAlwaysVisible = false) => {
     const root = document.createElement('div');
     // Root remains size-less so Mapbox's anchor math doesn't interfere
     root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
@@ -336,7 +336,7 @@ export default function InteractiveMapV1() {
       'transform:translate(-50%,-14px)', // Center horizontally, offset vertically so bubble sits on coordinate
       'display:flex',
       'flex-direction:column',
-      'align-items:center',             // keeps label perfectly centered under bubble
+      'align-items:center',             // keeps label perfectly centered under bubble  
       'pointer-events:auto',
     ].join(';');
 
@@ -372,6 +372,8 @@ export default function InteractiveMapV1() {
       'white-space:nowrap',
       'pointer-events:none',
       'text-align:center',
+      `opacity:${labelAlwaysVisible ? '1' : '0'}`, // Control initial visibility
+      'transition:opacity 0.2s ease',
     ].join(';');
 
     inner.appendChild(bubble);
@@ -432,7 +434,15 @@ export default function InteractiveMapV1() {
       const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
       const labelText = displayCity;
       const countText = String(locs.length);
-      const { root, bubble, label } = createLabeledMarkerRoot(labelText, countText);
+      
+      // Check if this city belongs to the selected province
+      const cleanedCity = cleanCity(displayCity);
+      const belongsToSelectedProvince = selectedProvince && PROVINCES.find(p => 
+        p.name === selectedProvince && p.searchTerms.some(term => cleanedCity.includes(term) || term.includes(cleanedCity))
+      );
+      
+      const labelAlwaysVisible = !!belongsToSelectedProvince;
+      const { root, bubble, label } = createLabeledMarkerRoot(labelText, countText, labelAlwaysVisible);
       root.dataset.type = 'city';
       styleMarker(bubble, false, 34);
       label.style.fontSize = '13px';
@@ -440,13 +450,15 @@ export default function InteractiveMapV1() {
       root.onmouseenter = () => {
         bubble.style.transform = 'scale(1.12)';
         root.style.zIndex = '100';
-        // Make label background solid for better readability
+        // Always show label on hover and make background solid for better readability
+        label.style.opacity = '1';
         label.style.background = 'rgba(0,0,0,.9)';
       };
       root.onmouseleave = () => {
         bubble.style.transform = 'scale(1)';
         root.style.zIndex = '2';
-        // Restore semi-transparent background
+        // Restore original opacity based on whether label should be always visible
+        label.style.opacity = labelAlwaysVisible ? '1' : '0';
         label.style.background = 'rgba(0,0,0,.65)';
       };
       root.addEventListener('click', (e) => {
