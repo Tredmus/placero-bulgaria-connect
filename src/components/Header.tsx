@@ -1,8 +1,8 @@
-import { Search, User, LogOut, Sparkles } from "lucide-react";
+import { User, LogOut, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
+import SearchDropdown from "@/components/SearchDropdown";
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -36,13 +36,7 @@ const Header = () => {
 
           {/* Search Bar */}
           <div className="hidden md:flex items-center space-x-2 flex-1 max-w-md mx-8">
-            <div className="relative flex-1 group">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 group-focus-within:text-primary transition-colors" />
-              <Input
-                placeholder="Търсете работни пространства..."
-                className="pl-10 placero-glass border-border/50 focus:border-primary/50 transition-all duration-300"
-              />
-            </div>
+            <SearchDropdown className="flex-1" />
           </div>
 
           {/* Navigation & Auth */}
@@ -94,13 +88,7 @@ const Header = () => {
 
         {/* Mobile Search */}
         <div className="md:hidden mt-4">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 group-focus-within:text-primary transition-colors" />
-            <Input
-              placeholder="Търсете работни пространства..."
-              className="pl-10 placero-glass border-border/50 focus:border-primary/50 transition-all duration-300"
-            />
-          </div>
+          <SearchDropdown />
         </div>
       </div>
     </header>
