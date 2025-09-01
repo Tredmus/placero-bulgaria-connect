@@ -349,10 +349,10 @@ export default function InteractiveMapV1() {
     });
   };
 
-  const addCityMarkers = (cityMap: Record<string, any[]>, hideSelectedCity = false) => {
+  const addCityMarkers = (cityMap: Record<string, any[]>, hiddenCityName?: string) => {
     if (!map.current) return;
     // Only clear markers if we're not preserving location markers
-    if (!hideSelectedCity || !selectedCityRef.current) {
+    if (!hiddenCityName) {
       clearMarkers();
     } else {
       // Remove only city markers, keep location markers
@@ -371,7 +371,7 @@ export default function InteractiveMapV1() {
       const displayCity = formatCity(key);
       
       // Hide the selected city pin to avoid collision with locations inside
-      if (hideSelectedCity && selectedCityRef.current === displayCity) {
+      if (hiddenCityName && hiddenCityName === displayCity) {
         return;
       }
       
@@ -397,7 +397,6 @@ export default function InteractiveMapV1() {
       markers.current.push(mk);
     });
   };
-
   useEffect(() => {
     Object.entries(markerById.current).forEach(([id, { bubble }]) => {
       const isSel = selectedLocation && String(selectedLocation.id) === id;
@@ -459,7 +458,7 @@ export default function InteractiveMapV1() {
     // First show appropriate city markers but hide the selected one
     if (selectedProvince) {
       // If province is selected, show province cities but hide selected
-      addCityMarkers(provinceCities, true);
+      addCityMarkers(provinceCities, city);
     } else {
       // If no province selected, show all cities but hide selected
       const allCityMap: Record<string, any[]> = {};
@@ -468,7 +467,7 @@ export default function InteractiveMapV1() {
         if (!c) return;
         (allCityMap[c] ||= []).push(l);
       });
-      addCityMarkers(allCityMap, true);
+      addCityMarkers(allCityMap, city);
     }
     
     // Then add location markers (after city markers so they don't get cleared)
