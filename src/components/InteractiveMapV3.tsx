@@ -594,10 +594,9 @@ export default function InteractiveMapV2() {
       bearing: 0,
       renderWorldCopies: false, // Prevent world wrapping
       maxZoom: 18,
-      scrollZoom: { around: 'center' }, // keeps zoom symmetric
       maxBounds: [
-        [22.2, 41.1],
-        [28.8, 44.4]
+        [7.247, 30.124],
+        [43.597, 54.213]
       ]
     });
 
