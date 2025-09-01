@@ -590,17 +590,18 @@ export default function InteractiveMapV2() {
       map.current!.fitBounds(BG_BOUNDS, { padding: 24, duration: 0 }); // ensure nice initial framing
 
       map.current!.once('idle', () => {
-        const DEFAULT_MIN = 6.5;
-
+        const DEFAULT_ZOOM = 6.5;
+        const MIN_ZOOM = 4.0; // Allow more zoom-out to see broader context
+        
         // Wheel behavior
         map.current!.scrollZoom.enable();
         (map.current!.scrollZoom as any).setAround?.('center');
-        (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 600);
+        (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 450); // Slightly faster zoom
 
-        // Padded bounds around Bulgaria so wheel isn't blocked at edges
+        // More generous bounds around Bulgaria for better zoom-out experience
         const sw = BG_BOUNDS.getSouthWest();
         const ne = BG_BOUNDS.getNorthEast();
-        const padRatio = 0.15; // 15% pad
+        const padRatio = 0.25; // Increased padding for better zoom-out
         const dx = (ne.lng - sw.lng) * padRatio;
         const dy = (ne.lat - sw.lat) * padRatio;
         map.current!.setMaxBounds([
@@ -608,16 +609,17 @@ export default function InteractiveMapV2() {
           [ne.lng + dx, ne.lat + dy]
         ]);
 
-        // Hard floor for both wheel & buttons
-        map.current!.setMinZoom(DEFAULT_MIN);
+        // Set proper min/max zoom levels
+        map.current!.setMinZoom(MIN_ZOOM);
+        map.current!.setMaxZoom(18);
 
-        // Snap to exact default view so both controls share the same floor
-        map.current!.easeTo({ center: [25.4858, 42.7339], zoom: DEFAULT_MIN, duration: 0 });
+        // Start at the default view
+        map.current!.easeTo({ center: [25.4858, 42.7339], zoom: DEFAULT_ZOOM, duration: 0 });
 
-        // Disable drag at min zoom (re-enable when zoomed in)
+        // Disable drag only at very low zoom levels
         const updateDragPan = () => {
           const z = map.current!.getZoom();
-          if (z <= DEFAULT_MIN + 1e-6) map.current!.dragPan.disable();
+          if (z <= MIN_ZOOM + 0.1) map.current!.dragPan.disable();
           else map.current!.dragPan.enable();
         };
         updateDragPan();
@@ -629,11 +631,11 @@ export default function InteractiveMapV2() {
     // Keep limits on resize (don’t refit camera unless you want to)
     const onResize = () => {
       if (!map.current) return;
-      const DEFAULT_MIN = 6.5;
+      const MIN_ZOOM = 4.0;
 
       const sw = BG_BOUNDS.getSouthWest();
       const ne = BG_BOUNDS.getNorthEast();
-      const padRatio = 0.15;
+      const padRatio = 0.25; // Match the increased padding
       const dx = (ne.lng - sw.lng) * padRatio;
       const dy = (ne.lat - sw.lat) * padRatio;
       map.current.setMaxBounds([
@@ -641,13 +643,13 @@ export default function InteractiveMapV2() {
         [ne.lng + dx, ne.lat + dy]
       ]);
 
-      map.current.setMinZoom(DEFAULT_MIN);
+      map.current.setMinZoom(MIN_ZOOM);
       (map.current.scrollZoom as any).setAround?.('center');
-      (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 600);
+      (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 450);
 
       // keep drag behavior consistent
       const z = map.current.getZoom();
-      if (z <= DEFAULT_MIN + 1e-6) map.current.dragPan.disable();
+      if (z <= MIN_ZOOM + 0.1) map.current.dragPan.disable();
       else map.current.dragPan.enable();
     };
     map.current.on('resize', onResize);
