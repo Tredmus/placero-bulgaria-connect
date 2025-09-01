@@ -586,58 +586,55 @@ export default function InteractiveMapV2() {
         handleProvinceSelect(displayName, c, 9);
       });
 
-      // ---------- CAMERA LOCK (identical floor for wheel & buttons) ----------
-      map.current!.fitBounds(BG_BOUNDS, { padding: 24, duration: 0, maxZoom: 6.5 });
-
-      map.current!.once('idle', () => {
-        const DEFAULT_MIN = 6.5;
-        const EPS = 1e-6;
-
-        // Wheel behavior
-        map.current!.scrollZoom.enable();
-        (map.current!.scrollZoom as any).setAround?.('center');
-        (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 600);
-
-        // Helper to compute padded bounds when needed
-        const getPaddedBounds = () => {
-          const sw = BG_BOUNDS.getSouthWest();
-          const ne = BG_BOUNDS.getNorthEast();
-          const pad = 0.15; // 15% pad
-          const dx = (ne.lng - sw.lng) * pad;
-          const dy = (ne.lat - sw.lat) * pad;
-          return [
-            [sw.lng - dx, sw.lat - dy],
-            [ne.lng + dx, ne.lat + dy]
-          ] as mapboxgl.LngLatBoundsLike;
-        };
-
-        // Hard min zoom is the default framing
-        map.current!.setMinZoom(DEFAULT_MIN);
-        map.current!.easeTo({ center: [25.4858, 42.7339], zoom: DEFAULT_MIN, duration: 0 });
-
-        // Toggle bounds/pan based on zoom so wheel can reach EXACT floor
-        const updateConstraints = () => {
-          const z = map.current!.getZoom();
-          if (z <= DEFAULT_MIN + EPS) {
-            map.current!.dragPan.disable();
-            (map.current!.keyboard as any)?.disable?.();
-            // remove bounds at floor so wheel isn't blocked before reaching it
-            map.current!.setMaxBounds(null);
-            // snap tiny epsilon to the exact floor if we're within 0.3 above it
-            if (z > DEFAULT_MIN && z < DEFAULT_MIN + 0.3) {
-              map.current!.easeTo({ zoom: DEFAULT_MIN, duration: 0 });
+      // ---------- CAMERA LOCK (viewport-fitted floor; wheel == buttons) ----------
+        map.current!.once('idle', () => {
+          const EPS = 1e-6;
+        
+          // Compute the exact camera that fits Bulgaria for THIS viewport
+          const cam = map.current!.cameraForBounds(BG_BOUNDS, { padding: 24 })!;
+          const DEFAULT_MIN = cam.zoom;
+        
+          // Snap to that exact view and make it the hard floor
+          map.current!.jumpTo({ center: cam.center, zoom: DEFAULT_MIN, bearing: 0, pitch: 0 });
+          map.current!.setMinZoom(DEFAULT_MIN);
+        
+          // Wheel behavior
+          map.current!.scrollZoom.enable();
+          (map.current!.scrollZoom as any).setAround?.('center');
+          (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 600);
+        
+          // Build padded bounds FROM the actual min-zoom viewport
+          const vb = map.current!.getBounds().toArray();
+          const padLng = (vb[1][0] - vb[0][0]) * 0.12; // 12% pad
+          const padLat = (vb[1][1] - vb[0][1]) * 0.12;
+          const PADDED_FROM_VIEW: mapboxgl.LngLatBoundsLike = [
+            [vb[0][0] - padLng, vb[0][1] - padLat],
+            [vb[1][0] + padLng, vb[1][1] + padLat]
+          ];
+        
+          // Toggle bounds/pan by zoom so the wheel can hit the floor exactly
+          const updateConstraints = () => {
+            const z = map.current!.getZoom();
+            if (z <= DEFAULT_MIN + EPS) {
+              map.current!.dragPan.disable();
+              (map.current!.keyboard as any)?.disable?.();
+              map.current!.setMaxBounds(null); // no bounds at the floor
+              // hard-snap tiny residuals
+              if (z > DEFAULT_MIN && z < DEFAULT_MIN + 0.25) {
+                map.current!.easeTo({ zoom: DEFAULT_MIN, duration: 0 });
+              }
+            } else {
+              map.current!.dragPan.enable();
+              (map.current!.keyboard as any)?.enable?.();
+              map.current!.setMaxBounds(PADDED_FROM_VIEW);
             }
-          } else {
-            map.current!.dragPan.enable();
-            (map.current!.keyboard as any)?.enable?.();
-            map.current!.setMaxBounds(getPaddedBounds());
-          }
-        };
+          };
+        
+          updateConstraints();
+          map.current!.on('zoom', updateConstraints);
+        });
+        // --------------------------------------------------------------------------
 
-        updateConstraints();
-        map.current!.on('zoom', updateConstraints);
-      });
-      // -----------------------------------------------------------------------
     });
 
     // Keep limits on resize
