@@ -212,6 +212,7 @@ export default function InteractiveMapV1() {
   const [token, setToken] = useState<string>('');
   const [provincesGeo, setProvincesGeo] = useState<any>(null);
   const [worldMask, setWorldMask] = useState<any>(null);
+  const [mapReady, setMapReady] = useState<boolean>(false);
 
   // COMPUTED
   const provinceData = useMemo(() => {
@@ -375,21 +376,19 @@ export default function InteractiveMapV1() {
     });
   }, [selectedLocation]);
 
-  // Show all city pins when locations are loaded
+  // Show all city pins when locations and map are ready
   useEffect(() => {
-    if (!locations.length || !map.current) return;
+    if (!locations.length || !mapReady || selectedProvince) return;
     
-    // If no province is selected, show all city pins
-    if (!selectedProvince) {
-      const allCityMap: Record<string, any[]> = {};
-      locations.forEach((l) => {
-        const c = cleanCity(l.city || '');
-        if (!c) return;
-        (allCityMap[c] ||= []).push(l);
-      });
-      addCityMarkers(allCityMap);
-    }
-  }, [locations, selectedProvince]);
+    // Show all city pins when no province selected
+    const allCityMap: Record<string, any[]> = {};
+    locations.forEach((l) => {
+      const c = cleanCity(l.city || '');
+      if (!c) return;
+      (allCityMap[c] ||= []).push(l);
+    });
+    addCityMarkers(allCityMap);
+  }, [locations, mapReady, selectedProvince]);
 
   // PROVINCE / CITY HANDLERS
   const handleProvinceSelect = useCallback(
@@ -632,6 +631,9 @@ export default function InteractiveMapV1() {
       if (worldMask) {
         (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
       }
+
+      // Mark map as ready
+      setMapReady(true);
 
       // Interactions (bind to hit layer)
       map.current!.on('mouseenter', 'provinces-hit', () => (map.current!.getCanvas().style.cursor = 'pointer'));
