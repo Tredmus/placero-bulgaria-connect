@@ -169,7 +169,7 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
 // MAIN COMPONENT
 // ================================================================================================
 
-export default function InteractiveMapV2() {
+export default function InteractiveMapV1() {
   const { locations } = useLocations();
   const navigate = useNavigate();
 
@@ -282,11 +282,11 @@ export default function InteractiveMapV2() {
     bubble.style.height = `${size}px`;
     bubble.style.borderRadius = '50%';
     bubble.style.border = '2px solid #fff';
-    bubble.style.boxShadow = '0 2px 8px rgba(16,185,129,.35)';
+    bubble.style.boxShadow = '0 2px 8px rgba(239,68,68,.35)';
     bubble.style.cursor = 'pointer';
     bubble.style.transition = 'transform .12s ease';
     bubble.style.transformOrigin = 'center';
-    bubble.style.background = isSelected ? '#22d3ee' : '#10b981';
+    bubble.style.background = isSelected ? '#dc2626' : '#ef4444';
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
 
@@ -296,7 +296,7 @@ export default function InteractiveMapV2() {
     const label = document.createElement('div');
     label.textContent = labelText || '';
     label.style.cssText =
-      'position:absolute;left:50%;bottom:8px;transform:translate(-15%,0);padding:2px 6px;border-radius:6px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.14);white-space:nowrap;pointer-events:none;';
+      'position:absolute;left:50%;bottom:8px;transform:translate(-50%,0);padding:2px 6px;border-radius:6px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.14);white-space:nowrap;pointer-events:none;';
     root.appendChild(label);
     const bubble = document.createElement('div');
     bubble.style.position = 'absolute';
@@ -334,16 +334,22 @@ export default function InteractiveMapV2() {
     });
   };
 
-  const addCityMarkers = (cityMap: Record<string, any[]>) => {
+  const addCityMarkers = (cityMap: Record<string, any[]>, hideSelectedCity = false) => {
     if (!map.current) return;
     clearMarkers();
     Object.entries(cityMap).forEach(([key, locs]) => {
+      const displayCity = formatCity(key);
+      
+      // Hide the selected city pin to avoid collision with locations inside
+      if (hideSelectedCity && selectedCityRef.current === displayCity) {
+        return;
+      }
+      
       const valid = locs.filter((l) => l.latitude && l.longitude);
       if (!valid.length) return;
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
       const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
-      const displayCity = formatCity(key);
-      const labelText = `${displayCity} — ${locs.length} ${locs.length === 1 ? 'помещение' : 'помещения'}`;
+      const labelText = `${displayCity} - ${locs.length}`;
       const { root, bubble, label } = createLabeledMarkerRoot(labelText);
       styleMarker(bubble, false, 34);
       label.style.fontSize = '13px';
@@ -368,6 +374,22 @@ export default function InteractiveMapV2() {
       styleMarker(bubble, isSel, 28);
     });
   }, [selectedLocation]);
+
+  // Show all city pins when locations are loaded
+  useEffect(() => {
+    if (!locations.length || !map.current) return;
+    
+    // If no province is selected, show all city pins
+    if (!selectedProvince) {
+      const allCityMap: Record<string, any[]> = {};
+      locations.forEach((l) => {
+        const c = cleanCity(l.city || '');
+        if (!c) return;
+        (allCityMap[c] ||= []).push(l);
+      });
+      addCityMarkers(allCityMap);
+    }
+  }, [locations, selectedProvince]);
 
   // PROVINCE / CITY HANDLERS
   const handleProvinceSelect = useCallback(
@@ -406,6 +428,22 @@ export default function InteractiveMapV2() {
     setSelectedLocation(null);
     setCityLocations(locs);
     addLocationMarkers(locs);
+    
+    // Show appropriate city markers but hide the selected one
+    if (selectedProvince) {
+      // If province is selected, show province cities but hide selected
+      addCityMarkers(provinceCities, true);
+    } else {
+      // If no province selected, show all cities but hide selected
+      const allCityMap: Record<string, any[]> = {};
+      locations.forEach((l) => {
+        const c = cleanCity(l.city || '');
+        if (!c) return;
+        (allCityMap[c] ||= []).push(l);
+      });
+      addCityMarkers(allCityMap, true);
+    }
+    
     const valid = locs.filter((l) => l.latitude && l.longitude);
     if (valid.length) {
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
@@ -427,7 +465,16 @@ export default function InteractiveMapV2() {
       hoveredFeatureId.current = null;
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-    clearMarkers();
+    
+    // Show all city pins when resetting
+    const allCityMap: Record<string, any[]> = {};
+    locations.forEach((l) => {
+      const c = cleanCity(l.city || '');
+      if (!c) return;
+      (allCityMap[c] ||= []).push(l);
+    });
+    addCityMarkers(allCityMap);
+    
     // snap to the computed floor
     map.current?.easeTo({
       center: defaultCenterRef.current as mapboxgl.LngLatLike,
@@ -905,6 +952,15 @@ export default function InteractiveMapV2() {
                       setSelectedCity(null);
                       setSelectedLocation(null);
                       addCityMarkers(provinceCities);
+                      // Return to province view when toggling off a city
+                      if (selectedProvince && provinceData[selectedProvince]) {
+                        map.current?.flyTo({ 
+                          center: provinceData[selectedProvince].coordinates, 
+                          zoom: 9, 
+                          pitch: 0, 
+                          duration: 800 
+                        });
+                      }
                     } else {
                       handleCitySelect(displayCity, locs);
                     }
