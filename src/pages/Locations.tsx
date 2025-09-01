@@ -112,7 +112,7 @@ const Locations = () => {
         <>
           <div className="mb-4">
             <p className="text-muted-foreground">
-              {locations.length} workspace{locations.length !== 1 ? 's' : ''} found
+              {locations.length} работни места{locations.length !== 1 ? '' : ''} намерени
             </p>
           </div>
           

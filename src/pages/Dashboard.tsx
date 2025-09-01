@@ -175,16 +175,16 @@ export default function Dashboard() {
       if (error) throw error;
 
       toast({
-        title: "Success!",
-        description: `Item ${action} successfully.`
+        title: "Успех!",
+        description: `Елементът е ${action === 'approved' ? 'одобрен' : 'отхвърлен'} успешно.`
       });
 
       fetchPendingItems();
     } catch (error) {
       console.error(`Error ${action} item:`, error);
       toast({
-        title: "Error",
-        description: `Failed to ${action} item.`,
+        title: "Грешка",
+        description: `Неуспешно ${action === 'approved' ? 'одобряване' : 'отхвърляне'} на елемента.`,
         variant: "destructive"
       });
     }
@@ -193,8 +193,8 @@ export default function Dashboard() {
   const handleDeleteCompany = async (companyId: string) => {
     setConfirmDialog({
       open: true,
-      title: 'Delete Company',
-      description: 'Are you sure you want to delete this company? This action cannot be undone and will also delete all associated locations and articles.',
+      title: 'Изтриване на компания',
+      description: 'Сигурни ли сте, че искате да изтриете тази компания? Това действие не може да бъде отменено и ще изтрие също всички свързани локации и статии.',
       onConfirm: async () => {
         try {
           const { error } = await supabase
@@ -205,16 +205,16 @@ export default function Dashboard() {
           if (error) throw error;
 
           toast({
-            title: "Success!",
-            description: "Company deleted successfully."
+            title: "Успех!",
+            description: "Компанията е изтрита успешно."
           });
 
           fetchUserSpaces();
         } catch (error) {
           console.error('Error deleting company:', error);
           toast({
-            title: "Error",
-            description: "Failed to delete company.",
+            title: "Грешка",
+            description: "Неуспешно изтриване на компанията.",
             variant: "destructive"
           });
         }
@@ -226,8 +226,8 @@ export default function Dashboard() {
   const handleDeleteLocation = async (locationId: string) => {
     setConfirmDialog({
       open: true,
-      title: 'Delete Location',
-      description: 'Are you sure you want to delete this location? This action cannot be undone.',
+      title: 'Изтриване на локация',
+      description: 'Сигурни ли сте, че искате да изтриете тази локация? Това действие не може да бъде отменено.',
       onConfirm: async () => {
         try {
           const { error } = await supabase
@@ -238,16 +238,16 @@ export default function Dashboard() {
           if (error) throw error;
 
           toast({
-            title: "Success!",
-            description: "Location deleted successfully."
+            title: "Успех!",
+            description: "Локацията е изтрита успешно."
           });
 
           fetchUserSpaces();
         } catch (error) {
           console.error('Error deleting location:', error);
           toast({
-            title: "Error",
-            description: "Failed to delete location.",
+            title: "Грешка",
+            description: "Неуспешно изтриване на локацията.",
             variant: "destructive"
           });
         }
@@ -259,8 +259,8 @@ export default function Dashboard() {
   const handleDeleteArticle = async (articleId: string) => {
     setConfirmDialog({
       open: true,
-      title: 'Delete Article',
-      description: 'Are you sure you want to delete this article? This action cannot be undone.',
+      title: 'Изтриване на статия',
+      description: 'Сигурни ли сте, че искате да изтриете тази статия? Това действие не може да бъде отменено.',
       onConfirm: async () => {
         try {
           const { error } = await supabase
@@ -271,16 +271,16 @@ export default function Dashboard() {
           if (error) throw error;
 
           toast({
-            title: "Success!",
-            description: "Article deleted successfully."
+            title: "Успех!",
+            description: "Статията е изтрита успешно."
           });
 
           fetchUserSpaces();
         } catch (error) {
           console.error('Error deleting article:', error);
           toast({
-            title: "Error",
-            description: "Failed to delete article.",
+            title: "Грешка",
+            description: "Неуспешно изтриване на статията.",
             variant: "destructive"
           });
         }
@@ -409,17 +409,17 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <h3 className="text-2xl font-bold mb-2 text-foreground placero-heading">
-                        🎉 Great job! Your workspace is ready
+                        🎉 Страхотна работа! Вашето работно пространство е готово
                       </h3>
                       <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                        Now choose a plan to unlock premium features and get more visibility for your coworking space.
+                        Сега изберете план, за да отключите премиум функции и получите повече видимост за вашето coworking пространство.
                       </p>
                       <Button 
                         size="lg" 
                         className="placero-button-primary shadow-[var(--shadow-glow)]"
                         onClick={() => setActiveTab('plans')}
                       >
-                        Choose Your Plan ✨
+                        Изберете вашия план ✨
                       </Button>
                     </div>
                   </CardContent>

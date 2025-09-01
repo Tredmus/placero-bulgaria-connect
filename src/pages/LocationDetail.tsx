@@ -70,12 +70,12 @@ const LocationDetail = () => {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8 text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-4">Location Not Found</h1>
-          <p className="text-muted-foreground mb-6">{error || "The location you're looking for doesn't exist."}</p>
+          <h1 className="text-2xl font-bold text-foreground mb-4">Локацията не е намерена</h1>
+          <p className="text-muted-foreground mb-6">{error || "Локацията, която търсите не съществува."}</p>
           <Link to="/locations">
             <Button>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Locations
+              Назад към локациите
             </Button>
           </Link>
         </div>
@@ -90,7 +90,7 @@ const LocationDetail = () => {
           <Link to="/locations">
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Locations
+              Назад към локациите
             </Button>
           </Link>
         </div>
@@ -161,14 +161,14 @@ const LocationDetail = () => {
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-foreground">Description</h3>
+              <h3 className="text-xl font-semibold text-foreground">Описание</h3>
               <p className="text-muted-foreground leading-relaxed">
-                {location.description || "A great workspace for your productivity needs."}
+                {location.description || "Отлично работно място за вашите продуктивни нужди."}
               </p>
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-foreground">Amenities</h3>
+              <h3 className="text-xl font-semibold text-foreground">Удобства</h3>
               <div className="grid grid-cols-2 gap-3">
                 {location.amenities?.map((amenity) => {
                   const IconComponent = amenityIcons[amenity as keyof typeof amenityIcons];
@@ -184,29 +184,29 @@ const LocationDetail = () => {
 
             <Card>
               <CardContent className="p-6">
-                <h3 className="text-xl font-semibold text-foreground mb-4">Pricing</h3>
+                <h3 className="text-xl font-semibold text-foreground mb-4">Цени</h3>
                 <div className="space-y-3">
                   {location.price_day && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Daily rate:</span>
+                      <span className="text-muted-foreground">Дневна тарифа:</span>
                       <span className="font-semibold text-foreground">{location.price_day}лв/ден</span>
                     </div>
                   )}
                   {location.price_week && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Weekly rate:</span>
+                      <span className="text-muted-foreground">Седмична тарифа:</span>
                       <span className="font-semibold text-foreground">{location.price_week}лв/седмица</span>
                     </div>
                   )}
                   {location.price_month && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Monthly rate:</span>
+                      <span className="text-muted-foreground">Месечна тарифа:</span>
                       <span className="font-semibold text-foreground">{location.price_month}лв/месец</span>
                     </div>
                   )}
                 </div>
                 <Button className="w-full mt-6">
-                  Contact for Booking
+                  Свържете се за резервация
                 </Button>
               </CardContent>
             </Card>
