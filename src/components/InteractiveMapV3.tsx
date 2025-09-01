@@ -586,87 +586,39 @@ export default function InteractiveMapV2() {
         handleProvinceSelect(displayName, c, 9);
       });
 
-      // ---------- CAMERA LOCK (viewport-fitted floor; wheel == buttons) ----------
-        map.current!.once('idle', () => {
-          const EPS = 1e-6;
-        
-          // Compute the exact camera that fits Bulgaria for THIS viewport
-          const cam = map.current!.cameraForBounds(BG_BOUNDS, { padding: 24 })!;
-          const DEFAULT_MIN = cam.zoom;
-        
-          // Snap to that exact view and make it the hard floor
-          map.current!.jumpTo({ center: cam.center, zoom: DEFAULT_MIN, bearing: 0, pitch: 0 });
-          map.current!.setMinZoom(DEFAULT_MIN);
-        
-          // Wheel behavior
-          map.current!.scrollZoom.enable();
-          (map.current!.scrollZoom as any).setAround?.('center');
-          (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 600);
-        
-          // Build padded bounds FROM the actual min-zoom viewport
-          const vb = map.current!.getBounds().toArray();
-          const padLng = (vb[1][0] - vb[0][0]) * 0.12; // 12% pad
-          const padLat = (vb[1][1] - vb[0][1]) * 0.12;
-          const PADDED_FROM_VIEW: mapboxgl.LngLatBoundsLike = [
-            [vb[0][0] - padLng, vb[0][1] - padLat],
-            [vb[1][0] + padLng, vb[1][1] + padLat]
-          ];
-        
-          // Toggle bounds/pan by zoom so the wheel can hit the floor exactly
-          const updateConstraints = () => {
-            const z = map.current!.getZoom();
-            if (z <= DEFAULT_MIN + EPS) {
-              map.current!.dragPan.disable();
-              (map.current!.keyboard as any)?.disable?.();
-              map.current!.setMaxBounds(null); // no bounds at the floor
-              // hard-snap tiny residuals
-              if (z > DEFAULT_MIN && z < DEFAULT_MIN + 0.25) {
-                map.current!.easeTo({ zoom: DEFAULT_MIN, duration: 0 });
-              }
-            } else {
-              map.current!.dragPan.enable();
-              (map.current!.keyboard as any)?.enable?.();
-              map.current!.setMaxBounds(PADDED_FROM_VIEW);
-            }
-          };
-        
-          updateConstraints();
-          map.current!.on('zoom', updateConstraints);
-        });
-        // --------------------------------------------------------------------------
+      // Simple zoom constraints like other map versions
+      map.current!.scrollZoom.enable();
+      (map.current!.scrollZoom as any).setAround?.('center');
+      (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 600);
+      map.current!.setMinZoom(6.5);
+
+      // Set up zoom-based constraints
+      const updateConstraints = () => {
+        if (!map.current) return;
+        const z = map.current.getZoom();
+        if (z <= 6.5 + 0.001) {
+          map.current.dragPan.disable();
+          (map.current.keyboard as any)?.disable?.();
+          map.current.setMaxBounds(null);
+        } else {
+          const sw = BG_BOUNDS.getSouthWest();
+          const ne = BG_BOUNDS.getNorthEast();
+          const pad = 0.25;
+          const dx = (ne.lng - sw.lng) * pad;
+          const dy = (ne.lat - sw.lat) * pad;
+          map.current.setMaxBounds([
+            [sw.lng - dx, sw.lat - dy],
+            [ne.lng + dx, ne.lat + dy]
+          ]);
+          map.current.dragPan.enable();
+          (map.current.keyboard as any)?.enable?.();
+        }
+      };
+
+      updateConstraints();
+      map.current!.on('zoom', updateConstraints);
 
     });
-
-    // Keep limits on resize
-    const onResize = () => {
-      if (!map.current) return;
-      const DEFAULT_MIN = 6.5;
-      const EPS = 1e-6;
-
-      const z = map.current.getZoom();
-      if (z <= DEFAULT_MIN + EPS) {
-        map.current.dragPan.disable();
-        (map.current.keyboard as any)?.disable?.();
-        map.current.setMaxBounds(null);
-      } else {
-        const sw = BG_BOUNDS.getSouthWest();
-        const ne = BG_BOUNDS.getNorthEast();
-        const pad = 0.15;
-        const dx = (ne.lng - sw.lng) * pad;
-        const dy = (ne.lat - sw.lat) * pad;
-        map.current.setMaxBounds([
-          [sw.lng - dx, sw.lat - dy],
-          [ne.lng + dx, ne.lat + dy]
-        ]);
-        map.current.dragPan.enable();
-        (map.current.keyboard as any)?.enable?.();
-      }
-
-      map.current.setMinZoom(DEFAULT_MIN);
-      (map.current.scrollZoom as any).setAround?.('center');
-      (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 600);
-    };
-    map.current.on('resize', onResize);
 
     return () => {
       if (hoverTooltipRef.current) {
@@ -677,7 +629,6 @@ export default function InteractiveMapV2() {
       markers.current = [];
       markerById.current = {};
       if (map.current) {
-        map.current.off('resize', onResize);
         map.current.remove();
       }
       map.current = null;
