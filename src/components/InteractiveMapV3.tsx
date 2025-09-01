@@ -586,13 +586,15 @@ export default function InteractiveMapV2() {
         handleProvinceSelect(displayName, c, 9);
       });
 
-      // Simple zoom constraints like other map versions
+      // Set up zoom controls without automatic recalculation
       map.current!.scrollZoom.enable();
       (map.current!.scrollZoom as any).setAround?.('center');
       (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 600);
-      map.current!.setMinZoom(6.5);
+      
+      // Set a lower minimum zoom to allow proper zoom out
+      map.current!.setMinZoom(4.0);
 
-      // Set up zoom-based constraints
+      // Set up zoom-based constraints 
       const updateConstraints = () => {
         if (!map.current) return;
         const z = map.current.getZoom();
@@ -607,7 +609,7 @@ export default function InteractiveMapV2() {
           const dx = (ne.lng - sw.lng) * pad;
           const dy = (ne.lat - sw.lat) * pad;
           map.current.setMaxBounds([
-            [sw.lng - dx, sw.lat - dy],
+            [sw.lng - dx, sw.lat - dy], 
             [ne.lng + dx, ne.lat + dy]
           ]);
           map.current.dragPan.enable();
