@@ -2,19 +2,23 @@
 // IMPORTS AND EXTERNAL DEPENDENCIES
 // ================================================================================================
 
+// React hooks for component state and lifecycle management
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// Mapbox GL JS for interactive map functionality
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-import centroid from '@turf/centroid';
-import rewind from '@turf/rewind';
-import cleanCoords from '@turf/clean-coords';
-import union from '@turf/union';
+// Turf.js geometry processing utilities
+import centroid from '@turf/centroid'; // Calculate geometric center of features
+import rewind from '@turf/rewind'; // Fix polygon winding order
+import cleanCoords from '@turf/clean-coords'; // Remove duplicate/invalid coordinates
+import union from '@turf/union'; // Merge overlapping polygons
 
-import { useLocations } from '@/hooks/useLocations';
-import { supabase } from '@/integrations/supabase/client';
+// Internal hooks and utilities
+import { useLocations } from '@/hooks/useLocations'; // Custom hook for fetching location data
+import { supabase } from '@/integrations/supabase/client'; // Supabase client for API calls
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,9 +28,11 @@ import { MapPin, Building2, RotateCcw, Star, Wifi, Coffee, Car, Users } from 'lu
 // CONSTANTS AND CONFIGURATION
 // ================================================================================================
 
+// Path to Bulgaria provinces GeoJSON data file
 const GEOJSON_URL = '/data/bg_provinces.geojson';
-const BG_BOUNDS = new mapboxgl.LngLatBounds([22.2, 41.1], [28.8, 44.4]);
 
+// Bulgarian provinces configuration with Cyrillic names, English names, and search terms
+// Used to match location data with geographic boundaries and enable location filtering
 const PROVINCES = [
   { name: 'София Град', nameEn: 'Sofia Grad', searchTerms: ['софия', 'sofia'] },
   { name: 'София Област', nameEn: 'Sofia Oblast', searchTerms: ['софия', 'sofia'] },
@@ -59,26 +65,36 @@ const PROVINCES = [
 ];
 
 // ================================================================================================
-// UTILITY
+// UTILITY FUNCTIONS
 // ================================================================================================
 
+// Clean city names by removing suffixes like "област" and normalizing format
 const cleanCity = (s = '') =>
   s.toLowerCase().replace(/област$/, '').replace(/region$/, '').replace(/,.*$/, '').trim();
 
+// Format city names with proper capitalization
 const formatCity = (s = '') =>
   s
     .split(/\s+/)
     .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
     .join(' ');
 
+// Map amenity names to their corresponding Lucide React icons
 const amenityIcons = { wifi: Wifi, coffee: Coffee, parking: Car, meeting: Users } as const;
 
 // ================================================================================================
-// GEOMETRY HELPERS
+// GEOMETRY PROCESSING HELPER FUNCTIONS
 // ================================================================================================
 
+// Represents a polygon ring as an array of coordinate pairs [longitude, latitude]
 type Ring = [number, number][];
 
+/**
+ * Normalizes and cleans a GeoJSON FeatureCollection
+ * - Filters for valid Polygon and MultiPolygon features only
+ * - Cleans duplicate coordinates and fixes polygon winding order
+ * - Returns a properly formatted GeoJSON FeatureCollection
+ */
 function normalizeFC(raw: any) {
   if (!raw || raw.type !== 'FeatureCollection') {
     return { type: 'FeatureCollection', features: [] as any[] };
@@ -91,6 +107,7 @@ function normalizeFC(raw: any) {
     .map((f: any) => {
       let g = cleanCoords(f, { mutate: false }) as any;
       try {
+        // Fix polygon winding order to ensure proper rendering
         g = rewind(g, { reverse: false, mutate: false });
       } catch {}
       return g;
@@ -98,20 +115,30 @@ function normalizeFC(raw: any) {
   return { type: 'FeatureCollection', features };
 }
 
+/**
+ * Dissolves (merges) multiple polygon features into a single unified geometry
+ * Used to combine province boundaries into a single shape for masking
+ */
 function dissolve(features: any[]) {
   if (!features.length) return null;
   let acc = features[0];
   for (let i = 1; i < features.length; i++) {
     try {
+      // Use Turf.js union to merge overlapping polygons
       acc = union(acc, features[i]) as any;
     } catch {}
   }
   try {
+    // Clean and fix the final merged geometry
     acc = rewind(cleanCoords(acc, { mutate: false }) as any, { reverse: false, mutate: false });
   } catch {}
   return acc;
 }
 
+/**
+ * Extracts outer rings from polygon geometries
+ * Returns the exterior boundaries of polygons (ignoring holes)
+ */
 function outerRings(geom: any): Ring[] {
   const out: Ring[] = [];
   if (!geom) return out;
@@ -123,7 +150,16 @@ function outerRings(geom: any): Ring[] {
   return out;
 }
 
+/**
+ * Creates a "donut mask" geometry that covers the entire world except for specific provinces
+ * This is used to darken areas outside Bulgaria or outside a selected province
+ * 
+ * @param provincesFC - The Bulgaria provinces FeatureCollection
+ * @param rawName - Name of specific province to highlight (null = highlight all Bulgaria)
+ * @returns A GeoJSON feature that masks everything except the specified area
+ */
 function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
+  // World boundary rectangle covering all possible map coordinates
   const worldRing: Ring = [
     [-180, -85],
     [180, -85],
@@ -133,6 +169,7 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
   ];
 
   if (!rawName) {
+    // No specific province selected - mask everything except all of Bulgaria
     const dissolvedAll = dissolve(provincesFC.features);
     const holes = outerRings(dissolvedAll?.geometry);
     let mask: any = {
@@ -146,6 +183,7 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
     return mask;
   }
 
+  // Specific province selected - mask everything except that province
   const parts = provincesFC.features.filter((f: any) => {
     const nm = f.properties?.name ?? f.properties?.name_en;
     return nm === rawName;
@@ -166,20 +204,27 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
 }
 
 // ================================================================================================
-// MAIN COMPONENT
+// MAIN INTERACTIVE MAP COMPONENT
 // ================================================================================================
 
 export default function InteractiveMapV2() {
+  // ================================================================================================
+  // HOOKS AND STATE MANAGEMENT
+  // ================================================================================================
+  
+  // Get location data from custom hook
   const { locations } = useLocations();
   const navigate = useNavigate();
 
-  const mapEl = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const markers = useRef<mapboxgl.Marker[]>([]);
+  // Map DOM and instance refs - these persist across re-renders
+  const mapEl = useRef<HTMLDivElement>(null); // Reference to map container div
+  const map = useRef<mapboxgl.Map | null>(null); // Mapbox GL JS map instance
+  const markers = useRef<mapboxgl.Marker[]>([]); // Array of all map markers
   const markerById = useRef<Record<string, { marker: mapboxgl.Marker; bubble: HTMLDivElement }>>({});
-  const hoverTooltipRef = useRef<HTMLDivElement | null>(null);
-  const hoveredFeatureId = useRef<number | string | null>(null);
+  const hoverTooltipRef = useRef<HTMLDivElement | null>(null); // Province hover tooltip
+  const hoveredFeatureId = useRef<number | string | null>(null); // Currently hovered province
 
+  // Selection state - tracks what the user has selected
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const selectedProvinceRef = useRef<string | null>(null);
   useEffect(() => {
@@ -193,31 +238,39 @@ export default function InteractiveMapV2() {
   }, [selectedRawName]);
 
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
-  const selectedCityRef = useRef<string | null>(null);
-  useEffect(() => {
-    selectedCityRef.current = selectedCity;
-  }, [selectedCity]);
-
   const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
 
+  // Data state - processed location data for display
   const [provinceCities, setProvinceCities] = useState<Record<string, any[]>>({});
   const [provinceLocations, setProvinceLocations] = useState<any[]>([]);
   const [cityLocations, setCityLocations] = useState<any[]>([]);
 
-  const [token, setToken] = useState<string>('');
-  const [provincesGeo, setProvincesGeo] = useState<any>(null);
-  const [worldMask, setWorldMask] = useState<any>(null);
+  // Map configuration state
+  const [token, setToken] = useState<string>(''); // Mapbox access token
+  const [provincesGeo, setProvincesGeo] = useState<any>(null); // Bulgaria GeoJSON data
+  const [worldMask, setWorldMask] = useState<any>(null); // Masking geometry
 
-  // COMPUTED
+  // ================================================================================================
+  // COMPUTED VALUES
+  // ================================================================================================
+  
+  /**
+   * Pre-processes location data by province
+   * - Filters locations by province based on city names and search terms
+   * - Calculates average coordinates for each province
+   * - Only includes provinces that have locations
+   */
   const provinceData = useMemo(() => {
     const map: Record<string, { locations: any[]; coordinates: [number, number] }> = {};
     PROVINCES.forEach((p) => {
+      // Filter locations that match this province's search terms
       const locs = locations.filter((l) => {
         const c = cleanCity(l.city || '');
         return p.searchTerms.some((t) => c.includes(t) || t.includes(c));
       });
       const valid = locs.filter((l) => l.latitude && l.longitude);
       if (valid.length) {
+        // Calculate centroid of all locations in this province
         const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
         const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
         map[p.name] = { locations: locs, coordinates: [lng, lat] };
@@ -226,7 +279,14 @@ export default function InteractiveMapV2() {
     return map;
   }, [locations]);
 
-  // INIT: token + geojson
+  // ================================================================================================
+  // INITIALIZATION EFFECTS
+  // ================================================================================================
+  
+  /**
+   * Fetch Mapbox access token from Supabase Edge Function
+   * Falls back to a default token if the fetch fails
+   */
   useEffect(() => {
     (async () => {
       try {
@@ -245,33 +305,56 @@ export default function InteractiveMapV2() {
     })();
   }, []);
 
+  /**
+   * Load Bulgaria provinces GeoJSON data and create initial world mask
+   */
   useEffect(() => {
     (async () => {
       const raw = await fetch(GEOJSON_URL).then((r) => r.json());
       const normalized = normalizeFC(raw);
       setProvincesGeo(normalized);
+
+      // Create initial mask that shows all of Bulgaria
       const initialMask = buildProvinceDonutMask(normalized, null);
       setWorldMask(initialMask);
     })();
   }, []);
 
+  /**
+   * Update world mask when province selection changes
+   * This creates the visual effect of highlighting/darkening different areas
+   */
   useEffect(() => {
     if (!provincesGeo) return;
     const newMask = buildProvinceDonutMask(provincesGeo, selectedRawName);
     if (!newMask) return;
     setWorldMask(newMask);
+
+    // Update the mask on the existing map if it's already loaded
     if (map.current?.getSource('world-mask')) {
       (map.current.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(newMask as any);
     }
   }, [selectedRawName, provincesGeo]);
 
-  // MARKERS
+  // ================================================================================================
+  // MARKER MANAGEMENT FUNCTIONS
+  // ================================================================================================
+  
+  /**
+   * Removes all markers from the map and clears marker references
+   */
   const clearMarkers = () => {
     markers.current.forEach((m) => m.remove());
     markers.current = [];
     markerById.current = {};
   };
 
+  /**
+   * Applies consistent styling to marker bubbles
+   * @param bubble - The marker bubble DOM element
+   * @param isSelected - Whether this marker represents the selected location
+   * @param size - Size of the marker in pixels
+   */
   const styleMarker = (bubble: HTMLDivElement, isSelected: boolean, size = 28) => {
     bubble.style.width = `${size}px`;
     bubble.style.height = `${size}px`;
@@ -285,6 +368,10 @@ export default function InteractiveMapV2() {
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
 
+  /**
+   * Creates a custom marker with a label
+   * Returns DOM elements for the complete marker (root, bubble, label)
+   */
   const createLabeledMarkerRoot = (labelText: string) => {
     const root = document.createElement('div');
     root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
@@ -302,6 +389,9 @@ export default function InteractiveMapV2() {
     return { root, bubble, label };
   };
 
+  /**
+   * Adds markers for individual locations (shown when a city is selected)
+   */
   const addLocationMarkers = (locs: any[]) => {
     if (!map.current) return;
     clearMarkers();
@@ -310,6 +400,8 @@ export default function InteractiveMapV2() {
       const { root, bubble } = createLabeledMarkerRoot(l.name || '');
       const isSel = selectedLocation && selectedLocation.id === l.id;
       styleMarker(bubble, !!isSel, 28);
+      
+      // Add hover effects
       root.onmouseenter = () => {
         if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
         if (!isSel) bubble.style.transform = 'scale(1.15)';
@@ -317,10 +409,14 @@ export default function InteractiveMapV2() {
       root.onmouseleave = () => {
         if (!isSel) bubble.style.transform = 'scale(1)';
       };
+      
+      // Add click handler to select location
       root.addEventListener('click', (e) => {
         e.stopPropagation();
         setSelectedLocation(l);
       });
+      
+      // Create and add the marker to the map
       const mk = new mapboxgl.Marker({ element: root, anchor: 'center' })
         .setLngLat([+l.longitude, +l.latitude])
         .addTo(map.current!);
@@ -329,34 +425,51 @@ export default function InteractiveMapV2() {
     });
   };
 
+  /**
+   * Adds markers for cities (shown when a province is selected)
+   * Each marker represents a city with multiple locations
+   */
   const addCityMarkers = (cityMap: Record<string, any[]>) => {
     if (!map.current) return;
     clearMarkers();
+
     Object.entries(cityMap).forEach(([key, locs]) => {
       const valid = locs.filter((l) => l.latitude && l.longitude);
       if (!valid.length) return;
+      
+      // Calculate average position for city marker
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
       const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
+
       const displayCity = formatCity(key);
       const labelText = `${displayCity} — ${locs.length} ${locs.length === 1 ? 'помещение' : 'помещения'}`;
+
       const { root, bubble, label } = createLabeledMarkerRoot(labelText);
       styleMarker(bubble, false, 34);
       label.style.fontSize = '13px';
+
+      // Add hover effects
       root.onmouseenter = () => {
         bubble.style.transform = 'scale(1.12)';
       };
       root.onmouseleave = () => {
         bubble.style.transform = 'scale(1)';
       };
+      
+      // Add click handler to select city
       root.addEventListener('click', (e) => {
         e.stopPropagation();
         handleCitySelect(displayCity, locs);
       });
+
       const mk = new mapboxgl.Marker({ element: root, anchor: 'center' }).setLngLat([lng, lat]).addTo(map.current!);
       markers.current.push(mk);
     });
   };
 
+  /**
+   * Updates marker styling when location selection changes
+   */
   useEffect(() => {
     Object.entries(markerById.current).forEach(([id, { bubble }]) => {
       const isSel = selectedLocation && String(selectedLocation.id) === id;
@@ -364,21 +477,36 @@ export default function InteractiveMapV2() {
     });
   }, [selectedLocation]);
 
-  // PROVINCE / CITY HANDLERS
+  // ================================================================================================
+  // PROVINCE AND CITY SELECTION HANDLERS
+  // ================================================================================================
+  
+  /**
+   * Handles selecting a province from the map or province list
+   * - Filters locations for the selected province
+   * - Groups locations by city
+   * - Updates the map view to show city markers
+   * - Zooms to the province area
+   */
   const handleProvinceSelect = useCallback(
     (provinceName: string, centerGuess?: [number, number], zoomOverride?: number) => {
       const rec = PROVINCES.find((p) => p.name === provinceName) || PROVINCES.find((p) => p.nameEn === provinceName);
       if (!rec) return;
+
+      // Filter locations that belong to this province
       const locs = locations.filter((l) => {
         const c = cleanCity(l.city || '');
         return rec.searchTerms.some((t) => c.includes(t) || t.includes(c));
       });
+
+      // Update selection state
       setSelectedProvince(rec.name);
       setSelectedRawName(rec.nameEn ?? rec.name);
       setSelectedCity(null);
       setSelectedLocation(null);
       setProvinceLocations(locs);
 
+      // Group locations by city for city-level markers
       const cityMap: Record<string, any[]> = {};
       locs.forEach((l) => {
         const c = cleanCity(l.city || '');
@@ -386,8 +514,11 @@ export default function InteractiveMapV2() {
         (cityMap[c] ||= []).push(l);
       });
       setProvinceCities(cityMap);
+
+      // Add markers for each city in the province
       addCityMarkers(cityMap);
 
+      // Fly to the province area
       const targetZoom = zoomOverride ?? 9;
       if (centerGuess) map.current?.flyTo({ center: centerGuess, zoom: targetZoom, pitch: 0, duration: 800 });
       else if (provinceData[rec.name])
@@ -396,11 +527,18 @@ export default function InteractiveMapV2() {
     [locations, provinceData]
   );
 
+  /**
+   * Handles selecting a city from the city list
+   * - Shows individual location markers for the city
+   * - Zooms to the city area
+   */
   const handleCitySelect = (city: string, locs: any[]) => {
     setSelectedCity(city);
     setSelectedLocation(null);
     setCityLocations(locs);
     addLocationMarkers(locs);
+    
+    // Calculate city center and zoom to it
     const valid = locs.filter((l) => l.latitude && l.longitude);
     if (valid.length) {
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
@@ -409,6 +547,9 @@ export default function InteractiveMapV2() {
     }
   };
 
+  /**
+   * Resets the map to the initial state showing all provinces
+   */
   const resetView = () => {
     setSelectedProvince(null);
     setSelectedRawName(null);
@@ -417,33 +558,78 @@ export default function InteractiveMapV2() {
     setProvinceCities({});
     setProvinceLocations([]);
     setCityLocations([]);
+    
+    // Clear any hover states
     if (hoveredFeatureId.current !== null && map.current) {
       map.current.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
       hoveredFeatureId.current = null;
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
+    
     clearMarkers();
     map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
   };
 
-  // MAP INIT + CAMERA LOCK
+  // ================================================================================================
+  // MAP INITIALIZATION AND EVENT HANDLERS
+  // ================================================================================================
+  
+  /**
+   * Main effect for initializing the Mapbox GL JS map
+   * - Creates the map instance with Bulgaria as the center
+   * - Adds province data layers and styling
+   * - Sets up mouse interaction handlers
+   * - Creates the world mask for visual highlighting
+   */
   useEffect(() => {
     if (!mapEl.current || !token || !provincesGeo) return;
 
+    // Initialize the map with dark theme centered on Bulgaria
     map.current = new mapboxgl.Map({
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [25.4858, 42.7339],
+      center: [25.4858, 42.7339], // Center of Bulgaria
       zoom: 6.5,
       pitch: 0,
       bearing: 0,
-      renderWorldCopies: false,
-      maxZoom: 18
+      renderWorldCopies: false, // Prevent world wrapping
+      maxZoom: 18,
+      scrollZoom: { around: 'center' }, // keeps zoom symmetric
+      maxBounds: [
+        [7.247, 30.124],
+        [43.597, 54.213]
+      ]
     });
 
+    // Add navigation controls (zoom/rotate buttons)
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // Tooltip
+    const onResize = () => {
+      if (!map.current) return;
+      const DEFAULT_MIN = 6.5;
+    
+      // keep the same limits on resize
+      const sw = BG_BOUNDS.getSouthWest();
+      const ne = BG_BOUNDS.getNorthEast();
+      const dx = (ne.lng - sw.lng) * 0.15;
+      const dy = (ne.lat - sw.lat) * 0.15;
+      map.current.setMaxBounds([
+        [sw.lng - dx, sw.lat - dy],
+        [ne.lng + dx, ne.lat + dy]
+      ]);
+    
+      map.current.setMinZoom(DEFAULT_MIN);
+      (map.current.scrollZoom as any).setAround?.('center');
+      (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 600);
+    
+      // keep drag behavior consistent
+      const z = map.current.getZoom();
+      if (z <= DEFAULT_MIN + 1e-3) map.current.dragPan.disable();
+      else map.current.dragPan.enable();
+    };
+    map.current.on('resize', onResize);
+
+    // Create province hover tooltip
     const tooltip = document.createElement('div');
     tooltip.className = 'map-province-tooltip';
     tooltip.style.cssText = `
@@ -457,55 +643,72 @@ export default function InteractiveMapV2() {
     hoverTooltipRef.current = tooltip;
     mapEl.current.appendChild(tooltip);
 
+    // Setup map layers and interactions when map loads
     map.current.on('load', () => {
-      // Camera lock sequence
-      map.current!.fitBounds(BG_BOUNDS, { padding: 24, duration: 0 });
-
-      map.current!.once('idle', () => {
-        // Center-based wheel zoom + finer wheel step
-        map.current!.scrollZoom.enable();
-        (map.current!.scrollZoom as any).setAround?.('center');
-        (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 600); // slightly finer than default
-
-        // Headroom so wheel can reach the fitted view (prevents 0.1–0.2 gap)
-        const fittedZoom = map.current!.getZoom();
-        map.current!.setMinZoom(fittedZoom - 0.3);
-
-        // Tight panning lock around the current view (tiny pad to prevent jitter)
-        const v = map.current!.getBounds().toArray();
-        const pad = 0.01;
-        map.current!.setMaxBounds([
-          [v[0][0] - pad, v[0][1] - pad],
-          [v[1][0] + pad, v[1][1] + pad]
-        ]);
-      });
-
-      // --- sources/layers ---
+      // Add Bulgaria provinces as a data source
       map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
 
+      map.current!.once('idle', () => {
+        const DEFAULT_MIN = 6.5;
+      
+        // Wheel matches buttons: zoom around center + slightly finer step
+        map.current!.scrollZoom.enable();
+        (map.current!.scrollZoom as any).setAround?.('center');
+        (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 600);
+      
+        // Padded Bulgaria bounds (prevents wheel from getting blocked mid-step)
+        const sw = BG_BOUNDS.getSouthWest();
+        const ne = BG_BOUNDS.getNorthEast();
+        const dx = (ne.lng - sw.lng) * 0.15;  // 15% pad
+        const dy = (ne.lat - sw.lat) * 0.15;
+        map.current!.setMaxBounds([
+          [sw.lng - dx, sw.lat - dy],
+          [ne.lng + dx, ne.lat + dy]
+        ]);
+      
+        // Hard-lock min zoom to the default (no more 6.0 with buttons)
+        map.current!.setMinZoom(DEFAULT_MIN);
+      
+        // Snap view to exact default (so both wheel & buttons share the same floor)
+        map.current!.easeTo({ center: [25.4858, 42.7339], zoom: DEFAULT_MIN, duration: 0 });
+      
+        // No panning at default zoom; enable once you zoom in
+        const updateDragPan = () => {
+          const z = map.current!.getZoom();
+          if (z <= DEFAULT_MIN + 1e-3) map.current!.dragPan.disable();
+          else map.current!.dragPan.enable();
+        };
+        updateDragPan();
+        map.current!.on('zoom', updateDragPan);
+      });
+
+      // Add province fill layer with conditional styling
       map.current!.addLayer({
         id: 'provinces-fill',
         type: 'fill',
         source: 'provinces',
         paint: {
+          // Hide selected province, show others in green
           'fill-color': [
             'case',
             ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedRawNameRef.current ?? '___none___'],
-            'rgba(0,0,0,0)',
-            'rgba(16,185,129,1)',
+            'rgba(0,0,0,0)', // Transparent for selected province
+            'rgba(16,185,129,1)', // Green for other provinces
           ],
+          // Opacity based on selection and hover state
           'fill-opacity': [
             'case',
             ['==', ['coalesce', ['get', 'name'], ['get', 'name_en']], selectedRawNameRef.current ?? '___none___'],
-            0,
+            0, // Fully transparent for selected
             ['boolean', ['feature-state', 'hover'], false],
-            0.4,
-            0.78,
+            0.4, // Lower opacity when hovered
+            0.78, // Normal opacity
           ],
           'fill-outline-color': '#ffffff',
         },
       });
 
+      // Add province outline layer
       map.current!.addLayer({
         id: 'provinces-outline',
         type: 'line',
@@ -513,15 +716,7 @@ export default function InteractiveMapV2() {
         paint: { 'line-color': '#ffffff', 'line-width': 2 },
       });
 
-      // 🔹 Invisible hit layer on top for reliable interactions
-      map.current!.addLayer({
-        id: 'provinces-hit',
-        type: 'fill',
-        source: 'provinces',
-        paint: { 'fill-color': '#000000', 'fill-opacity': 0.001 }
-      }); // added after outline => on top
-
-      // World mask (under provinces)
+      // Create world mask layer to darken areas outside Bulgaria/selected province
       const worldRing: Ring = [
         [-180, -85],
         [180, -85],
@@ -543,37 +738,41 @@ export default function InteractiveMapV2() {
           source: 'world-mask',
           paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
         },
-        'provinces-fill' // ensure mask sits below provinces
+        'provinces-fill' // Insert below provinces
       );
 
-      if (worldMask) {
-        (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
-      }
+      // Set up mouse interaction handlers for provinces
 
-      // --- interactions (bind to HIT layer) ---
-      map.current!.on('mouseenter', 'provinces-hit', () => (map.current!.getCanvas().style.cursor = 'pointer'));
-      map.current!.on('mouseleave', 'provinces-hit', () => (map.current!.getCanvas().style.cursor = ''));
+      // Change cursor on hover
+      map.current!.on('mouseenter', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = 'pointer'));
+      map.current!.on('mouseleave', 'provinces-fill', () => (map.current!.getCanvas().style.cursor = ''));
 
-      map.current!.on('mousemove', 'provinces-hit', (e: mapboxgl.MapLayerMouseEvent) => {
+      // Handle province hover - show tooltip and highlight effect
+      map.current!.on('mousemove', 'provinces-fill', (e: mapboxgl.MapLayerMouseEvent) => {
         const f = e.features?.[0];
         if (!f) return;
 
+        // Clear previous hover state
         if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== f.id) {
           map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
         }
 
+        // Set new hover state
         hoveredFeatureId.current = f.id as number | string;
         map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: true });
 
+        // Get province name and show tooltip
         const rawName = (f.properties as any).name || (f.properties as any).name_en;
         const displayName =
           PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
 
+        // Don't show tooltip for selected province
         if (selectedRawNameRef.current && rawName === selectedRawNameRef.current) {
           if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
           return;
         }
 
+        // Position and show tooltip
         if (hoverTooltipRef.current) {
           const { point } = e;
           hoverTooltipRef.current.textContent = displayName;
@@ -583,7 +782,8 @@ export default function InteractiveMapV2() {
         }
       });
 
-      map.current!.on('mouseleave', 'provinces-hit', () => {
+      // Clear hover state when mouse leaves province
+      map.current!.on('mouseleave', 'provinces-fill', () => {
         if (hoveredFeatureId.current !== null) {
           map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
         }
@@ -591,42 +791,33 @@ export default function InteractiveMapV2() {
         if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
       });
 
-      map.current!.on('click', 'provinces-hit', (e) => {
+      // Handle province click - select province or reset if already selected
+      map.current!.on('click', 'provinces-fill', (e) => {
         const feat = e.features?.[0];
         if (!feat) return;
         const rawName = (feat.properties as any).name || (feat.properties as any).name_en;
         const displayName = PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName;
-
+        
+        // Reset if clicking on already selected province
         if (selectedRawNameRef.current && selectedRawNameRef.current === rawName) {
           resetView();
           return;
         }
-
+        
+        // Select the new province
         setSelectedProvince(displayName);
         setSelectedRawName(rawName);
         const c = centroid(feat as any).geometry.coordinates as [number, number];
         handleProvinceSelect(displayName, c, 9);
       });
+
+      // Apply initial world mask if available
+      if (worldMask) {
+        (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
+      }
     });
 
-    // Recompute lock on resize only when at full-country view
-    const onResize = () => {
-      if (!map.current) return;
-      if (selectedProvinceRef.current || selectedCityRef.current) return;
-      map.current.fitBounds(BG_BOUNDS, { padding: 24, duration: 0 });
-      const fittedZoom = map.current.getZoom();
-      map.current.setMinZoom(fittedZoom - 0.3);
-      const v = map.current.getBounds().toArray();
-      const pad = 0.01;
-      map.current.setMaxBounds([
-        [v[0][0] - pad, v[0][1] - pad],
-        [v[1][0] + pad, v[1][1] + pad]
-      ]);
-      (map.current.scrollZoom as any).setAround?.('center');
-      (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 600);
-    };
-    map.current.on('resize', onResize);
-
+    // Cleanup function - remove map and event listeners
     return () => {
       if (hoverTooltipRef.current) {
         hoverTooltipRef.current.remove();
@@ -635,15 +826,14 @@ export default function InteractiveMapV2() {
       markers.current.forEach((m) => m.remove());
       markers.current = [];
       markerById.current = {};
-      if (map.current) {
-        map.current.off('resize', onResize);
-        map.current.remove();
-      }
+      map.current?.remove();
       map.current = null;
     };
   }, [token, provincesGeo]);
 
-  // DYNAMIC STYLE
+  /**
+   * Update province styling when selection changes
+   */
   useEffect(() => {
     if (!map.current?.getLayer('provinces-fill')) return;
     map.current.setPaintProperty('provinces-fill', 'fill-color', [
@@ -662,19 +852,30 @@ export default function InteractiveMapV2() {
     ]);
   }, [selectedRawName]);
 
+  /**
+   * Update world mask when it changes
+   */
   useEffect(() => {
     if (!map.current || !worldMask) return;
     const src = map.current.getSource('world-mask') as mapboxgl.GeoJSONSource | undefined;
     if (src) src.setData(worldMask as any);
   }, [worldMask]);
 
-  // UI HELPERS
+  // ================================================================================================
+  // UTILITY FUNCTIONS FOR UI
+  // ================================================================================================
+  
+  // Helper for Bulgarian pluralization
   const pluralize = (n: number, one: string, many: string) => (n === 1 ? one : many);
+  
+  // Check if Bulgarian city name needs "във" instead of "в" (starts with в or ф)
   const needsVav = (city: string | null) => {
     if (!city) return false;
     const ch = city.trim().charAt(0).toLowerCase();
     return ch === 'в' || ch === 'ф';
   };
+
+  // Get the main image for a location from various possible fields
   const getMainImage = (loc: any) =>
     loc?.image || loc?.main_image_url || (Array.isArray(loc?.photos) && loc.photos[0]?.url) || null;
 
@@ -686,7 +887,6 @@ export default function InteractiveMapV2() {
     );
   }
 
-  // RENDER
   return (
     <div className="bg-secondary/50 rounded-lg p-8">
       <div className="flex items-center justify-between mb-6">
