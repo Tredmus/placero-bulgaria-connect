@@ -322,7 +322,7 @@ export default function InteractiveMapV1() {
   };
 
   // Center-safe marker DOM: pin centered on coordinate, label positioned below
-  const createLabeledMarkerRoot = (labelText: string) => {
+  const createLabeledMarkerRoot = (labelText: string, countText?: string) => {
     const root = document.createElement('div');
     // Root remains size-less so Mapbox's anchor math doesn't interfere
     root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
@@ -342,6 +342,20 @@ export default function InteractiveMapV1() {
 
     // Bubble (positioned naturally inside the flex column)
     const bubble = document.createElement('div');
+    
+    // Add count text inside the bubble if provided
+    if (countText) {
+      bubble.textContent = countText;
+      bubble.style.cssText += [
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+        'font-size:12px',
+        'font-weight:700',
+        'color:#fff',
+        'text-shadow:0 1px 2px rgba(0,0,0,0.5)',
+      ].join(';');
+    }
 
     // Label (flows naturally below bubble with margin)
     const label = document.createElement('div');
@@ -416,8 +430,9 @@ export default function InteractiveMapV1() {
       if (!valid.length) return;
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
       const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
-      const labelText = `${displayCity} - ${locs.length}`;
-      const { root, bubble, label } = createLabeledMarkerRoot(labelText);
+      const labelText = displayCity;
+      const countText = String(locs.length);
+      const { root, bubble, label } = createLabeledMarkerRoot(labelText, countText);
       root.dataset.type = 'city';
       styleMarker(bubble, false, 34);
       label.style.fontSize = '13px';
