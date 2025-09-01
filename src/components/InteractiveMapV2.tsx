@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { MapPin, Building2, RotateCcw, Star, Wifi, Coffee, Car, Users } from 'lucide-react';
 
 // ================================================================================================
-// CONSTANTS AND CONFIGURATION
+/** CONSTANTS AND CONFIGURATION */
 // ================================================================================================
 
 const GEOJSON_URL = '/data/bg_provinces.geojson';
@@ -72,6 +72,17 @@ const formatCity = (s = '') =>
     .join(' ');
 
 const amenityIcons = { wifi: Wifi, coffee: Coffee, parking: Car, meeting: Users } as const;
+
+// Build a city->locations map from an array of locations
+const buildCityMap = (locs: any[]) => {
+  const map: Record<string, any[]> = {};
+  locs.forEach((l) => {
+    const c = cleanCity(l.city || '');
+    if (!c) return;
+    (map[c] ||= []).push(l);
+  });
+  return map;
+};
 
 // ================================================================================================
 // GEOMETRY HELPERS
@@ -169,14 +180,18 @@ function buildProvinceDonutMask(provincesFC: any, rawName: string | null) {
 // MAIN COMPONENT
 // ================================================================================================
 
-export default function InteractiveMapV2() {
+export default function InteractiveMapV1() {
   const { locations } = useLocations();
   const navigate = useNavigate();
 
   const mapEl = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const markers = useRef<mapboxgl.Marker[]>([]);
+
+  // Keep city vs location markers separate for fast updates
+  const cityMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const locationMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const markerById = useRef<Record<string, { marker: mapboxgl.Marker; bubble: HTMLDivElement }>>({});
+
   const hoverTooltipRef = useRef<HTMLDivElement | null>(null);
   const hoveredFeatureId = useRef<number | string | null>(null);
 
@@ -184,24 +199,22 @@ export default function InteractiveMapV2() {
   const defaultMinZoomRef = useRef<number>(6.5);
   const defaultCenterRef = useRef<mapboxgl.LngLatLike>({ lng: 25.4858, lat: 42.7339 });
   const defaultViewBoundsRef = useRef<mapboxgl.LngLatBoundsLike | null>(null);
+  const snappingRef = useRef(false); // Animation state for smooth zoom
+
+  // Throttle tooltip updates to 1 per frame
+  const tooltipRaf = useRef(false);
 
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const selectedProvinceRef = useRef<string | null>(null);
-  useEffect(() => {
-    selectedProvinceRef.current = selectedProvince;
-  }, [selectedProvince]);
+  useEffect(() => { selectedProvinceRef.current = selectedProvince; }, [selectedProvince]);
 
   const [selectedRawName, setSelectedRawName] = useState<string | null>(null);
   const selectedRawNameRef = useRef<string | null>(null);
-  useEffect(() => {
-    selectedRawNameRef.current = selectedRawName;
-  }, [selectedRawName]);
+  useEffect(() => { selectedRawNameRef.current = selectedRawName; }, [selectedRawName]);
 
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const selectedCityRef = useRef<string | null>(null);
-  useEffect(() => {
-    selectedCityRef.current = selectedCity;
-  }, [selectedCity]);
+  useEffect(() => { selectedCityRef.current = selectedCity; }, [selectedCity]);
 
   const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
 
@@ -212,8 +225,9 @@ export default function InteractiveMapV2() {
   const [token, setToken] = useState<string>('');
   const [provincesGeo, setProvincesGeo] = useState<any>(null);
   const [worldMask, setWorldMask] = useState<any>(null);
+  const [mapReady, setMapReady] = useState<boolean>(false);
 
-  // COMPUTED
+  // Precompute province data from locations
   const provinceData = useMemo(() => {
     const map: Record<string, { locations: any[]; coordinates: [number, number] }> = {};
     PROVINCES.forEach((p) => {
@@ -231,19 +245,19 @@ export default function InteractiveMapV2() {
     return map;
   }, [locations]);
 
+  // All cities map (used when no province is selected)
+  const allCityMap = useMemo(() => buildCityMap(locations), [locations]);
+
   // INIT: token + geojson
   useEffect(() => {
     (async () => {
       try {
         const { data } = await supabase.functions.invoke('get-mapbox-token');
-        const t =
-          data?.token ||
-          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+        const t = data?.token || 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         mapboxgl.accessToken = t;
         setToken(t);
       } catch {
-        const t =
-          'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
+        const t = 'pk.eyJ1IjoidHJlZG11cyIsImEiOiJjbWRucG12bzgwOXk4Mm1zYzZhdзUxN3RzIn0.xyTx89WCMVApexqZGNC8rw';
         mapboxgl.accessToken = t;
         setToken(t);
       }
@@ -270,142 +284,240 @@ export default function InteractiveMapV2() {
     }
   }, [selectedRawName, provincesGeo]);
 
-  // MARKERS
-  const clearMarkers = () => {
-    markers.current.forEach((m) => m.remove());
-    markers.current = [];
+  // MARKERS ------------------------------------------------------------------
+
+  const clearCityMarkers = () => {
+    cityMarkersRef.current.forEach((m) => m.remove());
+    cityMarkersRef.current = [];
+  };
+
+  const clearLocationMarkers = () => {
+    locationMarkersRef.current.forEach((m) => m.remove());
+    locationMarkersRef.current = [];
     markerById.current = {};
   };
 
-  const styleMarker = (bubble: HTMLDivElement, isSelected: boolean, size = 28) => {
+  const clearAllMarkers = () => {
+    clearCityMarkers();
+    clearLocationMarkers();
+  };
+
+  const styleMarker = (bubble: HTMLDivElement, isSelected: boolean, size = 28, isLocation = false) => {
     bubble.style.width = `${size}px`;
     bubble.style.height = `${size}px`;
     bubble.style.borderRadius = '50%';
     bubble.style.border = '2px solid #fff';
-    bubble.style.boxShadow = '0 2px 8px rgba(16,185,129,.35)';
     bubble.style.cursor = 'pointer';
     bubble.style.transition = 'transform .12s ease';
     bubble.style.transformOrigin = 'center';
-    bubble.style.background = isSelected ? '#22d3ee' : '#10b981';
+
+    if (isLocation) {
+      bubble.style.boxShadow = '0 2px 8px rgba(16,185,129,.35)';
+      bubble.style.background = isSelected ? '#059669' : '#10b981';
+    } else {
+      bubble.style.boxShadow = '0 2px 8px rgba(239,68,68,.35)';
+      bubble.style.background = isSelected ? '#dc2626' : '#ef4444';
+    }
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
 
+  // Center-safe marker DOM: an inner flex column centered on the map point
   const createLabeledMarkerRoot = (labelText: string) => {
     const root = document.createElement('div');
+    // Root remains size-less so Mapbox's anchor math doesn't interfere
     root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
+
+    // An inner wrapper that we center exactly on the map coordinate
+    const inner = document.createElement('div');
+    inner.style.cssText = [
+      'position:absolute',
+      'left:0',
+      'top:0',
+      'transform:translate(-50%,-50%)', // center the whole stack at the point
+      'display:flex',
+      'flex-direction:column',
+      'align-items:center',             // keeps label perfectly centered
+      'pointer-events:auto',
+    ].join(';');
+
+    // Bubble (positioned naturally inside the flex column)
+    const bubble = document.createElement('div');
+
+    // Label (no absolute math needed)
     const label = document.createElement('div');
     label.textContent = labelText || '';
-    label.style.cssText =
-      'position:absolute;left:50%;bottom:8px;transform:translate(-15%,0);padding:2px 6px;border-radius:6px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.14);white-space:nowrap;pointer-events:none;';
-    root.appendChild(label);
-    const bubble = document.createElement('div');
-    bubble.style.position = 'absolute';
-    bubble.style.left = '50%';
-    bubble.style.top = '50%';
-    bubble.style.transform = 'translate(-50%,-50%)';
-    root.appendChild(bubble);
+    label.style.cssText = [
+      'margin-top:8px',
+      'padding:2px 6px',
+      'border-radius:6px',
+      'font-size:12px',
+      'font-weight:700',
+      'color:#fff',
+      'background:rgba(0,0,0,.65)',
+      'border:1px solid rgba(255,255,255,.14)',
+      'white-space:nowrap',
+      'pointer-events:none',
+      'text-align:center',
+    ].join(';');
+
+    inner.appendChild(bubble);
+    inner.appendChild(label);
+    root.appendChild(inner);
+
     return { root, bubble, label };
   };
 
   const addLocationMarkers = (locs: any[]) => {
     if (!map.current) return;
-    clearMarkers();
+    clearLocationMarkers();
+
     locs.forEach((l) => {
       if (!l.latitude || !l.longitude) return;
       const { root, bubble } = createLabeledMarkerRoot(l.name || '');
+      root.dataset.type = 'location';
       const isSel = selectedLocation && selectedLocation.id === l.id;
-      styleMarker(bubble, !!isSel, 28);
+      styleMarker(bubble, !!isSel, 28, true);
+
       root.onmouseenter = () => {
         if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
         if (!isSel) bubble.style.transform = 'scale(1.15)';
+        root.style.zIndex = '100';
       };
       root.onmouseleave = () => {
         if (!isSel) bubble.style.transform = 'scale(1)';
+        root.style.zIndex = '2';
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
         setSelectedLocation(l);
       });
+
       const mk = new mapboxgl.Marker({ element: root, anchor: 'center' })
         .setLngLat([+l.longitude, +l.latitude])
         .addTo(map.current!);
-      markers.current.push(mk);
+      locationMarkersRef.current.push(mk);
       if (l.id != null) markerById.current[String(l.id)] = { marker: mk, bubble };
     });
   };
 
-  const addCityMarkers = (cityMap: Record<string, any[]>) => {
+  const addCityMarkers = (cityMap: Record<string, any[]>, hiddenCityName?: string) => {
     if (!map.current) return;
-    clearMarkers();
+    clearCityMarkers();
+
     Object.entries(cityMap).forEach(([key, locs]) => {
+      const displayCity = formatCity(key);
+      if (hiddenCityName && hiddenCityName === displayCity) return;
+
       const valid = locs.filter((l) => l.latitude && l.longitude);
       if (!valid.length) return;
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
       const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
-      const displayCity = formatCity(key);
-      const labelText = `${displayCity} — ${locs.length} ${locs.length === 1 ? 'помещение' : 'помещения'}`;
+      const labelText = `${displayCity} - ${locs.length}`;
       const { root, bubble, label } = createLabeledMarkerRoot(labelText);
+      root.dataset.type = 'city';
       styleMarker(bubble, false, 34);
       label.style.fontSize = '13px';
+
       root.onmouseenter = () => {
         bubble.style.transform = 'scale(1.12)';
+        root.style.zIndex = '100';
       };
       root.onmouseleave = () => {
         bubble.style.transform = 'scale(1)';
+        root.style.zIndex = '2';
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
         handleCitySelect(displayCity, locs);
       });
-      const mk = new mapboxgl.Marker({ element: root, anchor: 'center' }).setLngLat([lng, lat]).addTo(map.current!);
-      markers.current.push(mk);
+
+      const mk = new mapboxgl.Marker({ element: root, anchor: 'center' })
+        .setLngLat([lng, lat])
+        .addTo(map.current!);
+      cityMarkersRef.current.push(mk);
     });
   };
 
+  // Re-style location markers when selectedLocation changes
   useEffect(() => {
     Object.entries(markerById.current).forEach(([id, { bubble }]) => {
       const isSel = selectedLocation && String(selectedLocation.id) === id;
-      styleMarker(bubble, isSel, 28);
+      styleMarker(bubble, isSel, 28, true);
     });
   }, [selectedLocation]);
 
-  // PROVINCE / CITY HANDLERS
+  // Show all city pins when locations and map are ready and no province selected
+  useEffect(() => {
+    if (!locations.length || !mapReady || selectedProvince) return;
+    addCityMarkers(allCityMap);
+  }, [locations, mapReady, selectedProvince, allCityMap]);
+
+  // PROVINCE / CITY HANDLERS -------------------------------------------------
+
   const handleProvinceSelect = useCallback(
     (provinceName: string, centerGuess?: [number, number], zoomOverride?: number) => {
       const rec = PROVINCES.find((p) => p.name === provinceName) || PROVINCES.find((p) => p.nameEn === provinceName);
       if (!rec) return;
+
       const locs = locations.filter((l) => {
         const c = cleanCity(l.city || '');
         return rec.searchTerms.some((t) => c.includes(t) || t.includes(c));
       });
+
       setSelectedProvince(rec.name);
       setSelectedRawName(rec.nameEn ?? rec.name);
       setSelectedCity(null);
       setSelectedLocation(null);
       setProvinceLocations(locs);
 
-      const cityMap: Record<string, any[]> = {};
-      locs.forEach((l) => {
-        const c = cleanCity(l.city || '');
-        if (!c) return;
-        (cityMap[c] ||= []).push(l);
-      });
+      const cityMap = buildCityMap(locs);
       setProvinceCities(cityMap);
       addCityMarkers(cityMap);
 
       const targetZoom = zoomOverride ?? 9;
-      if (centerGuess) map.current?.flyTo({ center: centerGuess, zoom: targetZoom, pitch: 0, duration: 800 });
-      else if (provinceData[rec.name])
+      if (centerGuess) {
+        map.current?.flyTo({ center: centerGuess, zoom: targetZoom, pitch: 0, duration: 800 });
+      } else if (provinceData[rec.name]) {
         map.current?.flyTo({ center: provinceData[rec.name].coordinates, zoom: targetZoom, pitch: 0, duration: 800 });
+      }
     },
     [locations, provinceData]
   );
 
   const handleCitySelect = (city: string, locs: any[]) => {
+    // Auto-select the province if none is selected
+    if (!selectedProvince) {
+      const cleanedCity = cleanCity(city);
+      const matchingProvince = PROVINCES.find((p) =>
+        p.searchTerms.some((term) => cleanedCity.includes(term) || term.includes(cleanedCity))
+      );
+      if (matchingProvince) {
+        setSelectedProvince(matchingProvince.name);
+        setSelectedRawName(matchingProvince.nameEn ?? matchingProvince.name);
+
+        const provinceLocs = locations.filter((l) => {
+          const c = cleanCity(l.city || '');
+          return matchingProvince.searchTerms.some((t) => c.includes(t) || t.includes(c));
+        });
+        setProvinceLocations(provinceLocs);
+        setProvinceCities(buildCityMap(provinceLocs));
+      }
+    }
+
     setSelectedCity(city);
     setSelectedLocation(null);
     setCityLocations(locs);
+
+    // Show city markers while hiding the selected city’s pin to avoid collision
+    if (selectedProvince) {
+      addCityMarkers(provinceCities, city);
+    } else {
+      addCityMarkers(allCityMap, city);
+    }
+
+    // Then add location markers (after city markers so they remain)
     addLocationMarkers(locs);
+
     const valid = locs.filter((l) => l.latitude && l.longitude);
     if (valid.length) {
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
@@ -422,13 +534,18 @@ export default function InteractiveMapV2() {
     setProvinceCities({});
     setProvinceLocations([]);
     setCityLocations([]);
+
     if (hoveredFeatureId.current !== null && map.current) {
       map.current.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
       hoveredFeatureId.current = null;
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-    clearMarkers();
-    // snap to the computed floor
+
+    // Restore city pins for all cities
+    addCityMarkers(allCityMap);
+    clearLocationMarkers();
+
+    // Snap to the computed floor
     map.current?.easeTo({
       center: defaultCenterRef.current as mapboxgl.LngLatLike,
       zoom: defaultMinZoomRef.current,
@@ -438,14 +555,14 @@ export default function InteractiveMapV2() {
     });
   };
 
-  // MAP INIT + CAMERA LOCK
+  // MAP INIT + CAMERA LOCK ---------------------------------------------------
   useEffect(() => {
     if (!mapEl.current || !token || !provincesGeo) return;
 
     map.current = new mapboxgl.Map({
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [25.4858, 42.7339], // temporary, will be overridden immediately below
+      center: [25.4858, 42.7339], // temporary, overridden below
       zoom: 6.5,                  // temporary
       pitch: 0,
       bearing: 0,
@@ -454,13 +571,14 @@ export default function InteractiveMapV2() {
       fadeDuration: 0
     });
 
-    // --- Compute and apply the exact “floor” BEFORE first paint ---
+    // Compute/apply exact “floor” BEFORE first paint
     const cam = map.current.cameraForBounds(BG_BOUNDS, { padding: 24 })!;
     defaultMinZoomRef.current = cam.zoom;
     defaultCenterRef.current = cam.center as mapboxgl.LngLatLike;
     map.current.jumpTo({ center: cam.center, zoom: cam.zoom, bearing: 0, pitch: 0 });
     map.current.setMinZoom(cam.zoom);
-    // store the exact min-zoom viewport as the panning box when zoomed in
+
+    // Store the exact min-zoom viewport as panning box when zoomed in
     const vb = map.current.getBounds().toArray();
     defaultViewBoundsRef.current = [
       [vb[0][0], vb[0][1]],
@@ -489,31 +607,61 @@ export default function InteractiveMapV2() {
     (map.current.scrollZoom as any).setAround?.('center');
     (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 600);
 
-    // Keep the camera constraints consistent with zoom level
-    const applyConstraints = () => {
+    // Smooth animated zoom behavior
+    const FLOOR = () => defaultMinZoomRef.current;
+    const isAtFloor = () => Math.abs(map.current!.getZoom() - FLOOR()) <= 1e-3;
+
+    const enableConstrainedPan = () => {
+      map.current!.dragPan.enable();
+      (map.current!.keyboard as any)?.enable?.();
+      if (defaultViewBoundsRef.current) map.current!.setMaxBounds(defaultViewBoundsRef.current);
+    };
+    const disablePanAtFloor = () => {
+      map.current!.dragPan.disable();
+      (map.current!.keyboard as any)?.disable?.();
+      map.current!.setMaxBounds(null);
+    };
+    const snapToFloorAnimated = () => {
+      if (snappingRef.current) return;
+      snappingRef.current = true;
+      disablePanAtFloor();
+      map.current!.stop(); // stop wheel inertia immediately
+      map.current!.easeTo({
+        center: defaultCenterRef.current as mapboxgl.LngLatLike,
+        zoom: FLOOR(),
+        pitch: 0,
+        bearing: 0,
+        duration: 550,
+        easing: (t) => t * (2 - t) // easeOutQuad-ish
+      });
+    };
+
+    const onZoom = () => {
       const z = map.current!.getZoom();
-      const MIN = defaultMinZoomRef.current;
-      if (z <= MIN + 1e-6) {
-        map.current!.dragPan.disable();
-        (map.current!.keyboard as any)?.disable?.();
-        map.current!.setMaxBounds(null);
-        // Always snap to the exact floor so you never get stuck on a slice
+      if (z <= FLOOR() + 0.02) {
+        if (!isAtFloor()) snapToFloorAnimated();
+      } else {
+        snappingRef.current = false;
+        enableConstrainedPan();
+      }
+    };
+
+    const onMoveEnd = () => {
+      if (isAtFloor()) {
+        disablePanAtFloor();
         map.current!.jumpTo({
           center: defaultCenterRef.current as mapboxgl.LngLatLike,
-          zoom: MIN,
+          zoom: FLOOR(),
           pitch: 0,
           bearing: 0
         });
-      } else {
-        map.current!.dragPan.enable();
-        (map.current!.keyboard as any)?.enable?.();
-        if (defaultViewBoundsRef.current) {
-          map.current!.setMaxBounds(defaultViewBoundsRef.current);
-        }
+        snappingRef.current = false;
       }
     };
-    applyConstraints();
-    map.current.on('zoomend', applyConstraints);
+
+    onZoom();
+    map.current.on('zoom', onZoom);
+    map.current.on('moveend', onMoveEnd);
 
     // Layers & sources on load
     map.current.on('load', () => {
@@ -586,37 +734,45 @@ export default function InteractiveMapV2() {
         (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
       }
 
+      setMapReady(true);
+
       // Interactions (bind to hit layer)
       map.current!.on('mouseenter', 'provinces-hit', () => (map.current!.getCanvas().style.cursor = 'pointer'));
       map.current!.on('mouseleave', 'provinces-hit', () => (map.current!.getCanvas().style.cursor = ''));
 
       map.current!.on('mousemove', 'provinces-hit', (e: mapboxgl.MapLayerMouseEvent) => {
+        if (tooltipRaf.current) return;
+        tooltipRaf.current = true;
+
         const f = e.features?.[0];
-        if (!f) return;
+        requestAnimationFrame(() => {
+          tooltipRaf.current = false;
+          if (!f) return;
 
-        if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== f.id) {
-          map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
-        }
+          if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== f.id) {
+            map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: false });
+          }
 
-        hoveredFeatureId.current = f.id as number | string;
-        map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: true });
+          hoveredFeatureId.current = f.id as number | string;
+          map.current!.setFeatureState({ source: 'provinces', id: hoveredFeatureId.current }, { hover: true });
 
-        const rawName = (f.properties as any).name || (f.properties as any).name_en;
-        const displayName =
-          PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
+          const rawName = (f.properties as any).name || (f.properties as any).name_en;
+          const displayName =
+            PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
 
-        if (selectedRawNameRef.current && rawName === selectedRawNameRef.current) {
-          if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-          return;
-        }
+          if (selectedRawNameRef.current && rawName === selectedRawNameRef.current) {
+            if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
+            return;
+          }
 
-        if (hoverTooltipRef.current) {
-          const { point } = e;
-          hoverTooltipRef.current.textContent = displayName;
-          hoverTooltipRef.current.style.left = `${point.x}px`;
-          hoverTooltipRef.current.style.top = `${point.y}px`;
-          hoverTooltipRef.current.style.opacity = '1';
-        }
+          if (hoverTooltipRef.current) {
+            const { point } = e;
+            hoverTooltipRef.current.textContent = displayName;
+            hoverTooltipRef.current.style.left = `${point.x}px`;
+            hoverTooltipRef.current.style.top = `${point.y}px`;
+            hoverTooltipRef.current.style.opacity = '1';
+          }
+        });
       });
 
       map.current!.on('mouseleave', 'provinces-hit', () => {
@@ -683,9 +839,7 @@ export default function InteractiveMapV2() {
         hoverTooltipRef.current.remove();
         hoverTooltipRef.current = null;
       }
-      markers.current.forEach((m) => m.remove());
-      markers.current = [];
-      markerById.current = {};
+      clearAllMarkers();
       if (map.current) {
         map.current.off('resize', onResize);
         map.current.remove();
@@ -694,7 +848,7 @@ export default function InteractiveMapV2() {
     };
   }, [token, provincesGeo]);
 
-  // DYNAMIC STYLE
+  // DYNAMIC STYLE ------------------------------------------------------------
   useEffect(() => {
     if (!map.current?.getLayer('provinces-fill')) return;
     map.current.setPaintProperty('provinces-fill', 'fill-color', [
@@ -719,7 +873,7 @@ export default function InteractiveMapV2() {
     if (src) src.setData(worldMask as any);
   }, [worldMask]);
 
-  // UI HELPERS
+  // UI HELPERS ---------------------------------------------------------------
   const pluralize = (n: number, one: string, many: string) => (n === 1 ? one : many);
   const needsVav = (city: string | null) => {
     if (!city) return false;
@@ -737,7 +891,7 @@ export default function InteractiveMapV2() {
     );
   }
 
-  // RENDER
+  // RENDER -------------------------------------------------------------------
   return (
     <div className="bg-secondary/50 rounded-lg p-8">
       <div className="flex items-center justify-between mb-6">
@@ -852,10 +1006,7 @@ export default function InteractiveMapV2() {
                   </div>
 
                   <div className="pt-1">
-                    <Button
-                      className="w-full"
-                      onClick={() => navigate(`/locations/${selectedLocation.id}`)}
-                    >
+                    <Button className="w-full" onClick={() => navigate(`/locations/${selectedLocation.id}`)}>
                       Виж повече
                     </Button>
                   </div>
@@ -905,6 +1056,15 @@ export default function InteractiveMapV2() {
                       setSelectedCity(null);
                       setSelectedLocation(null);
                       addCityMarkers(provinceCities);
+                      // Return to province view when toggling off a city
+                      if (selectedProvince && provinceData[selectedProvince]) {
+                        map.current?.flyTo({
+                          center: provinceData[selectedProvince].coordinates,
+                          zoom: 9,
+                          pitch: 0,
+                          duration: 800
+                        });
+                      }
                     } else {
                       handleCitySelect(displayCity, locs);
                     }
