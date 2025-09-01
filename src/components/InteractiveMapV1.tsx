@@ -321,32 +321,30 @@ export default function InteractiveMapV1() {
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
 
-  // Center-safe marker DOM: an inner flex column centered on the map point
+  // Center-safe marker DOM: pin centered exactly on coordinate, label positioned relative to pin
   const createLabeledMarkerRoot = (labelText: string) => {
     const root = document.createElement('div');
     // Root remains size-less so Mapbox's anchor math doesn't interfere
     root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
 
-    // An inner wrapper that we center exactly on the map coordinate
-    const inner = document.createElement('div');
-    inner.style.cssText = [
+    // Bubble positioned exactly at the coordinate center
+    const bubble = document.createElement('div');
+    bubble.style.cssText = [
       'position:absolute',
       'left:0',
       'top:0',
-      'transform:translate(-50%,-50%)', // center the whole stack at the point
-      'display:flex',
-      'flex-direction:column',
-      'align-items:center',             // keeps label perfectly centered
+      'transform:translate(-50%,-50%)', // center only the bubble at the coordinate
       'pointer-events:auto',
     ].join(';');
 
-    // Bubble (positioned naturally inside the flex column)
-    const bubble = document.createElement('div');
-
-    // Label (no absolute math needed)
+    // Label positioned relative to the bubble
     const label = document.createElement('div');
     label.textContent = labelText || '';
     label.style.cssText = [
+      'position:absolute',
+      'left:50%',
+      'top:100%',
+      'transform:translateX(-50%)',
       'margin-top:8px',
       'padding:2px 6px',
       'border-radius:6px',
@@ -360,9 +358,8 @@ export default function InteractiveMapV1() {
       'text-align:center',
     ].join(';');
 
-    inner.appendChild(bubble);
-    inner.appendChild(label);
-    root.appendChild(inner);
+    root.appendChild(bubble);
+    root.appendChild(label);
 
     return { root, bubble, label };
   };
@@ -382,10 +379,16 @@ export default function InteractiveMapV1() {
         if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
         if (!isSel) bubble.style.transform = 'scale(1.15)';
         root.style.zIndex = '100';
+        // Make label background solid on hover
+        const label = root.querySelector('div:nth-child(2)') as HTMLDivElement;
+        if (label) label.style.background = 'rgba(0,0,0,0.9)';
       };
       root.onmouseleave = () => {
         if (!isSel) bubble.style.transform = 'scale(1)';
         root.style.zIndex = '2';
+        // Restore semi-transparent label background
+        const label = root.querySelector('div:nth-child(2)') as HTMLDivElement;
+        if (label) label.style.background = 'rgba(0,0,0,.65)';
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -421,10 +424,16 @@ export default function InteractiveMapV1() {
       root.onmouseenter = () => {
         bubble.style.transform = 'scale(1.12)';
         root.style.zIndex = '100';
+        // Make label background solid on hover
+        const label = root.querySelector('div:nth-child(2)') as HTMLDivElement;
+        if (label) label.style.background = 'rgba(0,0,0,0.9)';
       };
       root.onmouseleave = () => {
         bubble.style.transform = 'scale(1)';
         root.style.zIndex = '2';
+        // Restore semi-transparent label background
+        const label = root.querySelector('div:nth-child(2)') as HTMLDivElement;
+        if (label) label.style.background = 'rgba(0,0,0,.65)';
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
