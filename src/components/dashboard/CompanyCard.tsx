@@ -30,15 +30,15 @@ export function CompanyCard({ company, locations, onEditCompany, onEditLocation,
               <div className="flex items-center gap-2 mt-1">
                 {company.status === 'pending' && (
                   <>
-                    <Badge variant="secondary">pending</Badge>
-                    <span className="text-sm text-muted-foreground">Waiting for approval</span>
+                    <Badge variant="secondary">в изчакване</Badge>
+                    <span className="text-sm text-muted-foreground">Чака одобрение</span>
                   </>
                 )}
                 {company.status === 'rejected' && (
                   <>
-                    <Badge variant="destructive">rejected</Badge>
+                    <Badge variant="destructive">отхвърлена</Badge>
                     {company.rejection_reason && (
-                      <span className="text-sm text-red-600">Reason: {company.rejection_reason}</span>
+                      <span className="text-sm text-red-600">Причина: {company.rejection_reason}</span>
                     )}
                   </>
                 )}
@@ -48,11 +48,11 @@ export function CompanyCard({ company, locations, onEditCompany, onEditLocation,
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => onEditCompany(company)}>
               <Edit className="h-4 w-4 mr-2" />
-              Edit Company
+              Редактирай компания
             </Button>
             <Button variant="outline" size="sm" onClick={() => onDeleteCompany(company.id)}>
               <Trash2 className="h-4 w-4 mr-2" />
-              Delete
+              Изтрий
             </Button>
           </div>
         </div>
@@ -64,7 +64,7 @@ export function CompanyCard({ company, locations, onEditCompany, onEditLocation,
         
         {/* Locations for this company */}
         <div className="space-y-3">
-          <h4 className="font-medium">Locations</h4>
+          <h4 className="font-medium">Локации</h4>
           {locations.map((location) => (
             <div key={location.id} className={`p-4 border rounded-lg ${location.status === 'pending' ? 'opacity-60' : ''}`}>
               <div className="flex items-center justify-between mb-2">
@@ -78,15 +78,15 @@ export function CompanyCard({ company, locations, onEditCompany, onEditLocation,
                     <div className="flex items-center gap-2 mt-1">
                       {location.status === 'pending' && (
                         <>
-                          <Badge variant="secondary" className="text-xs">pending</Badge>
-                          <span className="text-xs text-muted-foreground">Waiting for approval</span>
+                          <Badge variant="secondary" className="text-xs">в изчакване</Badge>
+                          <span className="text-xs text-muted-foreground">Чака одобрение</span>
                         </>
                       )}
                       {location.status === 'rejected' && (
                         <>
-                          <Badge variant="destructive" className="text-xs">rejected</Badge>
+                          <Badge variant="destructive" className="text-xs">отхвърлена</Badge>
                           {location.rejection_reason && (
-                            <span className="text-xs text-red-600">Reason: {location.rejection_reason}</span>
+                            <span className="text-xs text-red-600">Причина: {location.rejection_reason}</span>
                           )}
                         </>
                       )}
@@ -105,11 +105,11 @@ export function CompanyCard({ company, locations, onEditCompany, onEditLocation,
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => onEditLocation(location)}>
                     <Edit className="h-4 w-4 mr-2" />
-                    Edit Location
+                    Редактирай локация
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => onDeleteLocation(location.id)}>
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
+                    Изтрий
                   </Button>
                 </div>
               </div>
@@ -121,7 +121,7 @@ export function CompanyCard({ company, locations, onEditCompany, onEditLocation,
           
           <Button variant="outline" className="w-full" onClick={() => onAddLocation(company.id)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Another Location
+            Добави друга локация
           </Button>
         </div>
       </CardContent>
