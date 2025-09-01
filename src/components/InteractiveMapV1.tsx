@@ -184,6 +184,7 @@ export default function InteractiveMapV1() {
   const defaultMinZoomRef = useRef<number>(6.5);
   const defaultCenterRef = useRef<mapboxgl.LngLatLike>({ lng: 25.4858, lat: 42.7339 });
   const defaultViewBoundsRef = useRef<mapboxgl.LngLatBoundsLike | null>(null);
+  const snappingRef = useRef(false); // Animation state for smooth zoom
 
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const selectedProvinceRef = useRef<string | null>(null);
@@ -278,16 +279,25 @@ export default function InteractiveMapV1() {
     markerById.current = {};
   };
 
-  const styleMarker = (bubble: HTMLDivElement, isSelected: boolean, size = 28) => {
+  const styleMarker = (bubble: HTMLDivElement, isSelected: boolean, size = 28, isLocation = false) => {
     bubble.style.width = `${size}px`;
     bubble.style.height = `${size}px`;
     bubble.style.borderRadius = '50%';
     bubble.style.border = '2px solid #fff';
-    bubble.style.boxShadow = '0 2px 8px rgba(239,68,68,.35)';
     bubble.style.cursor = 'pointer';
     bubble.style.transition = 'transform .12s ease';
     bubble.style.transformOrigin = 'center';
-    bubble.style.background = isSelected ? '#dc2626' : '#ef4444';
+    
+    if (isLocation) {
+      // Location markers - green
+      bubble.style.boxShadow = '0 2px 8px rgba(16,185,129,.35)';
+      bubble.style.background = isSelected ? '#059669' : '#10b981';
+    } else {
+      // City markers - red
+      bubble.style.boxShadow = '0 2px 8px rgba(239,68,68,.35)';
+      bubble.style.background = isSelected ? '#dc2626' : '#ef4444';
+    }
+    
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
 
@@ -327,15 +337,19 @@ export default function InteractiveMapV1() {
     
     locs.forEach((l) => {
       if (!l.latitude || !l.longitude) return;
-      const { root, bubble } = createLabeledMarkerRoot(l.name || '');
+      const { root, bubble, label } = createLabeledMarkerRoot(l.name || '');
       const isSel = selectedLocation && selectedLocation.id === l.id;
-      styleMarker(bubble, !!isSel, 28);
+      styleMarker(bubble, !!isSel, 28, true); // Use isLocation=true
       root.onmouseenter = () => {
         if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
         if (!isSel) bubble.style.transform = 'scale(1.15)';
+        // Bring label above others when hovering
+        root.style.zIndex = '100';
       };
       root.onmouseleave = () => {
         if (!isSel) bubble.style.transform = 'scale(1)';
+        // Reset z-index when not hovering
+        root.style.zIndex = '2';
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -385,9 +399,13 @@ export default function InteractiveMapV1() {
       label.style.fontSize = '13px';
       root.onmouseenter = () => {
         bubble.style.transform = 'scale(1.12)';
+        // Bring label above others when hovering
+        root.style.zIndex = '100';
       };
       root.onmouseleave = () => {
         bubble.style.transform = 'scale(1)';
+        // Reset z-index when not hovering
+        root.style.zIndex = '2';
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -400,7 +418,7 @@ export default function InteractiveMapV1() {
   useEffect(() => {
     Object.entries(markerById.current).forEach(([id, { bubble }]) => {
       const isSel = selectedLocation && String(selectedLocation.id) === id;
-      styleMarker(bubble, isSel, 28);
+      styleMarker(bubble, isSel, 28, true); // Add isLocation=true for location markers
     });
   }, [selectedLocation]);
 
@@ -451,6 +469,36 @@ export default function InteractiveMapV1() {
   );
 
   const handleCitySelect = (city: string, locs: any[]) => {
+    // Auto-select province if no province is currently selected
+    if (!selectedProvince) {
+      // Find which province this city belongs to
+      const cleanedCity = cleanCity(city);
+      const matchingProvince = PROVINCES.find((p) => 
+        p.searchTerms.some((term) => cleanedCity.includes(term) || term.includes(cleanedCity))
+      );
+      
+      if (matchingProvince) {
+        // First select the province without changing view
+        setSelectedProvince(matchingProvince.name);
+        setSelectedRawName(matchingProvince.nameEn ?? matchingProvince.name);
+        
+        // Build the province's city map
+        const provinceLocs = locations.filter((l) => {
+          const c = cleanCity(l.city || '');
+          return matchingProvince.searchTerms.some((t) => c.includes(t) || t.includes(c));
+        });
+        setProvinceLocations(provinceLocs);
+        
+        const cityMap: Record<string, any[]> = {};
+        provinceLocs.forEach((l) => {
+          const c = cleanCity(l.city || '');
+          if (!c) return;
+          (cityMap[c] ||= []).push(l);
+        });
+        setProvinceCities(cityMap);
+      }
+    }
+
     setSelectedCity(city);
     setSelectedLocation(null);
     setCityLocations(locs);
@@ -565,31 +613,65 @@ export default function InteractiveMapV1() {
     (map.current.scrollZoom as any).setAround?.('center');
     (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 600);
 
-    // Keep the camera constraints consistent with zoom level
-    const applyConstraints = () => {
+    // Smooth animated zoom behavior from V3
+    const FLOOR = () => defaultMinZoomRef.current;
+    const isAtFloor = () => Math.abs(map.current!.getZoom() - FLOOR()) <= 1e-3;
+
+    const enableConstrainedPan = () => {
+      map.current!.dragPan.enable();
+      (map.current!.keyboard as any)?.enable?.();
+      if (defaultViewBoundsRef.current) map.current!.setMaxBounds(defaultViewBoundsRef.current);
+    };
+    const disablePanAtFloor = () => {
+      map.current!.dragPan.disable();
+      (map.current!.keyboard as any)?.disable?.();
+      map.current!.setMaxBounds(null);
+    };
+    const snapToFloorAnimated = () => {
+      if (snappingRef.current) return;
+      snappingRef.current = true;
+      disablePanAtFloor();
+      map.current!.stop(); // stop wheel inertia immediately
+      map.current!.easeTo({
+        center: defaultCenterRef.current as mapboxgl.LngLatLike,
+        zoom: FLOOR(),
+        pitch: 0,
+        bearing: 0,
+        duration: 550,
+        easing: (t) => t * (2 - t) // easeOutQuad-ish
+      });
+    };
+
+    // While zooming: if we cross the floor, animate snap
+    const onZoom = () => {
       const z = map.current!.getZoom();
-      const MIN = defaultMinZoomRef.current;
-      if (z <= MIN + 1e-6) {
-        map.current!.dragPan.disable();
-        (map.current!.keyboard as any)?.disable?.();
-        map.current!.setMaxBounds(null);
-        // Always snap to the exact floor so you never get stuck on a slice
+      if (z <= FLOOR() + 0.02) {
+        // near/down to the floor
+        if (!isAtFloor()) snapToFloorAnimated();
+      } else {
+        snappingRef.current = false;
+        enableConstrainedPan();
+      }
+    };
+
+    // After any movement ends: enforce exact floor values & pan state
+    const onMoveEnd = () => {
+      if (isAtFloor()) {
+        disablePanAtFloor();
+        // normalize tiny residuals
         map.current!.jumpTo({
           center: defaultCenterRef.current as mapboxgl.LngLatLike,
-          zoom: MIN,
+          zoom: FLOOR(),
           pitch: 0,
           bearing: 0
         });
-      } else {
-        map.current!.dragPan.enable();
-        (map.current!.keyboard as any)?.enable?.();
-        if (defaultViewBoundsRef.current) {
-          map.current!.setMaxBounds(defaultViewBoundsRef.current);
-        }
+        snappingRef.current = false;
       }
     };
-    applyConstraints();
-    map.current.on('zoomend', applyConstraints);
+
+    onZoom();
+    map.current.on('zoom', onZoom);
+    map.current.on('moveend', onMoveEnd);
 
     // Layers & sources on load
     map.current.on('load', () => {
