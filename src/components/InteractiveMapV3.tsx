@@ -458,28 +458,6 @@ export default function InteractiveMapV2() {
     mapEl.current.appendChild(tooltip);
 
     map.current.on('load', () => {
-      // Camera lock sequence
-      map.current!.fitBounds(BG_BOUNDS, { padding: 24, duration: 0 });
-
-      map.current!.once('idle', () => {
-        // Center-based wheel zoom + finer wheel step
-        map.current!.scrollZoom.enable();
-        (map.current!.scrollZoom as any).setAround?.('center');
-        (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 600); // slightly finer than default
-
-        // Headroom so wheel can reach the fitted view (prevents 0.1–0.2 gap)
-        const fittedZoom = map.current!.getZoom();
-        map.current!.setMinZoom(fittedZoom - 0.3);
-
-        // Tight panning lock around the current view (tiny pad to prevent jitter)
-        const v = map.current!.getBounds().toArray();
-        const pad = 0.01;
-        map.current!.setMaxBounds([
-          [v[0][0] - pad, v[0][1] - pad],
-          [v[1][0] + pad, v[1][1] + pad]
-        ]);
-      });
-
       // --- sources/layers ---
       map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
 
@@ -513,13 +491,13 @@ export default function InteractiveMapV2() {
         paint: { 'line-color': '#ffffff', 'line-width': 2 },
       });
 
-      // 🔹 Invisible hit layer on top for reliable interactions
+      // Invisible hit layer on top for reliable interactions
       map.current!.addLayer({
         id: 'provinces-hit',
         type: 'fill',
         source: 'provinces',
         paint: { 'fill-color': '#000000', 'fill-opacity': 0.001 }
-      }); // added after outline => on top
+      });
 
       // World mask (under provinces)
       const worldRing: Ring = [
@@ -607,23 +585,70 @@ export default function InteractiveMapV2() {
         const c = centroid(feat as any).geometry.coordinates as [number, number];
         handleProvinceSelect(displayName, c, 9);
       });
+
+      // ---------- CAMERA LOCK (identical limits for wheel & buttons) ----------
+      map.current!.fitBounds(BG_BOUNDS, { padding: 24, duration: 0 }); // ensure nice initial framing
+
+      map.current!.once('idle', () => {
+        const DEFAULT_MIN = 6.5;
+
+        // Wheel behavior
+        map.current!.scrollZoom.enable();
+        (map.current!.scrollZoom as any).setAround?.('center');
+        (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 600);
+
+        // Padded bounds around Bulgaria so wheel isn't blocked at edges
+        const sw = BG_BOUNDS.getSouthWest();
+        const ne = BG_BOUNDS.getNorthEast();
+        const padRatio = 0.15; // 15% pad
+        const dx = (ne.lng - sw.lng) * padRatio;
+        const dy = (ne.lat - sw.lat) * padRatio;
+        map.current!.setMaxBounds([
+          [sw.lng - dx, sw.lat - dy],
+          [ne.lng + dx, ne.lat + dy]
+        ]);
+
+        // Hard floor for both wheel & buttons
+        map.current!.setMinZoom(DEFAULT_MIN);
+
+        // Snap to exact default view so both controls share the same floor
+        map.current!.easeTo({ center: [25.4858, 42.7339], zoom: DEFAULT_MIN, duration: 0 });
+
+        // Disable drag at min zoom (re-enable when zoomed in)
+        const updateDragPan = () => {
+          const z = map.current!.getZoom();
+          if (z <= DEFAULT_MIN + 1e-6) map.current!.dragPan.disable();
+          else map.current!.dragPan.enable();
+        };
+        updateDragPan();
+        map.current!.on('zoom', updateDragPan);
+      });
+      // -----------------------------------------------------------------------
     });
 
-    // Recompute lock on resize only when at full-country view
+    // Keep limits on resize (don’t refit camera unless you want to)
     const onResize = () => {
       if (!map.current) return;
-      if (selectedProvinceRef.current || selectedCityRef.current) return;
-      map.current.fitBounds(BG_BOUNDS, { padding: 24, duration: 0 });
-      const fittedZoom = map.current.getZoom();
-      map.current.setMinZoom(fittedZoom - 0.3);
-      const v = map.current.getBounds().toArray();
-      const pad = 0.01;
+      const DEFAULT_MIN = 6.5;
+
+      const sw = BG_BOUNDS.getSouthWest();
+      const ne = BG_BOUNDS.getNorthEast();
+      const padRatio = 0.15;
+      const dx = (ne.lng - sw.lng) * padRatio;
+      const dy = (ne.lat - sw.lat) * padRatio;
       map.current.setMaxBounds([
-        [v[0][0] - pad, v[0][1] - pad],
-        [v[1][0] + pad, v[1][1] + pad]
+        [sw.lng - dx, sw.lat - dy],
+        [ne.lng + dx, ne.lat + dy]
       ]);
+
+      map.current.setMinZoom(DEFAULT_MIN);
       (map.current.scrollZoom as any).setAround?.('center');
       (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 600);
+
+      // keep drag behavior consistent
+      const z = map.current.getZoom();
+      if (z <= DEFAULT_MIN + 1e-6) map.current.dragPan.disable();
+      else map.current.dragPan.enable();
     };
     map.current.on('resize', onResize);
 
