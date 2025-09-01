@@ -322,35 +322,33 @@ export default function InteractiveMapV1() {
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
 
-  // Center-safe marker DOM: pin centered on coordinate, label positioned above
-  const createLabeledMarkerRoot = (labelText: string, countText?: string, labelAlwaysVisible = false) => {
+  // Center-safe marker DOM: pin centered exactly on the coordinate, label positioned above without affecting centering
+  const createLabeledMarkerRoot = (
+    labelText: string,
+    countText?: string,
+    bubbleSize: number = 28,
+    labelAlwaysVisible: boolean = false
+  ) => {
     const root = document.createElement('div');
-    // Root remains size-less so Mapbox's anchor math doesn't interfere
+    // Root is just an anchor with no size at the coordinate
     root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
 
-    // An inner wrapper that positions the bubble centered, with label flowing above
-    const inner = document.createElement('div');
-    inner.style.cssText = [
+    // Bubble centered exactly on the coordinate
+    const bubble = document.createElement('div');
+    bubble.style.cssText += [
       'position:absolute',
       'left:0',
       'top:0',
-      'transform:translate(-50%,-14px)', // Center horizontally, offset vertically so bubble sits on coordinate
+      'transform:translate(-50%,-50%)', // true center anchoring
       'display:flex',
-      'flex-direction:column-reverse', // Reverse to put label above bubble
-      'align-items:center',             // keeps label perfectly centered above bubble  
-      'pointer-events:auto',
+      'align-items:center',
+      'justify-content:center',
     ].join(';');
 
-    // Bubble (positioned naturally inside the flex column)
-    const bubble = document.createElement('div');
-    
     // Add count text inside the bubble if provided
     if (countText) {
       bubble.textContent = countText;
       bubble.style.cssText += [
-        'display:flex',
-        'align-items:center',
-        'justify-content:center',
         'font-size:12px',
         'font-weight:700',
         'color:#fff',
@@ -358,11 +356,15 @@ export default function InteractiveMapV1() {
       ].join(';');
     }
 
-    // Label (flows naturally above bubble with margin)
+    // Label absolutely positioned ABOVE the bubble, not impacting bubble centering
     const label = document.createElement('div');
     label.textContent = labelText || '';
+    const offset = bubbleSize / 2 + 8; // bubble radius + spacing
     label.style.cssText = [
-      'margin-bottom:8px', // Changed from margin-top to margin-bottom
+      'position:absolute',
+      'left:0',
+      'top:0',
+      `transform:translate(-50%, calc(-50% - ${offset}px))`, // keep label above the centered bubble
       'padding:2px 6px',
       'border-radius:6px',
       'font-size:12px',
@@ -373,13 +375,12 @@ export default function InteractiveMapV1() {
       'white-space:nowrap',
       'pointer-events:none',
       'text-align:center',
-      `opacity:${labelAlwaysVisible ? '1' : '0'}`, // Control initial visibility
+      `opacity:${labelAlwaysVisible ? '1' : '0'}`,
       'transition:opacity 0.2s ease',
     ].join(';');
 
-    inner.appendChild(bubble);
-    inner.appendChild(label);
-    root.appendChild(inner);
+    root.appendChild(bubble);
+    root.appendChild(label);
 
     return { root, bubble, label };
   };
@@ -390,7 +391,7 @@ export default function InteractiveMapV1() {
 
     locs.forEach((l) => {
       if (!l.latitude || !l.longitude) return;
-      const { root, bubble, label } = createLabeledMarkerRoot(l.name || '');
+      const { root, bubble, label } = createLabeledMarkerRoot(l.name || '', undefined, 28, false);
       root.dataset.type = 'location';
       const isSel = selectedLocation && selectedLocation.id === l.id;
       styleMarker(bubble, !!isSel, 28, true);
@@ -443,7 +444,7 @@ export default function InteractiveMapV1() {
       );
       
       const labelAlwaysVisible = !!belongsToSelectedProvince;
-      const { root, bubble, label } = createLabeledMarkerRoot(labelText, countText, labelAlwaysVisible);
+      const { root, bubble, label } = createLabeledMarkerRoot(labelText, countText, 34, labelAlwaysVisible);
       root.dataset.type = 'city';
       styleMarker(bubble, false, 34);
       label.style.fontSize = '13px';
