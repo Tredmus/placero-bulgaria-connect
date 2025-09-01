@@ -321,29 +321,43 @@ export default function InteractiveMapV1() {
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
 
-  // Center-safe marker DOM: an inner flex column centered on the map point
-  const createLabeledMarkerRoot = (labelText: string) => {
+  // Center-safe marker DOM: pin centered on coordinate, label positioned below
+  const createLabeledMarkerRoot = (labelText: string, countText?: string) => {
     const root = document.createElement('div');
     // Root remains size-less so Mapbox's anchor math doesn't interfere
     root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
 
-    // An inner wrapper that we center exactly on the map coordinate
+    // An inner wrapper that positions the bubble centered, with label flowing below
     const inner = document.createElement('div');
     inner.style.cssText = [
       'position:absolute',
       'left:0',
       'top:0',
-      'transform:translate(-50%,-50%)', // center the whole stack at the point
+      'transform:translate(-50%,-14px)', // Center horizontally, offset vertically so bubble sits on coordinate
       'display:flex',
       'flex-direction:column',
-      'align-items:center',             // keeps label perfectly centered
+      'align-items:center',             // keeps label perfectly centered under bubble
       'pointer-events:auto',
     ].join(';');
 
     // Bubble (positioned naturally inside the flex column)
     const bubble = document.createElement('div');
+    
+    // Add count text inside the bubble if provided
+    if (countText) {
+      bubble.textContent = countText;
+      bubble.style.cssText += [
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+        'font-size:12px',
+        'font-weight:700',
+        'color:#fff',
+        'text-shadow:0 1px 2px rgba(0,0,0,0.5)',
+      ].join(';');
+    }
 
-    // Label (no absolute math needed)
+    // Label (flows naturally below bubble with margin)
     const label = document.createElement('div');
     label.textContent = labelText || '';
     label.style.cssText = [
@@ -373,7 +387,7 @@ export default function InteractiveMapV1() {
 
     locs.forEach((l) => {
       if (!l.latitude || !l.longitude) return;
-      const { root, bubble } = createLabeledMarkerRoot(l.name || '');
+      const { root, bubble, label } = createLabeledMarkerRoot(l.name || '');
       root.dataset.type = 'location';
       const isSel = selectedLocation && selectedLocation.id === l.id;
       styleMarker(bubble, !!isSel, 28, true);
@@ -382,10 +396,14 @@ export default function InteractiveMapV1() {
         if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
         if (!isSel) bubble.style.transform = 'scale(1.15)';
         root.style.zIndex = '100';
+        // Make label background solid for better readability
+        label.style.background = 'rgba(0,0,0,.9)';
       };
       root.onmouseleave = () => {
         if (!isSel) bubble.style.transform = 'scale(1)';
         root.style.zIndex = '2';
+        // Restore semi-transparent background
+        label.style.background = 'rgba(0,0,0,.65)';
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -412,8 +430,9 @@ export default function InteractiveMapV1() {
       if (!valid.length) return;
       const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
       const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
-      const labelText = `${displayCity} - ${locs.length}`;
-      const { root, bubble, label } = createLabeledMarkerRoot(labelText);
+      const labelText = displayCity;
+      const countText = String(locs.length);
+      const { root, bubble, label } = createLabeledMarkerRoot(labelText, countText);
       root.dataset.type = 'city';
       styleMarker(bubble, false, 34);
       label.style.fontSize = '13px';
@@ -421,10 +440,14 @@ export default function InteractiveMapV1() {
       root.onmouseenter = () => {
         bubble.style.transform = 'scale(1.12)';
         root.style.zIndex = '100';
+        // Make label background solid for better readability
+        label.style.background = 'rgba(0,0,0,.9)';
       };
       root.onmouseleave = () => {
         bubble.style.transform = 'scale(1)';
         root.style.zIndex = '2';
+        // Restore semi-transparent background
+        label.style.background = 'rgba(0,0,0,.65)';
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
