@@ -78,7 +78,7 @@ export default function Dashboard() {
   }, [user]);
 
   useEffect(() => {
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'moderator') {
       fetchPendingItems();
     } else if (userRole === 'host') {
       fetchUserSpaces();
@@ -318,7 +318,7 @@ export default function Dashboard() {
                 Табло
               </h1>
               <p className="text-muted-foreground text-lg">
-                {userRole === 'admin' ? 'Управлявайте чакащите за одобрение' : 'Управлявайте вашите работни пространства'}
+                {(userRole === 'admin' || userRole === 'moderator') ? 'Управлявайте чакащите за одобрение' : 'Управлявайте вашите работни пространства'}
               </p>
             </div>
           </div>
@@ -428,27 +428,27 @@ export default function Dashboard() {
             
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 placero-slide-up">
               <TabsList className="grid w-full grid-cols-3 placero-surface p-1 h-auto">
-                <TabsTrigger 
-                  value="locations" 
-                  className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
-                >
-                  <MapPin className="h-4 w-4" />
-                  Locations
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="articles" 
-                  className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
-                >
-                  <FileText className="h-4 w-4" />
-                  Articles
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="plans" 
-                  className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
-                >
-                  <Building2 className="h-4 w-4" />
-                  Plans
-                </TabsTrigger>
+                  <TabsTrigger 
+                    value="locations" 
+                    className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    Локации
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="articles" 
+                    className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Статии
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="plans" 
+                    className="flex items-center gap-2 py-3 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
+                  >
+                    <Building2 className="h-4 w-4" />
+                    Планове
+                  </TabsTrigger>
               </TabsList>
 
               <TabsContent value="locations" className="space-y-6">
@@ -491,7 +491,7 @@ export default function Dashboard() {
                             }}
                             size="sm"
                           >
-                            Add Article
+                            Добави статия
                           </Button>
                         </div>
                       </div>
@@ -521,19 +521,19 @@ export default function Dashboard() {
                                       setShowArticleForm(true);
                                     }}
                                   >
-                                    Edit
+                                    Редактиране
                                   </Button>
                                   <Button
                                     variant="destructive"
                                     size="sm"
                                     onClick={() => handleDeleteArticle(article.id)}
                                   >
-                                    Delete
+                                    Изтриване
                                   </Button>
                                 </div>
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                Status: {article.status === 'pending' ? 'Pending Review' : article.status === 'approved' ? 'Approved' : 'Rejected'}
+                                Статус: {article.status === 'pending' ? 'Чака преглед' : article.status === 'approved' ? 'Одобрена' : 'Отхвърлена'}
                                 {article.rejection_reason && (
                                   <span className="text-destructive ml-2">- {article.rejection_reason}</span>
                                 )}
@@ -542,27 +542,27 @@ export default function Dashboard() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-muted-foreground">No articles yet.</p>
+                        <p className="text-muted-foreground">Все още няма статии.</p>
                       )}
                       
                        <div className="mt-6 pt-6 border-t">
-                         <h6 className="font-medium mb-3">Banners</h6>
+                         <h6 className="font-medium mb-3">Банери</h6>
                          <div className="space-y-4 mb-4">
                            {userBanners.filter(banner => banner.company_id === company.id).map((banner) => (
                              <div key={banner.id} className={`p-3 border rounded-lg ${banner.status === 'pending' ? 'opacity-60' : ''}`}>
                                <div className="flex items-center justify-between">
                                  <div className="flex-1">
                                    <p className="text-sm font-medium">{banner.text}</p>
-                                   {banner.image && (
-                                     <p className="text-xs text-muted-foreground">With image</p>
-                                   )}
-                                 </div>
-                                 <div className="text-xs text-muted-foreground">
-                                   Status: {banner.status === 'pending' ? 'Pending Review' : banner.status === 'approved' ? 'Approved' : 'Rejected'}
-                                   {banner.rejection_reason && (
-                                     <span className="text-destructive block">- {banner.rejection_reason}</span>
-                                   )}
-                                 </div>
+                                    {banner.image && (
+                                      <p className="text-xs text-muted-foreground">С изображение</p>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Статус: {banner.status === 'pending' ? 'Чака преглед' : banner.status === 'approved' ? 'Одобрен' : 'Отхвърлен'}
+                                    {banner.rejection_reason && (
+                                      <span className="text-destructive block">- {banner.rejection_reason}</span>
+                                    )}
+                                  </div>
                                </div>
                              </div>
                            ))}
@@ -589,9 +589,9 @@ export default function Dashboard() {
             <Dialog open={!!showEditCompanyForm} onOpenChange={() => setShowEditCompanyForm(null)}>
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Edit Company</DialogTitle>
+                  <DialogTitle>Редактиране на компания</DialogTitle>
                   <DialogDescription>
-                    Update your company information
+                    Актуализирайте информацията за вашата компания
                   </DialogDescription>
                 </DialogHeader>
                 
@@ -609,9 +609,9 @@ export default function Dashboard() {
             <Dialog open={!!showEditLocationForm} onOpenChange={() => setShowEditLocationForm(null)}>
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Edit Location</DialogTitle>
+                  <DialogTitle>Редактиране на локация</DialogTitle>
                   <DialogDescription>
-                    Update your location information
+                    Актуализирайте информацията за вашата локация
                   </DialogDescription>
                 </DialogHeader>
                 
@@ -630,9 +630,9 @@ export default function Dashboard() {
             <Dialog open={!!showAddLocationForm} onOpenChange={() => setShowAddLocationForm(null)}>
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Add New Location</DialogTitle>
+                  <DialogTitle>Добавяне на нова локация</DialogTitle>
                   <DialogDescription>
-                    Add another location to your company
+                    Добавете още една локация към вашата компания
                   </DialogDescription>
                 </DialogHeader>
                 
@@ -660,22 +660,22 @@ export default function Dashboard() {
         </div>
       )}
 
-      {userRole === 'admin' && (
+      {(userRole === 'admin' || userRole === 'moderator') && (
         <>
           <div className="mb-8 placero-fade-in">
-            <h2 className="text-3xl font-bold mb-6 placero-heading">Admin Review</h2>
+            <h2 className="text-3xl font-bold mb-6 placero-heading">Чакащи прегледи</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="placero-card-elevated relative overflow-hidden placero-hover-lift">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5"></div>
                 <CardHeader className="pb-3 relative z-10">
                   <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Building2 className="h-4 w-4 text-primary" />
-                    Companies
+                    Компании
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="relative z-10">
                   <div className="text-3xl font-bold text-primary">{pendingCompanies.length}</div>
-                  <p className="text-xs text-muted-foreground">Pending review</p>
+                  <p className="text-xs text-muted-foreground">Чака преглед</p>
                 </CardContent>
               </div>
 
@@ -684,12 +684,12 @@ export default function Dashboard() {
                 <CardHeader className="pb-3 relative z-10">
                   <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="h-4 w-4 text-primary" />
-                    Locations
+                    Локации
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="relative z-10">
                   <div className="text-3xl font-bold text-primary">{pendingLocations.length}</div>
-                  <p className="text-xs text-muted-foreground">Pending review</p>
+                  <p className="text-xs text-muted-foreground">Чака преглед</p>
                 </CardContent>
               </div>
 
@@ -698,12 +698,12 @@ export default function Dashboard() {
                 <CardHeader className="pb-3 relative z-10">
                   <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
                     <FileText className="h-4 w-4 text-primary" />
-                    Articles
+                    Статии
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="relative z-10">
                   <div className="text-3xl font-bold text-primary">{pendingArticles.length}</div>
-                  <p className="text-xs text-muted-foreground">Pending review</p>
+                  <p className="text-xs text-muted-foreground">Чака преглед</p>
                 </CardContent>
               </div>
 
@@ -712,12 +712,12 @@ export default function Dashboard() {
                 <CardHeader className="pb-3 relative z-10">
                   <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
                     <FileText className="h-4 w-4 text-primary" />
-                    Banners
+                    Банери
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="relative z-10">
                   <div className="text-3xl font-bold text-primary">{pendingBanners.length}</div>
-                  <p className="text-xs text-muted-foreground">Pending review</p>
+                  <p className="text-xs text-muted-foreground">Чака преглед</p>
                 </CardContent>
               </div>
             </div>
@@ -729,12 +729,12 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="h-5 w-5" />
-                  Pending Companies ({pendingCompanies.length})
+                  Чакащи компании ({pendingCompanies.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {pendingCompanies.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">No pending companies</p>
+                  <p className="text-muted-foreground text-sm">Няма чакащи компании</p>
                 ) : (
                   pendingCompanies.map((company) => (
                     <div key={company.id} className="p-3 border rounded-lg space-y-2">
@@ -749,7 +749,7 @@ export default function Dashboard() {
                             onClick={() => setShowPreview({type: 'company', item: company})}
                           >
                             <Eye className="h-4 w-4 mr-1" />
-                            Preview & Decide
+                            Преглед и решение
                           </Button>
                         </div>
                     </div>
@@ -763,12 +763,12 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="h-5 w-5" />
-                  Pending Locations ({pendingLocations.length})
+                  Чакащи локации ({pendingLocations.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {pendingLocations.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">No pending locations</p>
+                  <p className="text-muted-foreground text-sm">Няма чакащи локации</p>
                 ) : (
                   pendingLocations.map((location) => (
                     <div key={location.id} className="p-3 border rounded-lg space-y-2">
@@ -783,7 +783,7 @@ export default function Dashboard() {
                             onClick={() => setShowPreview({type: 'location', item: location})}
                           >
                             <Eye className="h-4 w-4 mr-1" />
-                            Preview & Decide
+                            Преглед и решение
                           </Button>
                         </div>
                     </div>
@@ -797,12 +797,12 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
-                  Pending Articles ({pendingArticles.length})
+                  Чакащи статии ({pendingArticles.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {pendingArticles.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">No pending articles</p>
+                  <p className="text-muted-foreground text-sm">Няма чакащи статии</p>
                 ) : (
                   pendingArticles.map((article) => (
                     <div key={article.id} className="p-3 border rounded-lg space-y-2">
@@ -817,7 +817,7 @@ export default function Dashboard() {
                           onClick={() => setShowPreview({type: 'article', item: article})}
                         >
                           <Eye className="h-4 w-4 mr-1" />
-                          Preview & Decide
+                          Преглед и решение
                         </Button>
                       </div>
                     </div>
@@ -828,15 +828,15 @@ export default function Dashboard() {
 
              {/* Pending Banners */}
              <Card>
-               <CardHeader>
-                 <CardTitle className="flex items-center gap-2">
-                   <FileText className="h-5 w-5" />
-                   Pending Banners ({pendingBanners.length})
-                 </CardTitle>
-               </CardHeader>
-               <CardContent className="space-y-3">
-                 {pendingBanners.length === 0 ? (
-                   <p className="text-muted-foreground text-sm">No pending banners</p>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Чакащи банери ({pendingBanners.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {pendingBanners.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">Няма чакащи банери</p>
                  ) : (
                    pendingBanners.map((banner) => (
                      <div key={banner.id} className="p-3 border rounded-lg space-y-2">
@@ -845,14 +845,14 @@ export default function Dashboard() {
                          {new Date(banner.created_at).toLocaleDateString()}
                        </p>
                        <div className="flex gap-2">
-                         <Button 
-                           size="sm" 
-                           variant="outline"
-                           onClick={() => setShowPreview({type: 'banner', item: banner})}
-                         >
-                           <Eye className="h-4 w-4 mr-1" />
-                           Preview & Decide
-                         </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setShowPreview({type: 'banner', item: banner})}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Преглед и решение
+                          </Button>
                        </div>
                      </div>
                    ))
