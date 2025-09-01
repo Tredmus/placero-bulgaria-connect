@@ -226,7 +226,6 @@ export default function InteractiveMapV1() {
   const [provincesGeo, setProvincesGeo] = useState<any>(null);
   const [worldMask, setWorldMask] = useState<any>(null);
   const [mapReady, setMapReady] = useState<boolean>(false);
-  const [isCityHovered, setIsCityHovered] = useState<boolean>(false);
 
   // Precompute province data from locations
   const provinceData = useMemo(() => {
@@ -322,33 +321,35 @@ export default function InteractiveMapV1() {
     bubble.style.transform = isSelected ? 'scale(1.22)' : 'scale(1)';
   };
 
-  // Center-safe marker DOM: pin centered exactly on the coordinate, label positioned above without affecting centering
-  const createLabeledMarkerRoot = (
-    labelText: string,
-    countText?: string,
-    bubbleSize: number = 28,
-    labelAlwaysVisible: boolean = false
-  ) => {
+  // Center-safe marker DOM: pin centered on coordinate, label positioned below
+  const createLabeledMarkerRoot = (labelText: string, countText?: string, labelAlwaysVisible = false) => {
     const root = document.createElement('div');
-    // Root is just an anchor with no size at the coordinate
+    // Root remains size-less so Mapbox's anchor math doesn't interfere
     root.style.cssText = 'position:relative;width:0;height:0;pointer-events:auto;z-index:2;';
 
-    // Bubble centered exactly on the coordinate
-    const bubble = document.createElement('div');
-    bubble.style.cssText += [
+    // An inner wrapper that positions the bubble centered, with label flowing below
+    const inner = document.createElement('div');
+    inner.style.cssText = [
       'position:absolute',
       'left:0',
       'top:0',
-      'transform:translate(-50%,-50%)', // true center anchoring
+      'transform:translate(-50%,-14px)', // Center horizontally, offset vertically so bubble sits on coordinate
       'display:flex',
-      'align-items:center',
-      'justify-content:center',
+      'flex-direction:column',
+      'align-items:center',             // keeps label perfectly centered under bubble  
+      'pointer-events:auto',
     ].join(';');
 
+    // Bubble (positioned naturally inside the flex column)
+    const bubble = document.createElement('div');
+    
     // Add count text inside the bubble if provided
     if (countText) {
       bubble.textContent = countText;
       bubble.style.cssText += [
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
         'font-size:12px',
         'font-weight:700',
         'color:#fff',
@@ -356,15 +357,11 @@ export default function InteractiveMapV1() {
       ].join(';');
     }
 
-    // Label absolutely positioned ABOVE the bubble, not impacting bubble centering
+    // Label (flows naturally below bubble with margin)
     const label = document.createElement('div');
     label.textContent = labelText || '';
-    const offset = bubbleSize / 2 + 8; // bubble radius + spacing
     label.style.cssText = [
-      'position:absolute',
-      'left:0',
-      'top:0',
-      `transform:translate(-50%, calc(-50% - ${offset}px))`, // keep label above the centered bubble
+      'margin-top:8px',
       'padding:2px 6px',
       'border-radius:6px',
       'font-size:12px',
@@ -375,12 +372,13 @@ export default function InteractiveMapV1() {
       'white-space:nowrap',
       'pointer-events:none',
       'text-align:center',
-      `opacity:${labelAlwaysVisible ? '1' : '0'}`,
+      `opacity:${labelAlwaysVisible ? '1' : '0'}`, // Control initial visibility
       'transition:opacity 0.2s ease',
     ].join(';');
 
-    root.appendChild(bubble);
-    root.appendChild(label);
+    inner.appendChild(bubble);
+    inner.appendChild(label);
+    root.appendChild(inner);
 
     return { root, bubble, label };
   };
@@ -391,7 +389,7 @@ export default function InteractiveMapV1() {
 
     locs.forEach((l) => {
       if (!l.latitude || !l.longitude) return;
-      const { root, bubble, label } = createLabeledMarkerRoot(l.name || '', undefined, 28, false);
+      const { root, bubble, label } = createLabeledMarkerRoot(l.name || '');
       root.dataset.type = 'location';
       const isSel = selectedLocation && selectedLocation.id === l.id;
       styleMarker(bubble, !!isSel, 28, true);
@@ -444,7 +442,7 @@ export default function InteractiveMapV1() {
       );
       
       const labelAlwaysVisible = !!belongsToSelectedProvince;
-      const { root, bubble, label } = createLabeledMarkerRoot(labelText, countText, 34, labelAlwaysVisible);
+      const { root, bubble, label } = createLabeledMarkerRoot(labelText, countText, labelAlwaysVisible);
       root.dataset.type = 'city';
       styleMarker(bubble, false, 34);
       label.style.fontSize = '13px';
@@ -455,7 +453,6 @@ export default function InteractiveMapV1() {
         // Always show label on hover and make background solid for better readability
         label.style.opacity = '1';
         label.style.background = 'rgba(0,0,0,.9)';
-        setIsCityHovered(true);
       };
       root.onmouseleave = () => {
         bubble.style.transform = 'scale(1)';
@@ -463,7 +460,6 @@ export default function InteractiveMapV1() {
         // Restore original opacity based on whether label should be always visible
         label.style.opacity = labelAlwaysVisible ? '1' : '0';
         label.style.background = 'rgba(0,0,0,.65)';
-        setIsCityHovered(false);
       };
       root.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -800,12 +796,6 @@ export default function InteractiveMapV1() {
             PROVINCES.find((p) => p.name === rawName || p.nameEn === rawName)?.name || rawName || '';
 
           if (selectedRawNameRef.current && rawName === selectedRawNameRef.current) {
-            if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
-            return;
-          }
-          
-          // Hide province tooltip when a city is being hovered to avoid label clash
-          if (isCityHovered) {
             if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
             return;
           }
