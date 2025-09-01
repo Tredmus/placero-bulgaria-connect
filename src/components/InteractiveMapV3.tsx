@@ -180,6 +180,11 @@ export default function InteractiveMapV2() {
   const hoverTooltipRef = useRef<HTMLDivElement | null>(null);
   const hoveredFeatureId = useRef<number | string | null>(null);
 
+  // min-zoom “floor” state (computed from viewport)
+  const defaultMinZoomRef = useRef<number>(6.5);
+  const defaultCenterRef = useRef<mapboxgl.LngLatLike>({ lng: 25.4858, lat: 42.7339 });
+  const defaultViewBoundsRef = useRef<mapboxgl.LngLatBoundsLike | null>(null);
+
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const selectedProvinceRef = useRef<string | null>(null);
   useEffect(() => {
@@ -423,7 +428,14 @@ export default function InteractiveMapV2() {
     }
     if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
     clearMarkers();
-    map.current?.flyTo({ center: [25.4858, 42.7339], zoom: 6.5, pitch: 0, bearing: 0, duration: 700 });
+    // snap to the computed floor
+    map.current?.easeTo({
+      center: defaultCenterRef.current as mapboxgl.LngLatLike,
+      zoom: defaultMinZoomRef.current,
+      pitch: 0,
+      bearing: 0,
+      duration: 500
+    });
   };
 
   // MAP INIT + CAMERA LOCK
@@ -433,23 +445,38 @@ export default function InteractiveMapV2() {
     map.current = new mapboxgl.Map({
       container: mapEl.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [25.4858, 42.7339],
-      zoom: 6.5,
+      center: [25.4858, 42.7339], // temporary, will be overridden immediately below
+      zoom: 6.5,                  // temporary
       pitch: 0,
       bearing: 0,
       renderWorldCopies: false,
-      maxZoom: 18
+      maxZoom: 18,
+      fadeDuration: 0
     });
 
+    // --- Compute and apply the exact “floor” BEFORE first paint ---
+    const cam = map.current.cameraForBounds(BG_BOUNDS, { padding: 24 })!;
+    defaultMinZoomRef.current = cam.zoom;
+    defaultCenterRef.current = cam.center as mapboxgl.LngLatLike;
+    map.current.jumpTo({ center: cam.center, zoom: cam.zoom, bearing: 0, pitch: 0 });
+    map.current.setMinZoom(cam.zoom);
+    // store the exact min-zoom viewport as the panning box when zoomed in
+    const vb = map.current.getBounds().toArray();
+    defaultViewBoundsRef.current = [
+      [vb[0][0], vb[0][1]],
+      [vb[1][0], vb[1][1]]
+    ];
+
+    // Controls
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // Tooltip
+    // Tooltip element
     const tooltip = document.createElement('div');
     tooltip.className = 'map-province-tooltip';
     tooltip.style.cssText = `
       position:absolute;pointer-events:none;z-index:30;
       background:rgba(0,0,0,.7);color:#fff;padding:6px 8px;
-      border-radius:6px;font-size:12px;transform:translate(-50%,-120%);
+      border-radius:6px;font-size:12px;transform:translate(-50%, -120%);
       white-space:nowrap;opacity:0;transition:opacity .12s ease;
       border:1px solid rgba(255,255,255,.15);
       backdrop-filter:saturate(140%) blur(2px);
@@ -457,8 +484,39 @@ export default function InteractiveMapV2() {
     hoverTooltipRef.current = tooltip;
     mapEl.current.appendChild(tooltip);
 
+    // Wheel behavior (around center + gentle step)
+    map.current.scrollZoom.enable();
+    (map.current.scrollZoom as any).setAround?.('center');
+    (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 600);
+
+    // Keep the camera constraints consistent with zoom level
+    const applyConstraints = () => {
+      const z = map.current!.getZoom();
+      const MIN = defaultMinZoomRef.current;
+      if (z <= MIN + 1e-6) {
+        map.current!.dragPan.disable();
+        (map.current!.keyboard as any)?.disable?.();
+        map.current!.setMaxBounds(null);
+        // Always snap to the exact floor so you never get stuck on a slice
+        map.current!.jumpTo({
+          center: defaultCenterRef.current as mapboxgl.LngLatLike,
+          zoom: MIN,
+          pitch: 0,
+          bearing: 0
+        });
+      } else {
+        map.current!.dragPan.enable();
+        (map.current!.keyboard as any)?.enable?.();
+        if (defaultViewBoundsRef.current) {
+          map.current!.setMaxBounds(defaultViewBoundsRef.current);
+        }
+      }
+    };
+    applyConstraints();
+    map.current.on('zoomend', applyConstraints);
+
+    // Layers & sources on load
     map.current.on('load', () => {
-      // --- sources/layers ---
       map.current!.addSource('provinces', { type: 'geojson', data: provincesGeo, generateId: true });
 
       map.current!.addLayer({
@@ -521,14 +579,14 @@ export default function InteractiveMapV2() {
           source: 'world-mask',
           paint: { 'fill-color': '#020817', 'fill-opacity': 1 },
         },
-        'provinces-fill'
+        'provinces-fill' // mask below provinces
       );
 
       if (worldMask) {
         (map.current!.getSource('world-mask') as mapboxgl.GeoJSONSource).setData(worldMask as any);
       }
 
-      // --- interactions (bind to HIT layer) ---
+      // Interactions (bind to hit layer)
       map.current!.on('mouseenter', 'provinces-hit', () => (map.current!.getCanvas().style.cursor = 'pointer'));
       map.current!.on('mouseleave', 'provinces-hit', () => (map.current!.getCanvas().style.cursor = ''));
 
@@ -585,86 +643,38 @@ export default function InteractiveMapV2() {
         const c = centroid(feat as any).geometry.coordinates as [number, number];
         handleProvinceSelect(displayName, c, 9);
       });
-
-      // ---------- CAMERA LOCK (viewport-fitted floor; wheel == buttons) ----------
-        map.current!.once('idle', () => {
-          const EPS = 1e-6;
-        
-          // Compute the exact camera that fits Bulgaria for THIS viewport
-          const cam = map.current!.cameraForBounds(BG_BOUNDS, { padding: 24 })!;
-          const DEFAULT_MIN = cam.zoom;
-        
-          // Snap to that exact view and make it the hard floor
-          map.current!.jumpTo({ center: cam.center, zoom: DEFAULT_MIN, bearing: 0, pitch: 0 });
-          map.current!.setMinZoom(DEFAULT_MIN);
-        
-          // Wheel behavior
-          map.current!.scrollZoom.enable();
-          (map.current!.scrollZoom as any).setAround?.('center');
-          (map.current!.scrollZoom as any).setWheelZoomRate?.(1 / 600);
-        
-          // Build padded bounds FROM the actual min-zoom viewport
-          const vb = map.current!.getBounds().toArray();
-          const padLng = (vb[1][0] - vb[0][0]) * 0.12; // 12% pad
-          const padLat = (vb[1][1] - vb[0][1]) * 0.12;
-          const PADDED_FROM_VIEW: mapboxgl.LngLatBoundsLike = [
-            [vb[0][0] - padLng, vb[0][1] - padLat],
-            [vb[1][0] + padLng, vb[1][1] + padLat]
-          ];
-        
-          // Toggle bounds/pan by zoom so the wheel can hit the floor exactly
-          const updateConstraints = () => {
-            const z = map.current!.getZoom();
-            if (z <= DEFAULT_MIN + EPS) {
-              map.current!.dragPan.disable();
-              (map.current!.keyboard as any)?.disable?.();
-              map.current!.setMaxBounds(null); // no bounds at the floor
-              // hard-snap tiny residuals
-              if (z > DEFAULT_MIN && z < DEFAULT_MIN + 0.25) {
-                map.current!.easeTo({ zoom: DEFAULT_MIN, duration: 0 });
-              }
-            } else {
-              map.current!.dragPan.enable();
-              (map.current!.keyboard as any)?.enable?.();
-              map.current!.setMaxBounds(PADDED_FROM_VIEW);
-            }
-          };
-        
-          updateConstraints();
-          map.current!.on('zoom', updateConstraints);
-        });
-        // --------------------------------------------------------------------------
-
     });
 
-    // Keep limits on resize
+    // Recalculate camera floor on resize (no flicker)
     const onResize = () => {
       if (!map.current) return;
-      const DEFAULT_MIN = 6.5;
-      const EPS = 1e-6;
+      const cam2 = map.current.cameraForBounds(BG_BOUNDS, { padding: 24 })!;
+      defaultMinZoomRef.current = cam2.zoom;
+      defaultCenterRef.current = cam2.center as mapboxgl.LngLatLike;
+      map.current.setMinZoom(cam2.zoom);
 
-      const z = map.current.getZoom();
-      if (z <= DEFAULT_MIN + EPS) {
-        map.current.dragPan.disable();
-        (map.current.keyboard as any)?.disable?.();
-        map.current.setMaxBounds(null);
+      // recompute the min-zoom viewport bounds without changing user zoom if > min
+      const wasZoom = map.current.getZoom();
+      const wasCenter = map.current.getCenter();
+
+      // temporarily jump to min view to read its bounds
+      map.current.jumpTo({ center: cam2.center, zoom: cam2.zoom, bearing: 0, pitch: 0 });
+      const rb = map.current.getBounds().toArray();
+      defaultViewBoundsRef.current = [
+        [rb[0][0], rb[0][1]],
+        [rb[1][0], rb[1][1]]
+      ];
+
+      // restore previous camera if user was zoomed in
+      if (wasZoom > cam2.zoom + 1e-6) {
+        map.current.jumpTo({ center: wasCenter, zoom: wasZoom, bearing: 0, pitch: 0 });
+        if (defaultViewBoundsRef.current) {
+          map.current.setMaxBounds(defaultViewBoundsRef.current);
+        }
       } else {
-        const sw = BG_BOUNDS.getSouthWest();
-        const ne = BG_BOUNDS.getNorthEast();
-        const pad = 0.15;
-        const dx = (ne.lng - sw.lng) * pad;
-        const dy = (ne.lat - sw.lat) * pad;
-        map.current.setMaxBounds([
-          [sw.lng - dx, sw.lat - dy],
-          [ne.lng + dx, ne.lat + dy]
-        ]);
-        map.current.dragPan.enable();
-        (map.current.keyboard as any)?.enable?.();
+        // if at floor, ensure perfect snap
+        map.current.jumpTo({ center: cam2.center, zoom: cam2.zoom, bearing: 0, pitch: 0 });
       }
-
-      map.current.setMinZoom(DEFAULT_MIN);
-      (map.current.scrollZoom as any).setAround?.('center');
-      (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 600);
     };
     map.current.on('resize', onResize);
 
