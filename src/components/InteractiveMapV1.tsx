@@ -311,6 +311,69 @@ const createLabeledMarkerRoot = (labelText: string) => {
   return { root, bubble, label };
 };
 
+// Helper to update label offset based on bubble size
+const updateLabelOffset = (bubble: HTMLDivElement, label: HTMLDivElement, gap = 8) => {
+  const bubbleSize = parseFloat(bubble.style.width) || 28;
+  label.style.top = `${bubbleSize / 2 + gap}px`;
+};
+
+const addCityMarkers = (cityMap: Record<string, any[]>, selectedCity?: string) => {
+  if (!map.current) return;
+
+  // Keep location markers; drop previous city markers
+  markers.current = markers.current.filter((marker) => {
+    const el = marker.getElement() as HTMLElement;
+    const keep = el.dataset.type === 'location';
+    if (!keep) marker.remove();
+    return keep;
+  });
+
+  Object.entries(cityMap).forEach(([city, locs]) => {
+    // Skip selected city marker
+    if (selectedCity && city === selectedCity) return;
+
+    const valid = locs.filter((l) => l.latitude && l.longitude);
+    if (!valid.length) return;
+
+    const lat = valid.reduce((s, l) => s + Number(l.latitude), 0) / valid.length;
+    const lng = valid.reduce((s, l) => s + Number(l.longitude), 0) / valid.length;
+
+    const displayCity = formatCity(city);
+    const { root, bubble, label } = createLabeledMarkerRoot(displayCity);
+    root.dataset.type = 'city';
+
+    const isSel = selectedCity === city;
+    styleMarker(bubble, isSel, 28, false, label);
+
+    // Hover: scale bubble and keep the label gap correct
+    root.onmouseenter = () => {
+      if (hoverTooltipRef.current) hoverTooltipRef.current.style.opacity = '0';
+      if (!isSel) bubble.style.transform = 'scale(1.15)';
+      updateLabelOffset(bubble, label, 10);
+      root.style.zIndex = '100';
+    };
+    root.onmouseleave = () => {
+      if (!isSel) bubble.style.transform = 'scale(1)';
+      updateLabelOffset(bubble, label, 10);
+      root.style.zIndex = '2';
+    };
+
+    root.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleCitySelect(city, locs);
+    });
+
+    const mk = new mapboxgl.Marker({ element: root, anchor: 'center' })
+      .setLngLat([lng, lat])
+      .addTo(map.current!);
+
+    // Ensure the label offset is perfect after the element is in the DOM
+    requestAnimationFrame(() => updateLabelOffset(bubble, label, 10));
+
+    markers.current.push(mk);
+  });
+};
+
 const addLocationMarkers = (locs: any[]) => {
   if (!map.current) return;
 
