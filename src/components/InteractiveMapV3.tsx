@@ -606,6 +606,25 @@ export default function InteractiveMapV1() {
       fadeDuration: 0
     });
 
+    // Hide map labels after style loads
+    map.current.on('style.load', () => {
+      // Hide country and place labels
+      const labelsToHide = [
+        'country-label',
+        'state-label', 
+        'settlement-major-label',
+        'settlement-minor-label',
+        'settlement-subdivision-label',
+        'poi-label'
+      ];
+      
+      labelsToHide.forEach(layerId => {
+        if (map.current!.getLayer(layerId)) {
+          map.current!.setLayoutProperty(layerId, 'visibility', 'none');
+        }
+      });
+    });
+
     // Compute/apply exact “floor” BEFORE first paint
     const cam = map.current.cameraForBounds(BG_BOUNDS, { padding: window.innerWidth < 768 ? 10 : 24 })!;
     defaultMinZoomRef.current = cam.zoom;
@@ -1067,7 +1086,7 @@ export default function InteractiveMapV1() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mt-4 md:mt-6 px-4 md:px-0">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mt-4 md:mt-6 px-4 md:px-0">
         {PROVINCES.map((p) => {
           const data = provinceData[p.name];
           if (!data || data.locations.length === 0) return null;
@@ -1094,7 +1113,7 @@ export default function InteractiveMapV1() {
       {selectedProvince && Object.keys(provinceCities).length > 0 && (
         <div className="mt-6 px-4 md:px-0">
           <h4 className="text-lg font-semibold mb-4">Градове в област {selectedProvince}</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
             {Object.entries(provinceCities).map(([cityKey, locs]) => {
               const displayCity = formatCity(cityKey);
               const isActive = selectedCity === displayCity;
