@@ -113,7 +113,7 @@ const Header = () => {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden mt-4 placero-glass p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
+          <div className="md:hidden mt-4 placero-glass p-4 space-y-4 animate-fade-in animate-scale-in backdrop-blur-md border border-border/20 rounded-lg shadow-lg">
             <Link to="/locations" onClick={closeMobileMenu}>
               <Button variant="ghost" className="w-full justify-start font-medium hover:bg-primary/10 hover:text-primary transition-all">
                 Локации

@@ -303,8 +303,11 @@ export default function InteractiveMapV1() {
   };
 
   const styleMarker = (bubble: HTMLDivElement, isSelected: boolean, size = 28, isLocation = false) => {
-    bubble.style.width = `${size}px`;
-    bubble.style.height = `${size}px`;
+    // Make pins smaller on mobile
+    const mobileSize = size * 0.7; // 30% smaller on mobile
+    const finalSize = window.innerWidth < 768 ? mobileSize : size;
+    bubble.style.width = `${finalSize}px`;
+    bubble.style.height = `${finalSize}px`;
     bubble.style.borderRadius = '50%';
     bubble.style.border = '2px solid #fff';
     bubble.style.cursor = 'pointer';
