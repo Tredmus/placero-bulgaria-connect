@@ -13,7 +13,7 @@ const HeroSection = () => {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(140,255,141,0.1),rgba(255,255,255,0))]" />
       <div className="absolute inset-0 bg-grid-pattern opacity-5" />
       
-      <div className="container mx-auto px-4 py-20 lg:py-32 relative z-10">
+      <div className="container mx-auto px-4 py-12 md:py-20 lg:py-32 relative z-10">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Content */}
           <div className="space-y-10 placero-fade-in">
@@ -47,16 +47,25 @@ const HeroSection = () => {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="placero-glass p-4 text-center placero-hover-lift">
+                <div className="flex items-center justify-center mb-2">
+                  <Building2 className="h-5 w-5 text-primary mr-2" />
+                </div>
                 <div className="text-2xl font-bold text-foreground mb-1">150+</div>
                 <div className="text-sm text-muted-foreground font-medium">Локации</div>
               </div>
               <div className="placero-glass p-4 text-center placero-hover-lift">
+                <div className="flex items-center justify-center mb-2">
+                  <Users className="h-5 w-5 text-primary mr-2" />
+                </div>
                 <div className="text-2xl font-bold text-foreground mb-1">5000+</div>
                 <div className="text-sm text-muted-foreground font-medium">Потребители</div>
               </div>
               <div className="placero-glass p-4 text-center placero-hover-lift">
+                <div className="flex items-center justify-center mb-2">
+                  <Star className="h-5 w-5 text-primary mr-2" />
+                </div>
                 <div className="text-2xl font-bold text-foreground mb-1">4.8</div>
                 <div className="text-sm text-muted-foreground font-medium">Рейтинг</div>
               </div>
