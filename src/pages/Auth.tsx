@@ -83,7 +83,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-16 bg-gradient-to-br from-background via-muted/20 to-accent/10">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 md:py-16 bg-gradient-to-br from-background via-muted/20 to-accent/10">
       <div className="w-full max-w-md">
           {/* Logo */}
           <div className="flex items-center justify-center space-x-3 mb-8 placero-fade-in">

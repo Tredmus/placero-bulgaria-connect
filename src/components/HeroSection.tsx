@@ -30,7 +30,7 @@ const HeroSection = () => {
             </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-6">
+            <div className="flex flex-col sm:flex-row gap-6 justify-center sm:justify-start">
               <Link to="/locations">
                 <Button size="lg" className="placero-button-primary group">
                   Разгледайте локации
@@ -47,7 +47,7 @@ const HeroSection = () => {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 justify-items-center md:justify-items-start">
               <div className="placero-glass p-3 placero-hover-lift">
                 <div className="flex items-center gap-3">
                   <Building2 className="h-4 w-4 text-primary flex-shrink-0" />

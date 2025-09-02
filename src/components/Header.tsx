@@ -114,56 +114,62 @@ const Header = () => {
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
           <div 
-            className="md:hidden mt-4 placero-glass p-4 space-y-4 backdrop-blur-md border border-border/20 rounded-lg shadow-lg"
+            className="md:hidden mt-4 placero-glass backdrop-blur-md border border-border/20 rounded-lg shadow-lg overflow-hidden"
             style={{
-              animation: 'fadeIn 0.3s ease-out, scaleIn 0.2s ease-out'
+              animation: 'slide-down 0.3s ease-out',
+              transformOrigin: 'top'
             }}>
-            <Link to="/locations" onClick={closeMobileMenu}>
-              <Button variant="ghost" className="w-full justify-start font-medium hover:bg-primary/10 hover:text-primary transition-all">
-                Локации
-              </Button>
-            </Link>
-            <Link to="/articles" onClick={closeMobileMenu}>
-              <Button variant="ghost" className="w-full justify-start font-medium hover:bg-primary/10 hover:text-primary transition-all">
-                Статии
-              </Button>
-            </Link>
-            
-            {user ? (
-              <div className="space-y-2 border-t border-border/20 pt-4">
+            <div className="p-4 space-y-3">
+              <Link to="/locations" onClick={closeMobileMenu}>
+                <div className="w-full text-left py-3 px-4 rounded-lg font-medium hover:bg-primary/5 hover:text-primary transition-all">
+                  Локации
+                </div>
+              </Link>
+              <Link to="/articles" onClick={closeMobileMenu}>
+                <div className="w-full text-left py-3 px-4 rounded-lg font-medium hover:bg-primary/5 hover:text-primary transition-all">
+                  Статии
+                </div>
+              </Link>
+              
+              {user && (
                 <Link to="/dashboard" onClick={closeMobileMenu}>
-                  <Button variant="ghost" className="w-full justify-start font-medium hover:bg-primary/10 hover:text-primary transition-all">
+                  <div className="w-full text-left py-3 px-4 rounded-lg font-medium hover:bg-primary/5 hover:text-primary transition-all">
                     Табло
-                  </Button>
+                  </div>
                 </Link>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    handleSignOut();
-                    closeMobileMenu();
-                  }}
-                  className="w-full justify-start placero-button-ghost"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Изход
-                </Button>
+              )}
+              
+              <div className="border-t border-border/20 pt-3 space-y-2">
+                {user ? (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      handleSignOut();
+                      closeMobileMenu();
+                    }}
+                    className="w-full justify-center placero-button-ghost"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Изход
+                  </Button>
+                ) : (
+                  <>
+                    <Link to="/auth?tab=signin" onClick={closeMobileMenu}>
+                      <Button variant="outline" className="w-full justify-center placero-button-ghost">
+                        <User className="h-4 w-4 mr-2" />
+                        Вход
+                      </Button>
+                    </Link>
+                    <Link to="/auth?tab=signup" onClick={closeMobileMenu}>
+                      <Button className="w-full justify-center placero-button-primary group">
+                        <Sparkles className="h-4 w-4 mr-2 group-hover:rotate-12 transition-transform" />
+                        Станете партньор
+                      </Button>
+                    </Link>
+                  </>
+                )}
               </div>
-            ) : (
-              <div className="space-y-2 border-t border-border/20 pt-4">
-                <Link to="/auth?tab=signin" onClick={closeMobileMenu}>
-                  <Button variant="outline" className="w-full justify-start placero-button-ghost">
-                    <User className="h-4 w-4 mr-2" />
-                    Вход
-                  </Button>
-                </Link>
-                <Link to="/auth?tab=signup" onClick={closeMobileMenu}>
-                  <Button className="w-full justify-start placero-button-primary group">
-                    <Sparkles className="h-4 w-4 mr-2 group-hover:rotate-12 transition-transform" />
-                    Станете партньор
-                  </Button>
-                </Link>
-              </div>
-            )}
+            </div>
           </div>
         )}
       </div>
