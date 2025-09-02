@@ -307,50 +307,50 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-      <div className="container mx-auto py-8 px-4">
+      <div className="container mx-auto py-4 md:py-8 px-4">
         <div className="mb-8 placero-fade-in">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl">
-              <Building2 className="h-8 w-8 text-primary" />
+          <div className="flex items-center gap-3 md:gap-4 mb-4">
+            <div className="p-2 md:p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl">
+              <Building2 className="h-6 w-6 md:h-8 md:w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
                 Табло
               </h1>
-              <p className="text-muted-foreground text-lg">
+              <p className="text-muted-foreground text-sm md:text-lg">
                 {(userRole === 'admin' || userRole === 'moderator') ? 'Управлявайте чакащите за одобрение' : 'Управлявайте вашите работни пространства'}
               </p>
             </div>
           </div>
           
           {/* Dashboard Stats Bar */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-            <div className="placero-card p-6 text-center placero-hover-lift placero-scale-in placero-stagger-1 relative overflow-hidden">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mt-4 md:mt-6">
+            <div className="placero-card p-3 md:p-6 text-center placero-hover-lift placero-scale-in placero-stagger-1 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5"></div>
               <div className="relative z-10">
-                <div className="text-3xl font-bold text-primary mb-1">{userCompanies.length}</div>
-                <div className="text-sm text-muted-foreground">Компании</div>
+                <div className="text-xl md:text-3xl font-bold text-primary mb-1">{userCompanies.length}</div>
+                <div className="text-xs md:text-sm text-muted-foreground">Компании</div>
               </div>
             </div>
-            <div className="placero-card p-6 text-center placero-hover-lift placero-scale-in placero-stagger-2 relative overflow-hidden">
+            <div className="placero-card p-3 md:p-6 text-center placero-hover-lift placero-scale-in placero-stagger-2 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-accent/20 to-accent/10"></div>
               <div className="relative z-10">
-                <div className="text-3xl font-bold text-primary mb-1">{userLocations.length}</div>
-                <div className="text-sm text-muted-foreground">Локации</div>
+                <div className="text-xl md:text-3xl font-bold text-primary mb-1">{userLocations.length}</div>
+                <div className="text-xs md:text-sm text-muted-foreground">Локации</div>
               </div>
             </div>
-            <div className="placero-card p-6 text-center placero-hover-lift placero-scale-in placero-stagger-3 relative overflow-hidden">
+            <div className="placero-card p-3 md:p-6 text-center placero-hover-lift placero-scale-in placero-stagger-3 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-secondary/20 to-secondary/10"></div>
               <div className="relative z-10">
-                <div className="text-3xl font-bold text-primary mb-1">{userArticles.length}</div>
-                <div className="text-sm text-muted-foreground">Статии</div>
+                <div className="text-xl md:text-3xl font-bold text-primary mb-1">{userArticles.length}</div>
+                <div className="text-xs md:text-sm text-muted-foreground">Статии</div>
               </div>
             </div>
-            <div className="placero-card p-6 text-center placero-hover-lift placero-scale-in placero-stagger-4 relative overflow-hidden">
+            <div className="placero-card p-3 md:p-6 text-center placero-hover-lift placero-scale-in placero-stagger-4 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-muted/20 to-muted/10"></div>
               <div className="relative z-10">
-                <div className="text-3xl font-bold text-primary mb-1">{userBanners.length}</div>
-                <div className="text-sm text-muted-foreground">Банери</div>
+                <div className="text-xl md:text-3xl font-bold text-primary mb-1">{userBanners.length}</div>
+                <div className="text-xs md:text-sm text-muted-foreground">Банери</div>
               </div>
             </div>
           </div>
