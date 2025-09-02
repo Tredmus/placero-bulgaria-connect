@@ -463,4 +463,256 @@ export default function Dashboard() {
                             <h6 className="font-medium mb-2 sm:mb-3">Банери</h6>
                             <div className="space-y-3 sm:space-y-4 mb-3 sm:mb-4">
                               {userBanners
-                                .filter((b) => b.comp
+                                .filter((b) => b.company_id === company.id)
+                                .map((banner) => (
+                                  <div key={banner.id} className={`p-3 border rounded-lg ${banner.status === 'pending' ? 'opacity-60' : ''}`}>
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="flex-1">
+                                        <p className="text-sm font-medium">{banner.text}</p>
+                                        {banner.image && <p className="text-[11px] sm:text-xs text-muted-foreground">С изображение</p>}
+                                      </div>
+                                      <div className="text-[11px] sm:text-xs text-muted-foreground">
+                                        Статус:{' '}
+                                        {banner.status === 'pending'
+                                          ? 'Чака преглед'
+                                          : banner.status === 'approved'
+                                          ? 'Одобрен'
+                                          : 'Отхвърлен'}
+                                        {banner.rejection_reason && <span className="text-destructive block">- {banner.rejection_reason}</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                            <BannerForm companyId={company.id} onSuccess={fetchUserSpaces} />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </TabsContent>
+
+                  <TabsContent value="plans">
+                    <PlansTab userCompanies={userCompanies} onSubscriptionUpdate={fetchUserSpaces} />
+                  </TabsContent>
+                </Tabs>
+              </>
+            )}
+
+            {/* Edit Company */}
+            {showEditCompanyForm && (
+              <Dialog open={!!showEditCompanyForm} onOpenChange={() => setShowEditCompanyForm(null)}>
+                <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Редактиране на компания</DialogTitle>
+                    <DialogDescription>Актуализирайте информацията за вашата компания</DialogDescription>
+                  </DialogHeader>
+                  <CompanyForm company={showEditCompanyForm} onSuccess={handleFormSuccess} onCancel={() => setShowEditCompanyForm(null)} />
+                </DialogContent>
+              </Dialog>
+            )}
+
+            {/* Edit Location */}
+            {showEditLocationForm && (
+              <Dialog open={!!showEditLocationForm} onOpenChange={() => setShowEditLocationForm(null)}>
+                <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Редактиране на локация</DialogTitle>
+                    <DialogDescription>Актуализирайте информацията за вашата локация</DialogDescription>
+                  </DialogHeader>
+                  <LocationForm
+                    location={showEditLocationForm}
+                    companyId={showEditLocationForm.company_id}
+                    onSuccess={handleFormSuccess}
+                    onCancel={() => setShowEditLocationForm(null)}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
+
+            {/* Add Location */}
+            {showAddLocationForm && (
+              <Dialog open={!!showAddLocationForm} onOpenChange={() => setShowAddLocationForm(null)}>
+                <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Добавяне на нова локация</DialogTitle>
+                    <DialogDescription>Добавете още една локация към вашата компания</DialogDescription>
+                  </DialogHeader>
+                  <LocationForm companyId={showAddLocationForm} onSuccess={handleFormSuccess} onCancel={() => setShowAddLocationForm(null)} />
+                </DialogContent>
+              </Dialog>
+            )}
+
+            {/* Article */}
+            <ArticleForm
+              isOpen={showArticleForm}
+              onClose={() => {
+                setShowArticleForm(false);
+                setEditingArticle(null);
+                setSelectedCompanyForArticle(null);
+              }}
+              onSuccess={handleFormSuccess}
+              companyId={selectedCompanyForArticle?.id}
+              article={editingArticle}
+            />
+          </div>
+        )}
+
+        {(userRole === 'admin' || userRole === 'moderator') && (
+          <>
+            <div className="mb-4 sm:mb-8 placero-fade-in">
+              <h2 className="text-xl sm:text-3xl font-bold mb-4 sm:mb-6 placero-heading">Чакащи прегледи</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+                {[
+                  { icon: Building2, label: 'Компании', value: pendingCompanies.length, bg: 'from-primary/10 to-primary/5' },
+                  { icon: MapPin, label: 'Локации', value: pendingLocations.length, bg: 'from-accent/20 to-accent/10' },
+                  { icon: FileText, label: 'Статии', value: pendingArticles.length, bg: 'from-secondary/20 to-secondary/10' },
+                  { icon: FileText, label: 'Банери', value: pendingBanners.length, bg: 'from-muted/20 to-muted/10' },
+                ].map((s, i) => (
+                  <div key={s.label} className="placero-card-elevated relative overflow-hidden placero-hover-lift">
+                    <div className={`absolute inset-0 bg-gradient-to-br ${s.bg}`} />
+                    <CardHeader className="pb-2 sm:pb-3 relative z-10">
+                      <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
+                        <s.icon className="h-4 w-4 text-primary" />
+                        {s.label}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="relative z-10">
+                      <div className="text-2xl sm:text-3xl font-bold text-primary">{s.value}</div>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Чака преглед</p>
+                    </CardContent>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4 sm:space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                {/* Companies */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Building2 className="h-5 w-5" />
+                      Чакащи компании ({pendingCompanies.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2.5 sm:space-y-3">
+                    {pendingCompanies.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">Няма чакащи компании</p>
+                    ) : (
+                      pendingCompanies.map((company) => (
+                        <div key={company.id} className="p-3 border rounded-lg space-y-1.5">
+                          <h4 className="font-medium text-sm">{company.name}</h4>
+                          <p className="text-[11px] text-muted-foreground">{new Date(company.created_at).toLocaleDateString()}</p>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setShowPreview({ type: 'company', item: company })}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              Преглед и решение
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Locations */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <MapPin className="h-5 w-5" />
+                      Чакащи локации ({pendingLocations.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2.5 sm:space-y-3">
+                    {pendingLocations.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">Няма чакащи локации</p>
+                    ) : (
+                      pendingLocations.map((location) => (
+                        <div key={location.id} className="p-3 border rounded-lg space-y-1.5">
+                          <h4 className="font-medium text-sm">{location.name}</h4>
+                          <p className="text-[11px] text-muted-foreground">{new Date(location.created_at).toLocaleDateString()}</p>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setShowPreview({ type: 'location', item: location })}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              Преглед и решение
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Articles */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <FileText className="h-5 w-5" />
+                      Чакащи статии ({pendingArticles.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2.5 sm:space-y-3">
+                    {pendingArticles.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">Няма чакащи статии</p>
+                    ) : (
+                      pendingArticles.map((article) => (
+                        <div key={article.id} className="p-3 border rounded-lg space-y-1.5">
+                          <h4 className="font-medium text-sm">{article.name}</h4>
+                          <p className="text-[11px] text-muted-foreground">{new Date(article.created_at).toLocaleDateString()}</p>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setShowPreview({ type: 'article', item: article })}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              Преглед и решение
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Banners */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <FileText className="h-5 w-5" />
+                      Чакащи банери ({pendingBanners.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2.5 sm:space-y-3">
+                    {pendingBanners.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">Няма чакащи банери</p>
+                    ) : (
+                      pendingBanners.map((banner) => (
+                        <div key={banner.id} className="p-3 border rounded-lg space-y-1.5">
+                          <h4 className="font-medium text-sm">{banner.name}</h4>
+                          <p className="text-[11px] text-muted-foreground">{new Date(banner.created_at).toLocaleDateString()}</p>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setShowPreview({ type: 'banner', item: banner })}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              Преглед и решение
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </>
+        )}
+
+        <PreviewDialog showPreview={showPreview} onClose={() => setShowPreview(null)} onApproval={handleApproval} />
+
+        <ConfirmationDialog
+          open={confirmDialog.open}
+          onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
+          title={confirmDialog.title}
+          description={confirmDialog.description}
+          onConfirm={confirmDialog.onConfirm}
+        />
+      </div>
+    </div>
+  );
+}
