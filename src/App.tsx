@@ -26,7 +26,7 @@ const App = () => (
         <BrowserRouter>
           <div className="min-h-screen flex flex-col">
             <Header />
-            <main className="flex-1 pb-20 md:pb-0">
+            <main className="flex-1">
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
@@ -41,6 +41,8 @@ const App = () => (
               </Routes>
             </main>
             <Footer />
+            {/* Mobile bottom nav spacer */}
+            <div className="md:hidden h-20" />
           </div>
         </BrowserRouter>
       </TooltipProvider>

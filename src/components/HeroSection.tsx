@@ -30,16 +30,16 @@ const HeroSection = () => {
             </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-6 justify-center sm:justify-start">
-              <Link to="/locations">
-                <Button size="lg" className="placero-button-primary group">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">
+              <Link to="/locations" className="flex-1 sm:flex-initial">
+                <Button size="lg" className="placero-button-primary group w-full sm:w-auto">
                   Разгледайте локации
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
               {!user && (
-                <Link to="/auth?tab=signup">
-                  <Button size="lg" className="placero-button-secondary">
+                <Link to="/auth?tab=signup" className="flex-1 sm:flex-initial">
+                  <Button size="lg" className="placero-button-secondary w-full sm:w-auto">
                     Станете партньор
                   </Button>
                 </Link>
@@ -48,25 +48,31 @@ const HeroSection = () => {
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 justify-items-center md:justify-items-start">
-              <div className="placero-glass p-3 placero-hover-lift">
-                <div className="flex items-center gap-3">
-                  <Building2 className="h-4 w-4 text-primary flex-shrink-0" />
-                  <div className="text-lg font-bold text-foreground">150+</div>
-                  <div className="text-sm text-muted-foreground font-medium">Локации</div>
+              <div className="placero-glass placero-hover-lift w-full md:w-auto">
+                <div className="flex items-center justify-between md:justify-start gap-4 p-4">
+                  <div className="flex items-center gap-3">
+                    <Building2 className="h-5 w-5 text-primary flex-shrink-0" />
+                    <div className="text-2xl font-bold text-foreground">150+</div>
+                  </div>
+                  <div className="text-sm text-muted-foreground font-medium text-right md:text-left">Локации</div>
                 </div>
               </div>
-              <div className="placero-glass p-3 placero-hover-lift">
-                <div className="flex items-center gap-3">
-                  <Users className="h-4 w-4 text-primary flex-shrink-0" />
-                  <div className="text-lg font-bold text-foreground">5000+</div>
-                  <div className="text-sm text-muted-foreground font-medium">Потребители</div>
+              <div className="placero-glass placero-hover-lift w-full md:w-auto">
+                <div className="flex items-center justify-between md:justify-start gap-4 p-4">
+                  <div className="flex items-center gap-3">
+                    <Users className="h-5 w-5 text-primary flex-shrink-0" />
+                    <div className="text-2xl font-bold text-foreground">5000+</div>
+                  </div>
+                  <div className="text-sm text-muted-foreground font-medium text-right md:text-left">Потребители</div>
                 </div>
               </div>
-              <div className="placero-glass p-3 placero-hover-lift">
-                <div className="flex items-center gap-3">
-                  <Star className="h-4 w-4 text-primary flex-shrink-0" />
-                  <div className="text-lg font-bold text-foreground">4.8</div>
-                  <div className="text-sm text-muted-foreground font-medium">Рейтинг</div>
+              <div className="placero-glass placero-hover-lift w-full md:w-auto">
+                <div className="flex items-center justify-between md:justify-start gap-4 p-4">
+                  <div className="flex items-center gap-3">
+                    <Star className="h-5 w-5 text-primary flex-shrink-0" />
+                    <div className="text-2xl font-bold text-foreground">4.8</div>
+                  </div>
+                  <div className="text-sm text-muted-foreground font-medium text-right md:text-left">Рейтинг</div>
                 </div>
               </div>
             </div>
