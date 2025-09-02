@@ -23,7 +23,12 @@ const Header = () => {
   // Helper for active state in bottom nav
   const isActive = (to: string | string[]) => {
     const paths = Array.isArray(to) ? to : [to];
-    return paths.some((p) => location.pathname.startsWith(p));
+    return paths.some((p) => {
+      if (p === "/") {
+        return location.pathname === "/";
+      }
+      return location.pathname.startsWith(p);
+    });
   };
 
   return (
@@ -39,7 +44,7 @@ const Header = () => {
                 <img
                   src="https://i.snipboard.io/wU9oRm.jpg"
                   alt="Placero logo"
-                  className="h-9 w-9 relative z-10 group-hover:scale-110 transition-transform"
+                  className="h-7 w-7 md:h-9 md:w-9 relative z-10 group-hover:scale-110 transition-transform"
                   loading="eager"
                 />
               </div>
