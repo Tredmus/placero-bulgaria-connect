@@ -113,7 +113,11 @@ const Header = () => {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden mt-4 placero-glass p-4 space-y-4 animate-fade-in animate-scale-in backdrop-blur-md border border-border/20 rounded-lg shadow-lg">
+          <div 
+            className="md:hidden mt-4 placero-glass p-4 space-y-4 backdrop-blur-md border border-border/20 rounded-lg shadow-lg"
+            style={{
+              animation: 'fadeIn 0.3s ease-out, scaleIn 0.2s ease-out'
+            }}>
             <Link to="/locations" onClick={closeMobileMenu}>
               <Button variant="ghost" className="w-full justify-start font-medium hover:bg-primary/10 hover:text-primary transition-all">
                 Локации

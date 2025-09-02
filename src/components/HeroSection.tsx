@@ -47,27 +47,27 @@ const HeroSection = () => {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="placero-glass p-4 text-center placero-hover-lift">
-                <div className="flex items-center justify-center mb-2">
-                  <Building2 className="h-5 w-5 text-primary mr-2" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div className="placero-glass p-3 placero-hover-lift">
+                <div className="flex items-center gap-3">
+                  <Building2 className="h-4 w-4 text-primary flex-shrink-0" />
+                  <div className="text-lg font-bold text-foreground">150+</div>
+                  <div className="text-sm text-muted-foreground font-medium">Локации</div>
                 </div>
-                <div className="text-2xl font-bold text-foreground mb-1">150+</div>
-                <div className="text-sm text-muted-foreground font-medium">Локации</div>
               </div>
-              <div className="placero-glass p-4 text-center placero-hover-lift">
-                <div className="flex items-center justify-center mb-2">
-                  <Users className="h-5 w-5 text-primary mr-2" />
+              <div className="placero-glass p-3 placero-hover-lift">
+                <div className="flex items-center gap-3">
+                  <Users className="h-4 w-4 text-primary flex-shrink-0" />
+                  <div className="text-lg font-bold text-foreground">5000+</div>
+                  <div className="text-sm text-muted-foreground font-medium">Потребители</div>
                 </div>
-                <div className="text-2xl font-bold text-foreground mb-1">5000+</div>
-                <div className="text-sm text-muted-foreground font-medium">Потребители</div>
               </div>
-              <div className="placero-glass p-4 text-center placero-hover-lift">
-                <div className="flex items-center justify-center mb-2">
-                  <Star className="h-5 w-5 text-primary mr-2" />
+              <div className="placero-glass p-3 placero-hover-lift">
+                <div className="flex items-center gap-3">
+                  <Star className="h-4 w-4 text-primary flex-shrink-0" />
+                  <div className="text-lg font-bold text-foreground">4.8</div>
+                  <div className="text-sm text-muted-foreground font-medium">Рейтинг</div>
                 </div>
-                <div className="text-2xl font-bold text-foreground mb-1">4.8</div>
-                <div className="text-sm text-muted-foreground font-medium">Рейтинг</div>
               </div>
             </div>
           </div>
