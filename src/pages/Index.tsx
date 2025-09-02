@@ -8,8 +8,8 @@ const Index = () => {
   return (
     <>
       <HeroSection />
-      <section className="py-16">
-        <div className="container mx-auto px-4">
+      <section className="py-8 md:py-16">
+        <div className="md:container md:mx-auto md:px-4">
           <InteractiveMapTabs />
         </div>
       </section>

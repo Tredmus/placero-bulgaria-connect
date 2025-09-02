@@ -607,7 +607,7 @@ export default function InteractiveMapV1() {
     });
 
     // Compute/apply exact “floor” BEFORE first paint
-    const cam = map.current.cameraForBounds(BG_BOUNDS, { padding: 24 })!;
+    const cam = map.current.cameraForBounds(BG_BOUNDS, { padding: window.innerWidth < 768 ? 10 : 24 })!;
     defaultMinZoomRef.current = cam.zoom;
     defaultCenterRef.current = cam.center as mapboxgl.LngLatLike;
     map.current.jumpTo({ center: cam.center, zoom: cam.zoom, bearing: 0, pitch: 0 });
@@ -620,8 +620,14 @@ export default function InteractiveMapV1() {
       [vb[1][0], vb[1][1]]
     ];
 
-    // Controls
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    // Mobile-optimized navigation controls
+    map.current.addControl(
+      new mapboxgl.NavigationControl({ 
+        showCompass: false,
+        visualizePitch: false 
+      }),
+      window.innerWidth < 768 ? 'bottom-right' : 'top-right'
+    );
 
     // Tooltip element
     const tooltip = document.createElement('div');
@@ -637,10 +643,15 @@ export default function InteractiveMapV1() {
     hoverTooltipRef.current = tooltip;
     mapEl.current.appendChild(tooltip);
 
-    // Wheel behavior (around center + gentle step)
+    // Wheel behavior (responsive)
     map.current.scrollZoom.enable();
     (map.current.scrollZoom as any).setAround?.('center');
     (map.current.scrollZoom as any).setWheelZoomRate?.(1 / 600);
+    
+    // Disable scroll zoom on mobile
+    if (window.innerWidth < 768) {
+      map.current.scrollZoom.disable();
+    }
 
     // Smooth animated zoom behavior
     const FLOOR = () => defaultMinZoomRef.current;
@@ -928,8 +939,8 @@ export default function InteractiveMapV1() {
 
   // RENDER -------------------------------------------------------------------
   return (
-    <div className="bg-secondary/50 rounded-lg p-4 md:p-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-4">
+    <div className="bg-secondary/50 rounded-lg md:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-4 px-4 md:px-0">
         <h3 className="text-xl md:text-2xl font-bold">Изберете регион</h3>
         {selectedProvince && (
           <Button onClick={resetView} variant="outline" className="flex items-center gap-2 self-start sm:self-auto">
@@ -941,10 +952,13 @@ export default function InteractiveMapV1() {
       </div>
 
       <div className="relative">
-        <div ref={mapEl} className="w-full h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] rounded-lg overflow-hidden border border-border shadow-lg" />
+        <div 
+          ref={mapEl} 
+          className="w-full aspect-square md:aspect-[4/3] md:h-[600px] rounded-none md:rounded-lg overflow-hidden border-0 md:border border-border shadow-lg" 
+        />
 
         {(selectedProvince || selectedCity) && (
-          <div className="absolute top-2 left-2 md:top-4 md:left-4 z-20">
+          <div className="absolute bottom-2 left-2 md:top-4 md:left-4 md:bottom-auto z-20">
             <Card>
               <CardContent className="p-3 md:p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -975,7 +989,7 @@ export default function InteractiveMapV1() {
         )}
 
         {selectedLocation && (
-          <div className="absolute top-2 right-2 md:top-4 md:right-4 z-20 w-64 md:w-80">
+          <div className="absolute bottom-2 right-2 md:top-4 md:right-4 md:bottom-auto z-20 w-64 md:w-80">
             <Card className="shadow-xl overflow-hidden">
               <div className="relative">
                 {(() => {
@@ -1053,7 +1067,7 @@ export default function InteractiveMapV1() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mt-4 md:mt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mt-4 md:mt-6 px-4 md:px-0">
         {PROVINCES.map((p) => {
           const data = provinceData[p.name];
           if (!data || data.locations.length === 0) return null;
@@ -1078,7 +1092,7 @@ export default function InteractiveMapV1() {
       </div>
 
       {selectedProvince && Object.keys(provinceCities).length > 0 && (
-        <div className="mt-6">
+        <div className="mt-6 px-4 md:px-0">
           <h4 className="text-lg font-semibold mb-4">Градове в област {selectedProvince}</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {Object.entries(provinceCities).map(([cityKey, locs]) => {
@@ -1123,7 +1137,7 @@ export default function InteractiveMapV1() {
       )}
 
       {selectedCity && cityLocations.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-6 px-4 md:px-0">
           <h4 className="text-lg font-semibold mb-4">
             {`Помещения ${needsVav(selectedCity) ? 'във' : 'в'} ${selectedCity}`}
           </h4>
