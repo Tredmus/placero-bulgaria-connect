@@ -928,38 +928,39 @@ export default function InteractiveMapV1() {
 
   // RENDER -------------------------------------------------------------------
   return (
-    <div className="bg-secondary/50 rounded-lg p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold">Изберете регион</h3>
+    <div className="bg-secondary/50 rounded-lg p-4 md:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-4">
+        <h3 className="text-xl md:text-2xl font-bold">Изберете регион</h3>
         {selectedProvince && (
-          <Button onClick={resetView} variant="outline" className="flex items-center gap-2">
+          <Button onClick={resetView} variant="outline" className="flex items-center gap-2 self-start sm:self-auto">
             <RotateCcw className="h-4 w-4" />
-            Покажи всички региони
+            <span className="hidden sm:inline">Покажи всички региони</span>
+            <span className="sm:hidden">Обратно</span>
           </Button>
         )}
       </div>
 
       <div className="relative">
-        <div ref={mapEl} className="w-full h-[600px] rounded-lg overflow-hidden border border-border shadow-lg" />
+        <div ref={mapEl} className="w-full h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] rounded-lg overflow-hidden border border-border shadow-lg" />
 
         {(selectedProvince || selectedCity) && (
-          <div className="absolute top-4 left-4 z-20">
+          <div className="absolute top-2 left-2 md:top-4 md:left-4 z-20">
             <Card>
-              <CardContent className="p-4">
+              <CardContent className="p-3 md:p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Building2 className="h-5 w-5 text-primary" />
+                  <Building2 className="h-4 w-4 md:h-5 md:w-5 text-primary" />
                   <div className="flex flex-col">
                     {selectedCity ? (
                       <>
-                        <span className="font-bold text-lg">{selectedCity}</span>
-                        <span className="text-sm text-muted-foreground">{selectedProvince}</span>
+                        <span className="font-bold text-sm md:text-lg">{selectedCity}</span>
+                        <span className="text-xs md:text-sm text-muted-foreground">{selectedProvince}</span>
                       </>
                     ) : (
-                      <span className="font-bold text-lg">{selectedProvince}</span>
+                      <span className="font-bold text-sm md:text-lg">{selectedProvince}</span>
                     )}
                   </div>
                 </div>
-                <Badge variant="secondary">
+                <Badge variant="secondary" className="text-xs">
                   {selectedCity
                     ? `${cityLocations.length} ${pluralize(cityLocations.length, 'помещение', 'помещения')}`
                     : `${Object.keys(provinceCities).length} ${pluralize(
@@ -974,7 +975,7 @@ export default function InteractiveMapV1() {
         )}
 
         {selectedLocation && (
-          <div className="absolute top-4 right-4 z-20 w-80">
+          <div className="absolute top-2 right-2 md:top-4 md:right-4 z-20 w-64 md:w-80">
             <Card className="shadow-xl overflow-hidden">
               <div className="relative">
                 {(() => {
@@ -983,7 +984,7 @@ export default function InteractiveMapV1() {
                     <img
                       src={src}
                       alt={selectedLocation.name}
-                      className="w-full h-36 object-cover"
+                      className="w-full h-24 md:h-36 object-cover"
                       loading="lazy"
                     />
                   ) : null;
@@ -991,29 +992,29 @@ export default function InteractiveMapV1() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute top-2 right-2 bg-background/80 hover:bg-background"
+                  className="absolute top-1 right-1 md:top-2 md:right-2 bg-background/80 hover:bg-background h-6 w-6 md:h-8 md:w-8 p-0"
                   onClick={() => setSelectedLocation(null)}
                 >
                   ×
                 </Button>
               </div>
-              <CardContent className="p-4">
-                <div className="space-y-3">
+              <CardContent className="p-3 md:p-4">
+                <div className="space-y-2 md:space-y-3">
                   <div>
-                    <h3 className="font-semibold text-lg">{selectedLocation.name}</h3>
+                    <h3 className="font-semibold text-sm md:text-lg">{selectedLocation.name}</h3>
                     {selectedLocation.companies?.name && (
-                      <p className="text-sm text-muted-foreground">{selectedLocation.companies.name}</p>
+                      <p className="text-xs md:text-sm text-muted-foreground">{selectedLocation.companies.name}</p>
                     )}
                   </div>
 
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    <span>{selectedLocation.address}</span>
+                  <div className="flex items-center text-xs md:text-sm text-muted-foreground">
+                    <MapPin className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                    <span className="truncate">{selectedLocation.address}</span>
                   </div>
 
                   {selectedLocation.amenities?.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedLocation.amenities.slice(0, 4).map((a: string) => {
+                    <div className="flex flex-wrap gap-1">
+                      {selectedLocation.amenities.slice(0, 3).map((a: string) => {
                         const Icon = (amenityIcons as any)[a];
                         return (
                           <div key={a} className="flex items-center text-xs text-muted-foreground">
@@ -1025,15 +1026,15 @@ export default function InteractiveMapV1() {
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between pt-2">
+                  <div className="flex items-center justify-between pt-1 md:pt-2">
                     {selectedLocation.price_day && (
                       <div>
-                        <span className="text-lg font-semibold">{selectedLocation.price_day}лв</span>
-                        <span className="text-sm text-muted-foreground">/ден</span>
+                        <span className="text-sm md:text-lg font-semibold">{selectedLocation.price_day}лв</span>
+                        <span className="text-xs md:text-sm text-muted-foreground">/ден</span>
                       </div>
                     )}
                     {selectedLocation.rating && (
-                      <Badge variant="outline" className="flex items-center gap-1">
+                      <Badge variant="outline" className="flex items-center gap-1 text-xs">
                         <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                         {selectedLocation.rating}
                       </Badge>
@@ -1041,7 +1042,7 @@ export default function InteractiveMapV1() {
                   </div>
 
                   <div className="pt-1">
-                    <Button className="w-full" onClick={() => navigate(`/locations/${selectedLocation.id}`)}>
+                    <Button className="w-full text-xs md:text-sm h-8 md:h-10" onClick={() => navigate(`/locations/${selectedLocation.id}`)}>
                       Виж повече
                     </Button>
                   </div>
@@ -1052,7 +1053,7 @@ export default function InteractiveMapV1() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mt-4 md:mt-6">
         {PROVINCES.map((p) => {
           const data = provinceData[p.name];
           if (!data || data.locations.length === 0) return null;
@@ -1079,7 +1080,7 @@ export default function InteractiveMapV1() {
       {selectedProvince && Object.keys(provinceCities).length > 0 && (
         <div className="mt-6">
           <h4 className="text-lg font-semibold mb-4">Градове в област {selectedProvince}</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {Object.entries(provinceCities).map(([cityKey, locs]) => {
               const displayCity = formatCity(cityKey);
               const isActive = selectedCity === displayCity;
@@ -1126,7 +1127,7 @@ export default function InteractiveMapV1() {
           <h4 className="text-lg font-semibold mb-4">
             {`Помещения ${needsVav(selectedCity) ? 'във' : 'в'} ${selectedCity}`}
           </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             {cityLocations.map((l) => {
               const isSelected = selectedLocation && selectedLocation.id === l.id;
               return (

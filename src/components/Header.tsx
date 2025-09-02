@@ -1,16 +1,24 @@
-import { User, LogOut, Sparkles } from "lucide-react";
+import { User, LogOut, Sparkles, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
 import SearchDropdown from "@/components/SearchDropdown";
+import { useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Header = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
   };
 
   return (
@@ -39,8 +47,8 @@ const Header = () => {
             <SearchDropdown className="flex-1" />
           </div>
 
-          {/* Navigation & Auth */}
-          <div className="flex items-center space-x-3">
+          {/* Desktop Navigation & Auth */}
+          <div className="hidden md:flex items-center space-x-3">
             <Link to="/locations">
               <Button variant="ghost" className="font-medium hover:bg-primary/10 hover:text-primary transition-all">
                 Локации
@@ -59,7 +67,7 @@ const Header = () => {
                     Табло
                   </Button>
                 </Link>
-                <span className="text-sm text-muted-foreground hidden sm:block font-medium">
+                <span className="text-sm text-muted-foreground hidden lg:block font-medium">
                   Добре дошли!
                 </span>
                 <Button variant="outline" onClick={handleSignOut} className="placero-button-ghost">
@@ -70,7 +78,7 @@ const Header = () => {
             ) : (
               <>
                 <Link to="/auth?tab=signin">
-                  <Button variant="outline" className="hidden sm:flex placero-button-ghost">
+                  <Button variant="outline" className="placero-button-ghost">
                     <User className="h-4 w-4 mr-2" />
                     Вход
                   </Button>
@@ -84,12 +92,76 @@ const Header = () => {
               </>
             )}
           </div>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2"
+            >
+              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </Button>
+          </div>
         </div>
 
         {/* Mobile Search */}
         <div className="md:hidden mt-4">
           <SearchDropdown />
         </div>
+
+        {/* Mobile Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden mt-4 placero-glass p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
+            <Link to="/locations" onClick={closeMobileMenu}>
+              <Button variant="ghost" className="w-full justify-start font-medium hover:bg-primary/10 hover:text-primary transition-all">
+                Локации
+              </Button>
+            </Link>
+            <Link to="/articles" onClick={closeMobileMenu}>
+              <Button variant="ghost" className="w-full justify-start font-medium hover:bg-primary/10 hover:text-primary transition-all">
+                Статии
+              </Button>
+            </Link>
+            
+            {user ? (
+              <div className="space-y-2 border-t border-border/20 pt-4">
+                <Link to="/dashboard" onClick={closeMobileMenu}>
+                  <Button variant="ghost" className="w-full justify-start font-medium hover:bg-primary/10 hover:text-primary transition-all">
+                    Табло
+                  </Button>
+                </Link>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    handleSignOut();
+                    closeMobileMenu();
+                  }}
+                  className="w-full justify-start placero-button-ghost"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Изход
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2 border-t border-border/20 pt-4">
+                <Link to="/auth?tab=signin" onClick={closeMobileMenu}>
+                  <Button variant="outline" className="w-full justify-start placero-button-ghost">
+                    <User className="h-4 w-4 mr-2" />
+                    Вход
+                  </Button>
+                </Link>
+                <Link to="/auth?tab=signup" onClick={closeMobileMenu}>
+                  <Button className="w-full justify-start placero-button-primary group">
+                    <Sparkles className="h-4 w-4 mr-2 group-hover:rotate-12 transition-transform" />
+                    Станете партньор
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

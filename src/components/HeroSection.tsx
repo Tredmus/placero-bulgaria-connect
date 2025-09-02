@@ -21,13 +21,13 @@ const HeroSection = () => {
               <div className="inline-flex items-center px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
                 ✨ Най-доброто работно пространство в България
               </div>
-              <h1 className="text-5xl lg:text-7xl font-bold text-foreground leading-tight tracking-tight">
-                Намерете идеалното
-                <span className="text-transparent bg-gradient-to-r from-primary to-primary/80 bg-clip-text block">работно място</span>
-              </h1>
-              <p className="text-xl lg:text-2xl text-muted-foreground max-w-2xl leading-relaxed">
-                Открийте и резервирайте най-добрите споделени работни пространства в България. От София до Варна - всички възможности на едно място.
-              </p>
+            <div className="text-3xl sm:text-4xl lg:text-5xl xl:text-7xl font-bold text-foreground leading-tight tracking-tight">
+              Намерете идеалното
+              <span className="text-transparent bg-gradient-to-r from-primary to-primary/80 bg-clip-text block">работно място</span>
+            </div>
+            <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground max-w-2xl leading-relaxed">
+              Открийте и резервирайте най-добрите споделени работни пространства в България. От София до Варна - всички възможности на едно място.
+            </p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-6">
@@ -47,33 +47,18 @@ const HeroSection = () => {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-8 pt-12">
-              <div className="placero-glass p-6 text-center placero-hover-lift">
-                <div className="flex items-center justify-center mb-4">
-                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
-                    <Building2 className="h-8 w-8 text-primary" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-foreground mb-1">150+</div>
-                <div className="text-muted-foreground font-medium">Локации</div>
+            <div className="grid grid-cols-1 gap-3">
+              <div className="placero-glass p-4 text-center placero-hover-lift">
+                <div className="text-2xl font-bold text-foreground mb-1">150+</div>
+                <div className="text-sm text-muted-foreground font-medium">Локации</div>
               </div>
-              <div className="placero-glass p-6 text-center placero-hover-lift">
-                <div className="flex items-center justify-center mb-4">
-                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
-                    <Users className="h-8 w-8 text-primary" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-foreground mb-1">5000+</div>
-                <div className="text-muted-foreground font-medium">Потребители</div>
+              <div className="placero-glass p-4 text-center placero-hover-lift">
+                <div className="text-2xl font-bold text-foreground mb-1">5000+</div>
+                <div className="text-sm text-muted-foreground font-medium">Потребители</div>
               </div>
-              <div className="placero-glass p-6 text-center placero-hover-lift">
-                <div className="flex items-center justify-center mb-4">
-                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
-                    <Star className="h-8 w-8 text-primary" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-foreground mb-1">4.8</div>
-                <div className="text-muted-foreground font-medium">Рейтинг</div>
+              <div className="placero-glass p-4 text-center placero-hover-lift">
+                <div className="text-2xl font-bold text-foreground mb-1">4.8</div>
+                <div className="text-sm text-muted-foreground font-medium">Рейтинг</div>
               </div>
             </div>
           </div>
@@ -85,7 +70,7 @@ const HeroSection = () => {
                 <img
                   src={heroImage}
                   alt="Modern workspace"
-                  className="w-full h-[600px] object-cover"
+                  className="w-full h-[300px] sm:h-[400px] lg:h-[600px] object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent" />
               </div>
